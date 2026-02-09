@@ -1,0 +1,443 @@
+<Window x:Class="WinVClip.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WinVClip"
+        mc:Ignorable="d"
+        Title="WinVClip" Height="600" MinWidth="350" Width="350"
+    WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+    ShowInTaskbar="False" Topmost="True" 
+    PreviewKeyDown="Window_PreviewKeyDown"
+    ResizeMode="CanResizeWithGrip">
+
+    <Window.Resources>
+            <ResourceDictionary>
+                <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+                <local:ItemTypeToVisibilityConverter x:Key="ItemTypeToVisibilityConverter"/>
+                <local:ItemTypeToFileVisibilityConverter x:Key="ItemTypeToFileVisibilityConverter"/>
+                <local:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+                <local:ClipboardTypeToBackgroundConverter x:Key="ClipboardTypeToBackgroundConverter"/>
+                <local:TypeFilterToBackgroundConverter x:Key="TypeFilterToBackgroundConverter"/>
+                <local:GroupFilterToBackgroundConverter x:Key="GroupFilterToBackgroundConverter"/>
+            <local:TextPreviewConverter x:Key="TextPreviewConverter"/>
+            <local:FileListPreviewConverter x:Key="FileListPreviewConverter"/>
+            <local:ImagePathToImageConverter x:Key="ImagePathToImageConverter"/>
+            <local:PreviewTemplateSelector x:Key="PreviewTemplateSelector">
+                <local:PreviewTemplateSelector.TextTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <TextBlock Text="{Binding Content, Converter={StaticResource TextPreviewConverter}}"
+                                       Foreground="{DynamicResource TextForeground}"
+                                       FontSize="13"
+                                       TextWrapping="NoWrap"
+                                       FontFamily="Consolas"/>
+                        </Grid>
+                    </DataTemplate>
+                </local:PreviewTemplateSelector.TextTemplate>
+                <local:PreviewTemplateSelector.ImageTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <Image Source="{Binding ImagePath, Converter={StaticResource ImagePathToImageConverter}}"
+                                   Stretch="Uniform"
+                                   MaxHeight="300"
+                                   MaxWidth="380"/>
+                        </Grid>
+                    </DataTemplate>
+                </local:PreviewTemplateSelector.ImageTemplate>
+                <local:PreviewTemplateSelector.FileTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <TextBlock Text="{Binding FilePaths, Converter={StaticResource FileListPreviewConverter}}"
+                                       Foreground="{DynamicResource TextForeground}"
+                                       FontSize="13"
+                                       TextWrapping="NoWrap"
+                                       FontFamily="Consolas"/>
+                        </Grid>
+                    </DataTemplate>
+                </local:PreviewTemplateSelector.FileTemplate>
+            </local:PreviewTemplateSelector>
+            <Style x:Key="ActiveIconButtonStyle" TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+                <Setter Property="Background" Value="#007ACC"/>
+                <Setter Property="Foreground" Value="#FFFFFF"/>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Border Background="{DynamicResource WindowBackground}" 
+            BorderBrush="{DynamicResource BorderBrush}" 
+            BorderThickness="1" 
+            CornerRadius="8">
+        <Grid Margin="8" MouseLeftButtonDown="WindowDrag_MouseLeftButtonDown" Background="Transparent">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="50"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="40"/>
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBox x:Name="SearchTextBox" Grid.Column="0" Height="36" 
+                         Style="{DynamicResource SearchTextBoxStyle}"
+                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                         PreviewMouseDown="SearchTextBox_PreviewMouseDown"
+                         VerticalAlignment="Center"
+                         HorizontalAlignment="Stretch"
+                         Margin="0,0,8,0"/>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" 
+                            HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button x:Name="FilterToggleButton" Width="32" Height="32" Margin="4,0"
+                            Content="☑︎" ToolTip="筛选"
+                            Click="FilterToggleButton_Click"
+                            PreviewMouseDown="Button_PreviewMouseDown">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsFilterPanelVisible}" Value="True">
+                                        <Setter Property="Background" Value="#007ACC"/>
+                                        <Setter Property="Foreground" Value="#FFFFFF"/>
+                                    </DataTrigger>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding IsFilterPanelVisible}" Value="False"/>
+                                            <Condition Binding="{Binding IsAnyFilterActive}" Value="True"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <MultiDataTrigger.Setters>
+                                            <Setter Property="Foreground" Value="#007ACC"/>
+                                        </MultiDataTrigger.Setters>
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <Button Width="32" Height="32" Margin="4,0"
+                            Style="{DynamicResource IconButtonStyle}"
+                            Content="⚙️" ToolTip="设置"
+                            Click="SettingsButton_Click"
+                            PreviewMouseDown="Button_PreviewMouseDown"/>
+                    <Button x:Name="PinButton" Width="32" Height="32" Margin="4,0"
+                            Content="📌" ToolTip="置顶"
+                            Click="PinButton_Click"
+                            PreviewMouseDown="Button_PreviewMouseDown">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPinned}" Value="True">
+                                        <Setter Property="Background" Value="#007ACC"/>
+                                        <Setter Property="Foreground" Value="#FFFFFF"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <Button Width="32" Height="32" Margin="4,0"
+                            Style="{DynamicResource IconButtonStyle}"
+                            Content="✕" ToolTip="关闭 (ESC)"
+                            Click="CloseButton_Click"
+                            PreviewMouseDown="Button_PreviewMouseDown"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- 筛选面板 -->
+            <Grid Grid.Row="1" Visibility="{Binding IsFilterPanelVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- 格式筛选 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,4">
+                    <TextBlock Text="格式" Foreground="{DynamicResource SecondaryTextForeground}" FontSize="11" 
+                               VerticalAlignment="Center" Margin="0,0,0,0" Width="30"/>
+                    <Button Width="28" Height="28" Margin="2,0" Content="📋" ToolTip="全部"
+                            Click="FilterAll_Click"
+                            PreviewMouseDown="Button_PreviewMouseDown"
+                            Style="{StaticResource IconButtonStyle}"
+                            Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=-1}"/>
+                    <Button Width="28" Height="28" Margin="2,0" Content="🗛" ToolTip="文本"
+                            Click="FilterText_Click"
+                            PreviewMouseDown="Button_PreviewMouseDown"
+                            Style="{StaticResource IconButtonStyle}"
+                            Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=0}"/>
+                    <Button Width="28" Height="28" Margin="2,0" Content="🖼️" ToolTip="图片"
+                            Click="FilterImage_Click"
+                            PreviewMouseDown="Button_PreviewMouseDown"
+                            Style="{StaticResource IconButtonStyle}"
+                            Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=1}"/>
+                    <Button Width="28" Height="28" Margin="2,0" Content="📁" ToolTip="文件"
+                            Click="FilterFile_Click"
+                            PreviewMouseDown="Button_PreviewMouseDown"
+                            Style="{StaticResource IconButtonStyle}"
+                            Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=2}"/>
+                    <Button Width="28" Height="28" Margin="2,0" Content="🔗" ToolTip="链接"
+                            Click="FilterLink_Click"
+                            PreviewMouseDown="Button_PreviewMouseDown"
+                            Style="{StaticResource IconButtonStyle}"
+                            Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=3}"/>
+                </StackPanel>
+                
+                    
+                <!-- 分组筛选 -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,4">
+                    <TextBlock Text="|" Foreground="{DynamicResource SecondaryTextForeground}" FontSize="11" 
+                               VerticalAlignment="Center" Margin="0,0,0,0" Width="10"/>                    
+                    <TextBlock Text="分组" Foreground="{DynamicResource SecondaryTextForeground}" FontSize="11" 
+                               VerticalAlignment="Center" Margin="0,0,0,0" Width="30"/>
+                    <ComboBox x:Name="GroupComboBox" Width="100" Height="28" Margin="2,0"
+                              Style="{DynamicResource ComboBoxStyle}"
+                              ItemsSource="{Binding Groups}"
+                              SelectedItem="{Binding SelectedGroup}"
+                              DisplayMemberPath="Name"
+                              PreviewMouseDown="ComboBox_PreviewMouseDown"
+                              DropDownOpened="ComboBox_DropDownOpened"
+                              DropDownClosed="ComboBox_DropDownClosed"
+                              SelectionChanged="GroupComboBox_SelectionChanged"/>
+                </StackPanel>
+            </Grid>
+
+            <Grid Grid.Row="2">
+                <ScrollViewer x:Name="MainScrollViewer"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Margin="0,0,-8,0"
+                              PanningMode="VerticalOnly"
+                              CanContentScroll="True">
+                    <ScrollViewer.Resources>
+                        <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBarStyle}"/>
+                    </ScrollViewer.Resources>
+
+                    <ListBox x:Name="ClipboardListBox"
+                             Background="Transparent" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                             ScrollViewer.CanContentScroll="True"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             VirtualizingPanel.ScrollUnit="Item"
+                             VirtualizingPanel.CacheLength="5,5"
+                             VirtualizingPanel.CacheLengthUnit="Item"
+                             SelectionMode="Single"
+                             SelectedIndex="0"
+                             ItemContainerStyle="{DynamicResource ClipboardItemContainerStyle}"
+                             ItemsSource="{Binding ClipboardItems}"
+                             IsSynchronizedWithCurrentItem="False"
+
+                             PreviewMouseLeftButtonUp="ClipboardListBox_PreviewMouseLeftButtonUp"
+                             PreviewMouseWheel="ClipboardListBox_PreviewMouseWheel"
+                             KeyDown="ClipboardListBox_KeyDown"
+                             AllowDrop="True">
+
+                        <ListBox.ContextMenu>
+                            <ContextMenu Style="{DynamicResource ContextMenuStyle}">
+                                <MenuItem Header="在浏览器打开" Icon="🌐" Click="OpenInBrowserMenuItem_Click"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding ., Converter={local:ItemTypeToVisibilityConverter}}"
+                                          DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <MenuItem Header="打开文件夹" Icon="📂" Click="OpenFolderMenuItem_Click"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding ., Converter={local:ItemTypeToFileVisibilityConverter}}"
+                                          DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <MenuItem Header="编辑" Icon="✏️" Click="EditMenuItem_Click"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}, ConverterParameter=Invert}"/>
+                                <MenuItem Header="复制" Icon="📋" Click="CopyMenuItem_Click"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}, ConverterParameter=Invert}"/>
+                                <MenuItem Header="分组" Icon="📁" Click="GroupMenuItem_Click"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}, ConverterParameter=Invert}"/>
+                                <MenuItem Header="删除" Icon="🗑️" Click="DeleteMenuItem_Click"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}, ConverterParameter=Invert}"/>
+                                <Separator Style="{DynamicResource SeparatorStyle}"
+                                          Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}, ConverterParameter=Invert}"/>
+                                <MenuItem Header="多选模式" Icon="📋" Click="EnterMultiSelectMode_Click"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}, ConverterParameter=Invert}"/>
+                                <MenuItem Header="批量删除" Icon="🗑️" Click="BatchDelete_Click"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}}"/>
+                                <MenuItem Header="批量分组" Icon="📁" Click="BatchGroup_Click"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}}"/>
+                                <Separator Style="{DynamicResource SeparatorStyle}"
+                                          Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}}"/>
+                                <MenuItem Header="返回常规模式" Icon="🔄" Click="ExitMultiSelectMode_Click"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}}"/>
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border x:Name="ItemBorder"
+                                      Margin="5,5"
+                                      MouseMove="ItemGrid_MouseMove"
+                                      PreviewMouseDown="ItemBorder_PreviewMouseDown"
+                                      MouseEnter="ItemBorder_MouseEnter"
+                                      MouseLeave="ItemBorder_MouseLeave"
+                                      Background="{DynamicResource ItemBackground}"
+                                      BorderBrush="{DynamicResource HoverItemBorderBrush}"
+                                      BorderThickness="0"
+                                      CornerRadius="4"
+                                      Height="80"
+                                      SnapsToDevicePixels="True">
+                                    
+                                    <Grid x:Name="ItemGrid" Margin="9,7">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <Border Grid.Column="0" Width="56" Height="52"
+                                                Margin="0,0,10,0"
+                                                VerticalAlignment="Center"
+                                                Background="{DynamicResource ItemBackground}"
+                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="4"
+                                                Visibility="{Binding Type, Converter={local:TypeToVisibilityConverter}}">
+                                            <Image Source="{Binding ImageThumbnail}"
+                                                   Stretch="UniformToFill"/>
+                                        </Border>
+
+                                        <Grid Grid.Column="1">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            
+                                            <TextBlock Grid.Row="0" Text="{Binding PreviewText}"
+                                                       Foreground="{DynamicResource TextForeground}"
+                                                       FontSize="12"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       TextWrapping="Wrap"
+                                                       MaxHeight="48"
+                                                       VerticalAlignment="Top"/>
+
+                                            <StackPanel Grid.Row="1" Orientation="Horizontal"
+                                                        HorizontalAlignment="Right"
+                                                        Margin="0,2,0,0">
+                                                <TextBlock Text="{Binding FormattedTime}"
+                                                           Foreground="{DynamicResource SecondaryTextForeground}"
+                                                           FontSize="10" Margin="0,0,8,0"/>
+                                                <Border Background="{Binding Type, Converter={local:ClipboardTypeToBackgroundConverter}}"
+                                                        Padding="4,1,4,1" CornerRadius="3"
+                                                        Margin="0,0,4,0">
+                                                    <TextBlock Text="{Binding Type, Converter={local:ClipboardTypeConverter}}"
+                                                               Foreground="{DynamicResource TypeBadgeForeground}"
+                                                               FontSize="10"/>
+                                                </Border>
+                                                <Border Background="{DynamicResource GroupBadgeBackground}"
+                                                        Padding="4,1,4,1" CornerRadius="3"
+                                                        Visibility="{Binding GroupName, Converter={StaticResource StringToVisibilityConverter}}">
+                                                    <TextBlock Text="{Binding GroupName}"
+                                                               Foreground="{DynamicResource GroupBadgeForeground}"
+                                                               FontSize="10"/>
+                                                </Border>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding DataContext.IsMultiSelectMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                        <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource ItemBackground}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                        <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SelectedMultiSelectBackground}"/>
+                                    </DataTrigger>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding DataContext.IsMultiSelectMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="False"/>
+                                            <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <MultiDataTrigger.Setters>
+                                            <Setter Property="BorderThickness" TargetName="ItemBorder" Value="2"/>
+                                            <Setter Property="Margin" TargetName="ItemGrid" Value="7,5"/>
+                                        </MultiDataTrigger.Setters>
+                                    </MultiDataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </ScrollViewer>
+
+                <!-- 空状态提示 -->
+                <Grid HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Visibility="{Binding IsEmpty, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="📋" FontSize="48"
+                               HorizontalAlignment="Center" Opacity="0.5"/>
+                    <TextBlock Grid.Row="1" Text="暂无剪贴板记录"
+                               Foreground="{DynamicResource SecondaryTextForeground}"
+                               FontSize="14" Margin="0,10,0,0"
+                               HorizontalAlignment="Center"/>
+                </Grid>
+
+                <!-- 加载动画 -->
+                <Grid HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Border Background="{DynamicResource WindowBackground}"
+                            CornerRadius="8" Padding="20"
+                            Opacity="0.9">
+                        <StackPanel>
+                            <TextBlock Text="⏳" FontSize="32"
+                                       HorizontalAlignment="Center">
+                                <TextBlock.RenderTransform>
+                                    <RotateTransform CenterX="16" CenterY="16"/>
+                                </TextBlock.RenderTransform>
+                                <TextBlock.Triggers>
+                                    <EventTrigger RoutedEvent="Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever">
+                                                <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Angle"
+                                                                 From="0" To="360" Duration="0:0:1"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </TextBlock.Triggers>
+                            </TextBlock>
+                            <TextBlock Text="加载中..."
+                                       Foreground="{DynamicResource SecondaryTextForeground}"
+                                       FontSize="12" Margin="0,8,0,0"
+                                       HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <Grid Grid.Row="3">
+                <Button x:Name="ClearHistoryButton"
+                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                        Style="{DynamicResource LinkButtonStyle}"
+                        Content="清空历史" ToolTip="清除记录"
+                        Click="ClearHistoryButton_Click"
+                        PreviewMouseDown="Button_PreviewMouseDown">
+                    <Button.ContextMenu>
+                        <ContextMenu x:Name="ClearHistoryContextMenu"
+                                     Style="{DynamicResource ContextMenuStyle}">
+                            <MenuItem Header="清空所有历史记录" 
+                                      Style="{DynamicResource MenuItemStyle}"
+                                      Click="ClearAllHistoryMenuItem_Click"/>
+                            <MenuItem Header="清空所有未分组记录" 
+                                      Style="{DynamicResource MenuItemStyle}"
+                                      Click="ClearUngroupedHistoryMenuItem_Click"/>
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+                <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                           Text="{Binding Hotkey}"
+                           Foreground="{DynamicResource SecondaryTextForeground}"
+                           FontSize="10"/>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
