@@ -1,8 +1,10 @@
 # WinVClip
 
 一款用AI制作的功能强大、轻量级的 Windows 剪贴板管理工具，帮助你高效管理剪贴板历史记录。
+<img width="350" height="600" alt="1" src="https://github.com/user-attachments/assets/2765372b-064d-4c72-8169-239d3b979ae3" />
+<img width="197" height="164" alt="2" src="https://github.com/user-attachments/assets/ef7bd558-4887-4497-a8f3-503d843ea7db" />
+<img width="750" height="620" alt="3" src="https://github.com/user-attachments/assets/ccbc0794-56ea-4308-ba49-69b3a396300b" />
 
-![WinVClip](app.ico)
 
 ## 功能特性
 
