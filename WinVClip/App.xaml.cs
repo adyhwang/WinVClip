@@ -98,6 +98,10 @@ namespace WinVClip
             {
                 Dispatcher.Invoke(() => _mainWindow?.ViewModel?.AddItem(item));
             };
+            _clipboardMonitor.OnDuplicateUpdated += () =>
+            {
+                Dispatcher.Invoke(() => _mainWindow?.ViewModel?.LoadItems());
+            };
             _clipboardMonitor.Start();
 
             _cleanupService = new CleanupService(_databaseService);

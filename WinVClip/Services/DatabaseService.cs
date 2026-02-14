@@ -408,6 +408,97 @@ namespace WinVClip.Services
             command.ExecuteNonQuery();
         }
 
+        public int UpdateDuplicateItemTimestamp(string content, int type)
+        {
+            int retryCount = 3;
+            while (retryCount > 0)
+            {
+                try
+                {
+                    using var command = _connection.CreateCommand();
+                    command.CommandText = @"
+                        UPDATE ClipboardItems 
+                        SET CreatedAt = @CreatedAt 
+                        WHERE Content = @Content AND Type = @Type
+                    ";
+                    command.Parameters.AddWithValue("@Content", content);
+                    command.Parameters.AddWithValue("@Type", type);
+                    command.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
+                    int updated = command.ExecuteNonQuery();
+                    if (updated == 0)
+                    {
+                        command.CommandText = "SELECT COUNT(*) FROM ClipboardItems WHERE Type = @Type";
+                        int total = Convert.ToInt32(command.ExecuteScalar());
+                    }
+                    return updated;
+                }
+                catch
+                {
+                    retryCount--;
+                    if (retryCount == 0)
+                        return 0;
+                    System.Threading.Thread.Sleep(10);
+                }
+            }
+            return 0;
+        }
+
+        public int UpdateDuplicateImageTimestamp(string imageHash)
+        {
+            int retryCount = 3;
+            while (retryCount > 0)
+            {
+                try
+                {
+                    using var command = _connection.CreateCommand();
+                    command.CommandText = @"
+                        UPDATE ClipboardItems 
+                        SET CreatedAt = @CreatedAt 
+                        WHERE ImageHash = @ImageHash
+                    ";
+                    command.Parameters.AddWithValue("@ImageHash", imageHash);
+                    command.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
+                    return command.ExecuteNonQuery();
+                }
+                catch
+                {
+                    retryCount--;
+                    if (retryCount == 0)
+                        return 0;
+                    System.Threading.Thread.Sleep(10);
+                }
+            }
+            return 0;
+        }
+
+        public int UpdateItemTimestampById(long id)
+        {
+            int retryCount = 3;
+            while (retryCount > 0)
+            {
+                try
+                {
+                    using var command = _connection.CreateCommand();
+                    command.CommandText = @"
+                        UPDATE ClipboardItems 
+                        SET CreatedAt = @CreatedAt 
+                        WHERE Id = @Id
+                    ";
+                    command.Parameters.AddWithValue("@Id", id);
+                    command.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
+                    return command.ExecuteNonQuery();
+                }
+                catch
+                {
+                    retryCount--;
+                    if (retryCount == 0)
+                        return 0;
+                    System.Threading.Thread.Sleep(10);
+                }
+            }
+            return 0;
+        }
+
         /// <summary>
         /// 检查内容是否已存在，返回 (是否存在, 是否已分组)
         /// </summary>
@@ -536,20 +627,158 @@ namespace WinVClip.Services
             command.ExecuteNonQuery();
         }
 
-        public bool ImageExistsInDatabase(string imageHash)
+        public Models.ClipboardItem? GetLatestItemByImageHash(string imageHash)
         {
             try
             {
                 using var command = _connection.CreateCommand();
-                command.CommandText = "SELECT COUNT(*) FROM ClipboardItems WHERE ImageHash = @ImageHash";
+                command.CommandText = @"
+                    SELECT c.Id, c.Type, c.Content, c.ImagePath, c.ImageHash, c.FilePaths, c.CreatedAt, c.PreviewText, c.GroupId
+                    FROM ClipboardItems c
+                    WHERE c.ImageHash = @ImageHash
+                    ORDER BY c.CreatedAt DESC
+                    LIMIT 1
+                ";
                 command.Parameters.AddWithValue("@ImageHash", imageHash);
-                int count = Convert.ToInt32(command.ExecuteScalar());
-                return count > 0;
+
+                using var reader = command.ExecuteReader();
+                if (reader.Read())
+                {
+                    return ReadItem(reader);
+                }
             }
             catch
             {
-                return false;
             }
+            return null;
+        }
+
+        public bool TextExistsInDatabase(string content)
+        {
+            int retryCount = 3;
+            while (retryCount > 0)
+            {
+                try
+                {
+                    using var command = _connection.CreateCommand();
+                    command.CommandText = "SELECT COUNT(*) FROM ClipboardItems WHERE Content = @Content AND Type = @Type";
+                    command.Parameters.AddWithValue("@Content", content);
+                    command.Parameters.AddWithValue("@Type", (int)Models.ClipboardType.Text);
+                    int count = Convert.ToInt32(command.ExecuteScalar());
+                    return count > 0;
+                }
+                catch
+                {
+                    retryCount--;
+                    if (retryCount == 0)
+                        return false;
+                    System.Threading.Thread.Sleep(10);
+                }
+            }
+            return false;
+        }
+
+        public bool FileListExistsInDatabase(string content)
+        {
+            int retryCount = 3;
+            while (retryCount > 0)
+            {
+                try
+                {
+                    using var command = _connection.CreateCommand();
+                    command.CommandText = "SELECT COUNT(*) FROM ClipboardItems WHERE Content = @Content AND Type = @Type";
+                    command.Parameters.AddWithValue("@Content", content);
+                    command.Parameters.AddWithValue("@Type", (int)Models.ClipboardType.FileList);
+                    int count = Convert.ToInt32(command.ExecuteScalar());
+                    return count > 0;
+                }
+                catch
+                {
+                    retryCount--;
+                    if (retryCount == 0)
+                        return false;
+                    System.Threading.Thread.Sleep(10);
+                }
+            }
+            return false;
+        }
+
+        public bool FileListExistsByPaths(List<string> filePaths, out string matchingContent)
+        {
+            matchingContent = null;
+            if (filePaths == null || filePaths.Count == 0)
+                return false;
+
+            var sortedPaths = filePaths.OrderBy(p => p.ToLowerInvariant()).ToList();
+            var normalizedPaths = string.Join("|", sortedPaths);
+
+            int retryCount = 3;
+            while (retryCount > 0)
+            {
+                try
+                {
+                    using var command = _connection.CreateCommand();
+                    command.CommandText = @"
+                        SELECT Content, FilePaths FROM ClipboardItems 
+                        WHERE Type = @Type
+                        ORDER BY CreatedAt DESC
+                    ";
+                    command.Parameters.AddWithValue("@Type", (int)Models.ClipboardType.FileList);
+
+                    using var reader = command.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        var dbContent = reader["Content"]?.ToString() ?? "";
+                        var dbFilePaths = reader["FilePaths"]?.ToString() ?? "";
+
+                        var dbPathList = dbFilePaths.Split('|').Where(p => !string.IsNullOrEmpty(p)).ToList();
+                        if (dbPathList.Count == sortedPaths.Count)
+                        {
+                            var sortedDbPaths = dbPathList.OrderBy(p => p.ToLowerInvariant()).ToList();
+                            var normalizedDbPaths = string.Join("|", sortedDbPaths);
+                            
+                            if (normalizedDbPaths == normalizedPaths)
+                            {
+                                matchingContent = dbContent;
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                }
+                catch
+                {
+                    retryCount--;
+                    if (retryCount == 0)
+                        return false;
+                    System.Threading.Thread.Sleep(10);
+                }
+            }
+            return false;
+        }
+
+        public bool ImageExistsInDatabase(string imageHash)
+        {
+            int retryCount = 3;
+            while (retryCount > 0)
+            {
+                try
+                {
+                    using var command = _connection.CreateCommand();
+                    command.CommandText = "SELECT COUNT(*) FROM ClipboardItems WHERE ImageHash = @ImageHash";
+                    command.Parameters.AddWithValue("@ImageHash", imageHash);
+                    int count = Convert.ToInt32(command.ExecuteScalar());
+                    return count > 0;
+                }
+                catch
+                {
+                    retryCount--;
+                    if (retryCount == 0)
+                        return false;
+                    System.Threading.Thread.Sleep(10);
+                }
+            }
+            return false;
         }
 
         public void CleanupExcessHistoryItems(int maxItems)

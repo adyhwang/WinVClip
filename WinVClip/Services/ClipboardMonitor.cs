@@ -27,6 +27,7 @@ namespace WinVClip.Services
         private readonly object _syncLock = new object();
 
         public event Action<ClipboardItem>? OnClipboardChanged;
+        public event Action? OnDuplicateUpdated;
 
         public ClipboardMonitor(DatabaseService databaseService, SettingsService settingsService)
         {
@@ -178,19 +179,9 @@ namespace WinVClip.Services
                     var text = System.Windows.Clipboard.GetText();
                     if (ShouldProcessText(text))
                     {
-                        // 检测是否为超链接
-                        if (IsValidUrl(text))
-                        {
-                            item.Type = ClipboardType.Hyperlink;
-                            item.Content = text;
-                            item.PreviewText = text;
-                        }
-                        else
-                        {
-                            item.Type = ClipboardType.Text;
-                            item.Content = text;
-                            item.PreviewText = text;
-                        }
+                        item.Type = ClipboardType.Text;
+                        item.Content = text;
+                        item.PreviewText = text;
 
                         SaveItem(item);
                         return;
@@ -216,11 +207,12 @@ namespace WinVClip.Services
                         if (fileList != null && fileList.Length > 0)
                         {
                             var filePaths = fileList.Where(f => File.Exists(f) || Directory.Exists(f)).ToList();
+                            var sortedPaths = filePaths.OrderBy(p => p.ToLowerInvariant()).ToList();
                             if (ShouldProcessFileList(filePaths))
                             {
                                 item.Type = ClipboardType.FileList;
                                 item.FilePaths = filePaths;
-                                item.Content = string.Join("\n", filePaths);
+                                item.Content = string.Join("\n", sortedPaths);
                                 
                                 if (filePaths.Count == 1)
                                 {
@@ -252,8 +244,19 @@ namespace WinVClip.Services
             if (string.IsNullOrWhiteSpace(text))
                 return false;
 
-            if (_settingsService.Settings.RemoveDuplicates && text == _lastClipboardContent)
-                return false;
+            if (_settingsService.Settings.RemoveDuplicates)
+            {
+                if (text == _lastClipboardContent)
+                    return false;
+
+                if (_databaseService.TextExistsInDatabase(text))
+                {
+                    _databaseService.UpdateDuplicateItemTimestamp(text, (int)ClipboardType.Text);
+                    _lastClipboardContent = text;
+                    OnDuplicateUpdated?.Invoke();
+                    return false;
+                }
+            }
 
             _lastClipboardContent = text;
             return true;
@@ -267,21 +270,19 @@ namespace WinVClip.Services
             if (!_settingsService.Settings.RemoveDuplicates)
                 return true;
 
-            // 检查内存中的最后一个哈希值
             if (imageHash == _lastImageHash)
                 return false;
 
-            // 检查数据库中是否已存在相同哈希值的图片
-            if (ImageExistsInDatabase(imageHash))
+            if (_databaseService.ImageExistsInDatabase(imageHash))
+            {
+                _databaseService.UpdateDuplicateImageTimestamp(imageHash);
+                _lastImageHash = imageHash;
+                OnDuplicateUpdated?.Invoke();
                 return false;
+            }
 
             _lastImageHash = imageHash;
             return true;
-        }
-        
-        private bool ImageExistsInDatabase(string imageHash)
-        {
-            return _databaseService.ImageExistsInDatabase(imageHash);
         }
 
         private bool ShouldProcessFileList(List<string> filePaths)
@@ -292,10 +293,23 @@ namespace WinVClip.Services
             if (!_settingsService.Settings.RemoveDuplicates)
                 return true;
 
-            var content = string.Join("|", filePaths);
-            var hash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(content));
+            var sortedPaths = filePaths.OrderBy(p => p.ToLowerInvariant()).ToList();
+            var content = string.Join("\n", sortedPaths);
+            var hash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", sortedPaths)));
+            
             if (hash == _lastFileListHash)
                 return false;
+
+            if (_databaseService.FileListExistsByPaths(filePaths, out var matchingContent))
+            {
+                if (!string.IsNullOrEmpty(matchingContent))
+                {
+                    _databaseService.UpdateDuplicateItemTimestamp(matchingContent, (int)ClipboardType.FileList);
+                }
+                _lastFileListHash = hash;
+                OnDuplicateUpdated?.Invoke();
+                return false;
+            }
 
             _lastFileListHash = hash;
             return true;
@@ -310,11 +324,6 @@ namespace WinVClip.Services
 
         private void SaveItem(ClipboardItem item)
         {
-            if (_settingsService.Settings.RemoveDuplicates && item.Type == ClipboardType.Text)
-            {
-                _databaseService.DeleteDuplicateItems(item.Content, (int)item.Type);
-            }
-
             // 提前生成缩略图，确保UI显示时已经准备好
             if (item.Type == ClipboardType.Image && !string.IsNullOrEmpty(item.ImagePath))
             {

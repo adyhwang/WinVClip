@@ -199,6 +199,11 @@
                                     <CheckBox Content="自动删除重复内容" IsChecked="{Binding RemoveDuplicates}" 
                                               Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"/>
                                     <TextBlock Text="检测到重复内容时自动删除旧记录" Foreground="{DynamicResource SecondaryTextForeground}" 
+                                               FontSize="12" Margin="28,-8,0,16"/>
+                                    
+                                    <CheckBox Content="粘贴后移动至首位" IsChecked="{Binding MoveToTopAfterPaste}" 
+                                              Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"/>
+                                    <TextBlock Text="点击列表项粘贴后，将该未分组记录移到列表最前面" Foreground="{DynamicResource SecondaryTextForeground}" 
                                                FontSize="12" Margin="28,-8,0,0"/>
                                 </StackPanel>
                             </Border>

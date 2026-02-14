@@ -16,6 +16,8 @@
                 <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
                 <local:ItemTypeToVisibilityConverter x:Key="ItemTypeToVisibilityConverter"/>
                 <local:ItemTypeToFileVisibilityConverter x:Key="ItemTypeToFileVisibilityConverter"/>
+                <local:ItemTypeToUrlVisibilityConverter x:Key="ItemTypeToUrlVisibilityConverter"/>
+                <local:ItemTypeToFolderVisibilityConverter x:Key="ItemTypeToFolderVisibilityConverter"/>
                 <local:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
                 <local:ClipboardTypeToBackgroundConverter x:Key="ClipboardTypeToBackgroundConverter"/>
                 <local:TypeFilterToBackgroundConverter x:Key="TypeFilterToBackgroundConverter"/>
@@ -175,11 +177,6 @@
                             PreviewMouseDown="Button_PreviewMouseDown"
                             Style="{StaticResource IconButtonStyle}"
                             Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=2}"/>
-                    <Button Width="28" Height="28" Margin="2,0" Content="🔗" ToolTip="链接"
-                            Click="FilterLink_Click"
-                            PreviewMouseDown="Button_PreviewMouseDown"
-                            Style="{StaticResource IconButtonStyle}"
-                            Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=3}"/>
                 </StackPanel>
                 
                     
@@ -237,11 +234,11 @@
                             <ContextMenu Style="{DynamicResource ContextMenuStyle}">
                                 <MenuItem Header="在浏览器打开" Icon="🌐" Click="OpenInBrowserMenuItem_Click"
                                           Style="{DynamicResource MenuItemStyle}"
-                                          Visibility="{Binding ., Converter={local:ItemTypeToVisibilityConverter}}"
+                                          Visibility="{Binding ., Converter={local:ItemTypeToUrlVisibilityConverter}}"
                                           DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                 <MenuItem Header="打开文件夹" Icon="📂" Click="OpenFolderMenuItem_Click"
                                           Style="{DynamicResource MenuItemStyle}"
-                                          Visibility="{Binding ., Converter={local:ItemTypeToFileVisibilityConverter}}"
+                                          Visibility="{Binding ., Converter={local:ItemTypeToFolderVisibilityConverter}}"
                                           DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                 <MenuItem Header="编辑" Icon="✏️" Click="EditMenuItem_Click"
                                           Style="{DynamicResource MenuItemStyle}"

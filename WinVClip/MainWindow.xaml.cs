@@ -46,7 +46,6 @@ namespace WinVClip
                     ClipboardType.Text => "文本",
                     ClipboardType.Image => "图片",
                     ClipboardType.FileList => "文件",
-                    ClipboardType.Hyperlink => "链接",
                     _ => "未知"
                 };
             }
@@ -65,7 +64,6 @@ namespace WinVClip
                     ClipboardType.Text => new SolidColorBrush(System.Windows.Media.Color.FromRgb(107, 114, 128)),
                     ClipboardType.Image => new SolidColorBrush(System.Windows.Media.Color.FromRgb(16, 185, 129)),
                     ClipboardType.FileList => new SolidColorBrush(System.Windows.Media.Color.FromRgb(245, 158, 11)),
-                    ClipboardType.Hyperlink => new SolidColorBrush(System.Windows.Media.Color.FromRgb(59, 130, 246)),
                     _ => new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204))
                 };
             }
@@ -117,9 +115,73 @@ namespace WinVClip
     public class ItemTypeToVisibilityConverter : BaseConverter
     {
         public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-            => value is ClipboardItem item && (item.Type == ClipboardType.Text || item.Type == ClipboardType.Hyperlink)
+            => value is ClipboardItem item && item.Type == ClipboardType.Text
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+    }
+
+    public class ItemTypeToUrlVisibilityConverter : BaseConverter
+    {
+        public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is not ClipboardItem item || item.Type != ClipboardType.Text)
+                return Visibility.Collapsed;
+
+            string content = item.Content?.Trim() ?? "";
+            return IsUrl(content) ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private static bool IsUrl(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+
+            if (Uri.TryCreate(text, UriKind.Absolute, out Uri uriResult))
+                return uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps;
+
+            if (text.StartsWith("www.", StringComparison.OrdinalIgnoreCase))
+                return Uri.TryCreate("http://" + text, UriKind.Absolute, out _);
+
+            return false;
+        }
+    }
+
+    public class ItemTypeToFolderVisibilityConverter : BaseConverter
+    {
+        public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is not ClipboardItem item)
+                return Visibility.Collapsed;
+
+            if (item.Type == ClipboardType.FileList && item.FilePaths?.Count > 0)
+                return Visibility.Visible;
+
+            if (item.Type == ClipboardType.Text)
+            {
+                string content = item.Content?.Trim() ?? "";
+                if (IsLocalPath(content))
+                    return Visibility.Visible;
+            }
+
+            return Visibility.Collapsed;
+        }
+
+        private static bool IsLocalPath(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+
+            try
+            {
+                if (File.Exists(text) || Directory.Exists(text))
+                    return true;
+            }
+            catch
+            {
+            }
+
+            return false;
+        }
     }
 
     public class ItemTypeToFileVisibilityConverter : BaseConverter
@@ -175,11 +237,10 @@ namespace WinVClip
                 int? currentFilter = value as int?;
                 bool isActive = targetTypeValue switch
                 {
-                    -1 => !currentFilter.HasValue, // 全部
+                    -1 => !currentFilter.HasValue,
                     0 => currentFilter == (int)ClipboardType.Text,
                     1 => currentFilter == (int)ClipboardType.Image,
                     2 => currentFilter == (int)ClipboardType.FileList,
-                    3 => currentFilter == (int)ClipboardType.Hyperlink,
                     _ => false
                 };
                 
@@ -246,7 +307,6 @@ namespace WinVClip
                     ClipboardType.Text => TextTemplate,
                     ClipboardType.Image => ImageTemplate,
                     ClipboardType.FileList => FileTemplate,
-                    ClipboardType.Hyperlink => TextTemplate,
                     _ => TextTemplate
                 };
             }
@@ -1261,11 +1321,6 @@ namespace WinVClip
             _viewModel.TypeFilter = (int)ClipboardType.FileList;
         }
 
-        private void FilterLink_Click(object sender, RoutedEventArgs e)
-        {
-            _viewModel.TypeFilter = (int)ClipboardType.Hyperlink;
-        }
-
         private void GroupComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (GroupComboBox.SelectedItem is Group group)
@@ -1409,7 +1464,7 @@ namespace WinVClip
         {
             if (ClipboardListBox.SelectedItem is not ClipboardItem item)
                 return;
-            if (item.Type != ClipboardType.Text && item.Type != ClipboardType.Hyperlink)
+            if (item.Type != ClipboardType.Text)
                 return;
 
             string content = item.Content.Trim();
@@ -1422,13 +1477,28 @@ namespace WinVClip
         {
             if (ClipboardListBox.SelectedItem is not ClipboardItem item)
                 return;
-            if (item.Type != ClipboardType.FileList || item.FilePaths?.Count == 0)
-                return;
 
-            string filePath = item.FilePaths[0];
-            string folderPath = File.Exists(filePath) ? Path.GetDirectoryName(filePath) : filePath;
+            string folderPath = null;
 
-            LaunchExternalProcess(folderPath, "打开文件夹失败");
+            if (item.Type == ClipboardType.FileList && item.FilePaths?.Count > 0)
+            {
+                string filePath = item.FilePaths[0];
+                folderPath = File.Exists(filePath) ? Path.GetDirectoryName(filePath) : filePath;
+            }
+            else if (item.Type == ClipboardType.Text)
+            {
+                string content = item.Content?.Trim();
+                if (!string.IsNullOrWhiteSpace(content))
+                {
+                    if (File.Exists(content))
+                        folderPath = Path.GetDirectoryName(content);
+                    else if (Directory.Exists(content))
+                        folderPath = content;
+                }
+            }
+
+            if (folderPath != null)
+                LaunchExternalProcess(folderPath, "打开文件夹失败");
         }
 
         private static void LaunchExternalProcess(string fileName, string errorMessage)
@@ -1473,7 +1543,7 @@ namespace WinVClip
         {
             if (ClipboardListBox.SelectedItem is not ClipboardItem item)
                 return;
-            if (item.Type != ClipboardType.Text && item.Type != ClipboardType.Hyperlink)
+            if (item.Type != ClipboardType.Text)
             {
                 MessageBox.Show("只能编辑文本类型的内容", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
@@ -1547,7 +1617,6 @@ namespace WinVClip
             switch (item.Type)
             {
                 case ClipboardType.Text:
-                case ClipboardType.Hyperlink:
                     SetClipboardData(dataObject, d => d.SetText(item.Content), () => Clipboard.SetText(item.Content));
                     break;
                 case ClipboardType.Image:
@@ -1613,6 +1682,12 @@ namespace WinVClip
 
                 SetClipboardContent(item);
                 App.GetClipboardMonitor()?.IgnoreNextChange(1000);
+
+                if (App.SettingsService.Settings.MoveToTopAfterPaste && !item.GroupId.HasValue)
+                {
+                    _databaseService.UpdateItemTimestampById(item.Id);
+                    _viewModel.LoadItems();
+                }
 
                 var activeWindowHandle = GetForegroundWindow();
 

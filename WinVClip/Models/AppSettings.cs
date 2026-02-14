@@ -17,6 +17,7 @@ namespace WinVClip.Models
         public string Theme { get; set; } = "Auto";
         public string SelectedSearchEngineId { get; set; } = "bing";
         public string CustomSearchEngineUrl { get; set; } = "";
+        public bool MoveToTopAfterPaste { get; set; } = false;
 
         [JsonIgnore]
         public List<SearchEngine> SearchEngines { get; set; } = new List<SearchEngine>();
