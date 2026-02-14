@@ -19,9 +19,7 @@ namespace WinVClip.Services
         private readonly SettingsService _settingsService;
         private bool _disposed;
         private bool _isMonitoring = true;
-        private string _lastClipboardContent = string.Empty;
-        private string _lastImageHash = string.Empty;
-        private string _lastFileListHash = string.Empty;
+        private string _lastContentSignature = string.Empty;
         private readonly System.Windows.Threading.Dispatcher _dispatcher;
         private Timer? _timer;
         private readonly object _syncLock = new object();
@@ -56,7 +54,8 @@ namespace WinVClip.Services
             {
                 if (System.Windows.Clipboard.ContainsText())
                 {
-                    _lastClipboardContent = System.Windows.Clipboard.GetText();
+                    var text = System.Windows.Clipboard.GetText();
+                    _lastContentSignature = ComputeSignature(ClipboardType.Text, text);
                 }
                 else if (System.Windows.Clipboard.ContainsImage())
                 {
@@ -64,7 +63,8 @@ namespace WinVClip.Services
                     if (image != null)
                     {
                         var imageData = ImageToBytes(image);
-                        _lastImageHash = ComputeHash(imageData);
+                        var hash = ComputeHash(imageData);
+                        _lastContentSignature = ComputeSignature(ClipboardType.Image, hash);
                     }
                 }
                 else if (System.Windows.Clipboard.ContainsFileDropList())
@@ -75,8 +75,9 @@ namespace WinVClip.Services
                         var fileList = dataObject.GetData(System.Windows.DataFormats.FileDrop) as string[];
                         if (fileList != null && fileList.Length > 0)
                         {
-                            var content = string.Join("|", fileList);
-                            _lastFileListHash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(content));
+                            var sortedPaths = fileList.OrderBy(p => p.ToLowerInvariant()).ToList();
+                            var hash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", sortedPaths)));
+                            _lastContentSignature = ComputeSignature(ClipboardType.FileList, hash);
                         }
                     }
                 }
@@ -84,6 +85,11 @@ namespace WinVClip.Services
             catch
             {
             }
+        }
+
+        private static string ComputeSignature(ClipboardType type, string content)
+        {
+            return $"{(int)type}:{content}";
         }
 
         public void Stop()
@@ -97,17 +103,16 @@ namespace WinVClip.Services
 
         public void IgnoreNextChange(int milliseconds = 500)
         {
-            // 防止并发执行
             if (_isIgnoringChange)
                 return;
 
+            _isIgnoringChange = true;
             try
             {
-                _isIgnoringChange = true;
-                
                 _dispatcher.Invoke(UpdateLastClipboardState);
-
-                // 延迟重置忽略状态，确保足够的时间处理粘贴操作
+            }
+            finally
+            {
                 if (milliseconds > 0)
                 {
                     Task.Delay(milliseconds).ContinueWith(_ =>
@@ -120,10 +125,6 @@ namespace WinVClip.Services
                     _isIgnoringChange = false;
                 }
             }
-            catch
-            {
-                _isIgnoringChange = false;
-            }
         }
 
         private void CheckClipboard(object? state)
@@ -131,19 +132,19 @@ namespace WinVClip.Services
             if (!_isMonitoring || !_settingsService.Settings.MonitorEnabled)
                 return;
 
-            try
+            _dispatcher.BeginInvoke(new Action(() =>
             {
-                _dispatcher.Invoke(() =>
-                {
-                    if (!_isMonitoring || !_settingsService.Settings.MonitorEnabled)
-                        return;
+                if (!_isMonitoring || !_settingsService.Settings.MonitorEnabled)
+                    return;
 
+                try
+                {
                     ProcessClipboard();
-                });
-            }
-            catch
-            {
-            }
+                }
+                catch
+                {
+                }
+            }));
         }
 
         private void ProcessClipboard()
@@ -244,21 +245,20 @@ namespace WinVClip.Services
             if (string.IsNullOrWhiteSpace(text))
                 return false;
 
-            if (_settingsService.Settings.RemoveDuplicates)
-            {
-                if (text == _lastClipboardContent)
-                    return false;
+            var signature = ComputeSignature(ClipboardType.Text, text);
+            
+            if (signature == _lastContentSignature)
+                return false;
 
-                if (_databaseService.TextExistsInDatabase(text))
-                {
-                    _databaseService.UpdateDuplicateItemTimestamp(text, (int)ClipboardType.Text);
-                    _lastClipboardContent = text;
-                    OnDuplicateUpdated?.Invoke();
-                    return false;
-                }
+            if (_settingsService.Settings.RemoveDuplicates && _databaseService.TextExistsInDatabase(text))
+            {
+                _databaseService.UpdateDuplicateItemTimestamp(text, (int)ClipboardType.Text);
+                _lastContentSignature = signature;
+                OnDuplicateUpdated?.Invoke();
+                return false;
             }
 
-            _lastClipboardContent = text;
+            _lastContentSignature = signature;
             return true;
         }
 
@@ -267,21 +267,20 @@ namespace WinVClip.Services
             if (imageData == null || imageData.Length == 0)
                 return false;
 
-            if (!_settingsService.Settings.RemoveDuplicates)
-                return true;
-
-            if (imageHash == _lastImageHash)
+            var signature = ComputeSignature(ClipboardType.Image, imageHash);
+            
+            if (signature == _lastContentSignature)
                 return false;
 
-            if (_databaseService.ImageExistsInDatabase(imageHash))
+            if (_settingsService.Settings.RemoveDuplicates && _databaseService.ImageExistsInDatabase(imageHash))
             {
                 _databaseService.UpdateDuplicateImageTimestamp(imageHash);
-                _lastImageHash = imageHash;
+                _lastContentSignature = signature;
                 OnDuplicateUpdated?.Invoke();
                 return false;
             }
 
-            _lastImageHash = imageHash;
+            _lastContentSignature = signature;
             return true;
         }
 
@@ -290,28 +289,26 @@ namespace WinVClip.Services
             if (filePaths == null || filePaths.Count == 0)
                 return false;
 
-            if (!_settingsService.Settings.RemoveDuplicates)
-                return true;
-
             var sortedPaths = filePaths.OrderBy(p => p.ToLowerInvariant()).ToList();
             var content = string.Join("\n", sortedPaths);
             var hash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", sortedPaths)));
+            var signature = ComputeSignature(ClipboardType.FileList, hash);
             
-            if (hash == _lastFileListHash)
+            if (signature == _lastContentSignature)
                 return false;
 
-            if (_databaseService.FileListExistsByPaths(filePaths, out var matchingContent))
+            if (_settingsService.Settings.RemoveDuplicates && _databaseService.FileListExistsByPaths(filePaths, out var matchingContent))
             {
                 if (!string.IsNullOrEmpty(matchingContent))
                 {
                     _databaseService.UpdateDuplicateItemTimestamp(matchingContent, (int)ClipboardType.FileList);
                 }
-                _lastFileListHash = hash;
+                _lastContentSignature = signature;
                 OnDuplicateUpdated?.Invoke();
                 return false;
             }
 
-            _lastFileListHash = hash;
+            _lastContentSignature = signature;
             return true;
         }
 
@@ -410,12 +407,11 @@ namespace WinVClip.Services
             }
         }
 
-        private byte[] TryEncodeWithPngEncoder(BitmapSource image)
+        private byte[] TryEncodeWithEncoder(BitmapSource image, System.Windows.Media.Imaging.BitmapEncoder encoder)
         {
             try
             {
                 using var memoryStream = new MemoryStream();
-                var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
                 encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(image));
                 encoder.Save(memoryStream);
                 return memoryStream.ToArray();
@@ -424,39 +420,22 @@ namespace WinVClip.Services
             {
                 return new byte[0];
             }
+        }
+
+        private byte[] TryEncodeWithPngEncoder(BitmapSource image)
+        {
+            return TryEncodeWithEncoder(image, new System.Windows.Media.Imaging.PngBitmapEncoder());
         }
 
         private byte[] TryEncodeWithJpegEncoder(BitmapSource image)
         {
-            try
-            {
-                using var memoryStream = new MemoryStream();
-                var encoder = new System.Windows.Media.Imaging.JpegBitmapEncoder();
-                encoder.QualityLevel = 95;
-                encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(image));
-                encoder.Save(memoryStream);
-                return memoryStream.ToArray();
-            }
-            catch
-            {
-                return new byte[0];
-            }
+            var encoder = new System.Windows.Media.Imaging.JpegBitmapEncoder { QualityLevel = 95 };
+            return TryEncodeWithEncoder(image, encoder);
         }
 
         private byte[] TryEncodeWithBmpEncoder(BitmapSource image)
         {
-            try
-            {
-                using var memoryStream = new MemoryStream();
-                var encoder = new System.Windows.Media.Imaging.BmpBitmapEncoder();
-                encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(image));
-                encoder.Save(memoryStream);
-                return memoryStream.ToArray();
-            }
-            catch
-            {
-                return new byte[0];
-            }
+            return TryEncodeWithEncoder(image, new System.Windows.Media.Imaging.BmpBitmapEncoder());
         }
 
         private byte[] TryEncodeWithGdiPlus(BitmapSource image)

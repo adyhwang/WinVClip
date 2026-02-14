@@ -618,26 +618,67 @@ namespace WinVClip
             IsLoading = true;
             try
             {
+                List<ClipboardItem> newItems = null;
                 await Task.Run(() =>
                 {
-                    var items = _databaseService.GetItems(100, 0, SearchText,
+                    newItems = _databaseService.GetItems(100, 0, SearchText,
                         TypeFilter, GroupFilter);
-                    
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        ClipboardItems.Clear();
-                        foreach (var item in items)
-                        {
-                            ClipboardItems.Add(item);
-                        }
-                        OnPropertyChanged(nameof(HasItems));
-                        OnPropertyChanged(nameof(IsEmpty));
-                    });
+                });
+                
+                if (newItems == null)
+                    return;
+
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    UpdateItemsDiff(newItems);
+                    OnPropertyChanged(nameof(HasItems));
+                    OnPropertyChanged(nameof(IsEmpty));
                 });
             }
             finally
             {
                 IsLoading = false;
+            }
+        }
+
+        private void UpdateItemsDiff(List<ClipboardItem> newItems)
+        {
+            var newItemIds = new HashSet<long>(newItems.Select(i => i.Id));
+            var currentItemIds = new HashSet<long>(ClipboardItems.Select(i => i.Id));
+
+            var itemsToRemove = ClipboardItems.Where(i => !newItemIds.Contains(i.Id)).ToList();
+            foreach (var item in itemsToRemove)
+            {
+                ClipboardItems.Remove(item);
+            }
+
+            for (int i = 0; i < newItems.Count; i++)
+            {
+                var newItem = newItems[i];
+                if (i < ClipboardItems.Count)
+                {
+                    if (ClipboardItems[i].Id != newItem.Id)
+                    {
+                        var existingIndex = ClipboardItems.ToList().FindIndex(ci => ci.Id == newItem.Id);
+                        if (existingIndex >= 0)
+                        {
+                            ClipboardItems.Move(existingIndex, i);
+                        }
+                        else
+                        {
+                            ClipboardItems.Insert(i, newItem);
+                        }
+                    }
+                }
+                else
+                {
+                    ClipboardItems.Add(newItem);
+                }
+            }
+
+            while (ClipboardItems.Count > newItems.Count)
+            {
+                ClipboardItems.RemoveAt(ClipboardItems.Count - 1);
             }
         }
 
