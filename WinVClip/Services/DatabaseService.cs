@@ -57,52 +57,40 @@ namespace WinVClip.Services
 
         private void EnsureDefaultGroup()
         {
-            try
-            {
-                using var command = _connection.CreateCommand();
-                command.CommandText = @"
-                    INSERT OR IGNORE INTO Groups (Name, CreatedAt)
-                    VALUES ('收藏', datetime('now'));
-                ";
-                command.ExecuteNonQuery();
-            }
-            catch
-            {
-            }
+            using var command = _connection.CreateCommand();
+            command.CommandText = @"
+                INSERT OR IGNORE INTO Groups (Name, CreatedAt)
+                VALUES ('收藏', datetime('now'));
+            ";
+            command.ExecuteNonQuery();
         }
 
         private void EnsureGroupIdColumn()
         {
-            try
+            using var command = _connection.CreateCommand();
+            command.CommandText = @"
+                PRAGMA table_info(ClipboardItems);
+            ";
+            
+            bool hasGroupIdColumn = false;
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
             {
-                using var command = _connection.CreateCommand();
-                command.CommandText = @"
-                    PRAGMA table_info(ClipboardItems);
-                ";
-                
-                bool hasGroupIdColumn = false;
-                using var reader = command.ExecuteReader();
-                while (reader.Read())
+                string? columnName = reader["name"]?.ToString();
+                if (columnName == "GroupId")
                 {
-                    string? columnName = reader["name"]?.ToString();
-                    if (columnName == "GroupId")
-                    {
-                        hasGroupIdColumn = true;
-                        break;
-                    }
-                }
-                
-                if (!hasGroupIdColumn)
-                {
-                    using var alterCommand = _connection.CreateCommand();
-                    alterCommand.CommandText = @"
-                        ALTER TABLE ClipboardItems ADD COLUMN GroupId INTEGER DEFAULT NULL;
-                    ";
-                    alterCommand.ExecuteNonQuery();
+                    hasGroupIdColumn = true;
+                    break;
                 }
             }
-            catch
+            
+            if (!hasGroupIdColumn)
             {
+                using var alterCommand = _connection.CreateCommand();
+                alterCommand.CommandText = @"
+                    ALTER TABLE ClipboardItems ADD COLUMN GroupId INTEGER DEFAULT NULL;
+                ";
+                alterCommand.ExecuteNonQuery();
             }
         }
 
@@ -219,23 +207,7 @@ namespace WinVClip.Services
 
         public List<Models.ClipboardItem> GetAllItems()
         {
-            var items = new List<Models.ClipboardItem>();
-            using var command = _connection.CreateCommand();
-
-            command.CommandText = @"
-                SELECT c.Id, c.Type, c.Content, c.ImagePath, c.ImageHash, c.FilePaths, c.CreatedAt, c.PreviewText, c.GroupId, g.Name as GroupName
-                FROM ClipboardItems c
-                LEFT JOIN Groups g ON c.GroupId = g.Id
-                ORDER BY c.CreatedAt DESC
-            ";
-
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
-            {
-                items.Add(ReadItem(reader));
-            }
-
-            return items;
+            return GetItems(int.MaxValue, 0);
         }
 
         public int GetItemCount(string? searchText = null, int? typeFilter = null)
@@ -285,34 +257,32 @@ namespace WinVClip.Services
 
         public void DeleteItem(long id)
         {
-            // 先获取项信息，以便删除对应的图片文件
             var item = GetItem(id);
             if (item != null && item.Type == Models.ClipboardType.Image && !string.IsNullOrEmpty(item.ImagePath))
             {
-                try
-                {
-                    // 构建完整的文件路径
-                    string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, item.ImagePath);
-                    if (System.IO.File.Exists(fullPath))
-                    {
-                        System.IO.File.Delete(fullPath);
-                    }
-                }
-                catch
-                {
-                }
+                DeleteImageFile(item.ImagePath);
             }
             
-            // 从数据库中删除项
             using var command = _connection.CreateCommand();
             command.CommandText = "DELETE FROM ClipboardItems WHERE Id = @Id";
             command.Parameters.AddWithValue("@Id", id);
             command.ExecuteNonQuery();
         }
 
+        private void DeleteImageFile(string? imagePath)
+        {
+            if (string.IsNullOrEmpty(imagePath))
+                return;
+            
+            string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, imagePath);
+            if (System.IO.File.Exists(fullPath))
+            {
+                System.IO.File.Delete(fullPath);
+            }
+        }
+
         public void DeleteOldItems(DateTime cutoffDate)
         {
-            // 获取要删除的图片项（仅删除未分组的记录）
             using var selectCommand = _connection.CreateCommand();
             selectCommand.CommandText = "SELECT Id, ImagePath FROM ClipboardItems WHERE CreatedAt < @Cutoff AND Type = @Type AND GroupId IS NULL";
             selectCommand.Parameters.AddWithValue("@Cutoff", cutoffDate);
@@ -329,23 +299,11 @@ namespace WinVClip.Services
                 }
             }
             
-            // 删除对应的图片文件
             foreach (string imagePath in imagePaths)
             {
-                try
-                {
-                    string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, imagePath);
-                    if (System.IO.File.Exists(fullPath))
-                    {
-                        System.IO.File.Delete(fullPath);
-                    }
-                }
-                catch
-                {
-                }
+                DeleteImageFile(imagePath);
             }
             
-            // 从数据库中删除项（仅删除未分组的记录）
             using var deleteCommand = _connection.CreateCommand();
             deleteCommand.CommandText = "DELETE FROM ClipboardItems WHERE CreatedAt < @Cutoff AND GroupId IS NULL";
             deleteCommand.Parameters.AddWithValue("@Cutoff", cutoffDate);
@@ -399,17 +357,7 @@ namespace WinVClip.Services
         {
             foreach (string imagePath in imagePaths)
             {
-                try
-                {
-                    string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, imagePath);
-                    if (System.IO.File.Exists(fullPath))
-                    {
-                        System.IO.File.Delete(fullPath);
-                    }
-                }
-                catch
-                {
-                }
+                DeleteImageFile(imagePath);
             }
         }
 
@@ -611,26 +559,20 @@ namespace WinVClip.Services
 
         public Models.ClipboardItem? GetLatestItemByImageHash(string imageHash)
         {
-            try
-            {
-                using var command = _connection.CreateCommand();
-                command.CommandText = @"
-                    SELECT c.Id, c.Type, c.Content, c.ImagePath, c.ImageHash, c.FilePaths, c.CreatedAt, c.PreviewText, c.GroupId
-                    FROM ClipboardItems c
-                    WHERE c.ImageHash = @ImageHash
-                    ORDER BY c.CreatedAt DESC
-                    LIMIT 1
-                ";
-                command.Parameters.AddWithValue("@ImageHash", imageHash);
+            using var command = _connection.CreateCommand();
+            command.CommandText = @"
+                SELECT c.Id, c.Type, c.Content, c.ImagePath, c.ImageHash, c.FilePaths, c.CreatedAt, c.PreviewText, c.GroupId
+                FROM ClipboardItems c
+                WHERE c.ImageHash = @ImageHash
+                ORDER BY c.CreatedAt DESC
+                LIMIT 1
+            ";
+            command.Parameters.AddWithValue("@ImageHash", imageHash);
 
-                using var reader = command.ExecuteReader();
-                if (reader.Read())
-                {
-                    return ReadItem(reader);
-                }
-            }
-            catch
+            using var reader = command.ExecuteReader();
+            if (reader.Read())
             {
+                return ReadItem(reader);
             }
             return null;
         }
@@ -746,23 +688,9 @@ namespace WinVClip.Services
                     itemsToDeleteList.Add((id, imagePath));
                 }
 
-                // 删除对应的图片文件
                 foreach (var (id, imagePath) in itemsToDeleteList)
                 {
-                    if (!string.IsNullOrEmpty(imagePath))
-                    {
-                        try
-                        {
-                            string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, imagePath);
-                            if (System.IO.File.Exists(fullPath))
-                            {
-                                System.IO.File.Delete(fullPath);
-                            }
-                        }
-                        catch
-                        {
-                        }
-                    }
+                    DeleteImageFile(imagePath);
                 }
 
                 // 从数据库中删除记录

@@ -49,68 +49,36 @@ namespace WinVClip.Models
             {
                 if (_imageThumbnail == null && !string.IsNullOrEmpty(ImagePath))
                 {
-                    // 使用Dispatcher确保在UI线程上加载图像
-                    if (System.Windows.Application.Current != null)
-                    {
-                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                        {
-                            try
-                            {
-                                // 构建完整的文件路径
-                                string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, ImagePath);
-                                if (System.IO.File.Exists(fullPath))
-                                {
-                                    var image = new System.Windows.Media.Imaging.BitmapImage();
-                                    image.BeginInit();
-                                    image.UriSource = new System.Uri(fullPath);
-                                    image.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
-                                    image.EndInit();
-                                    _imageThumbnail = image;
-                                    OnPropertyChanged(nameof(ImageThumbnail));
-                                }
-                            }
-                            catch
-                            {
-                                // 返回一个空的图像作为占位符
-                                _imageThumbnail = new System.Windows.Media.Imaging.BitmapImage();
-                                OnPropertyChanged(nameof(ImageThumbnail));
-                            }
-                        });
-                    }
-                    else
-                    {
-                        // 如果Application.Current不可用，尝试直接加载
-                        try
-                        {
-                            string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, ImagePath);
-                            if (System.IO.File.Exists(fullPath))
-                            {
-                                var image = new System.Windows.Media.Imaging.BitmapImage();
-                                image.BeginInit();
-                                image.UriSource = new System.Uri(fullPath);
-                                image.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
-                                image.EndInit();
-                                _imageThumbnail = image;
-                                OnPropertyChanged(nameof(ImageThumbnail));
-                            }
-                        }
-                        catch
-                        {
-                        }
-                    }
+                    LoadImageThumbnail();
                 }
                 return _imageThumbnail;
             }
         }
 
-        private int _previewDelay = 500;
-        public int PreviewDelay
+        private void LoadImageThumbnail()
         {
-            get => _previewDelay;
-            set
+            Action loadAction = () =>
             {
-                _previewDelay = value;
-                OnPropertyChanged();
+                string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, ImagePath);
+                if (System.IO.File.Exists(fullPath))
+                {
+                    var image = new System.Windows.Media.Imaging.BitmapImage();
+                    image.BeginInit();
+                    image.UriSource = new System.Uri(fullPath);
+                    image.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                    image.EndInit();
+                    _imageThumbnail = image;
+                    OnPropertyChanged(nameof(ImageThumbnail));
+                }
+            };
+
+            if (System.Windows.Application.Current != null)
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(loadAction);
+            }
+            else
+            {
+                loadAction();
             }
         }
 

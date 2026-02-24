@@ -50,40 +50,34 @@ namespace WinVClip.Services
 
         private void UpdateLastClipboardState()
         {
-            try
+            if (System.Windows.Clipboard.ContainsText())
             {
-                if (System.Windows.Clipboard.ContainsText())
+                var text = System.Windows.Clipboard.GetText();
+                _lastContentSignature = ComputeSignature(ClipboardType.Text, text);
+            }
+            else if (System.Windows.Clipboard.ContainsImage())
+            {
+                var image = System.Windows.Clipboard.GetImage();
+                if (image != null)
                 {
-                    var text = System.Windows.Clipboard.GetText();
-                    _lastContentSignature = ComputeSignature(ClipboardType.Text, text);
-                }
-                else if (System.Windows.Clipboard.ContainsImage())
-                {
-                    var image = System.Windows.Clipboard.GetImage();
-                    if (image != null)
-                    {
-                        var imageData = ImageToBytes(image);
-                        var hash = ComputeHash(imageData);
-                        _lastContentSignature = ComputeSignature(ClipboardType.Image, hash);
-                    }
-                }
-                else if (System.Windows.Clipboard.ContainsFileDropList())
-                {
-                    var dataObject = System.Windows.Clipboard.GetDataObject();
-                    if (dataObject.GetDataPresent(System.Windows.DataFormats.FileDrop))
-                    {
-                        var fileList = dataObject.GetData(System.Windows.DataFormats.FileDrop) as string[];
-                        if (fileList != null && fileList.Length > 0)
-                        {
-                            var sortedPaths = fileList.OrderBy(p => p.ToLowerInvariant()).ToList();
-                            var hash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", sortedPaths)));
-                            _lastContentSignature = ComputeSignature(ClipboardType.FileList, hash);
-                        }
-                    }
+                    var imageData = ImageToBytes(image);
+                    var hash = ComputeHash(imageData);
+                    _lastContentSignature = ComputeSignature(ClipboardType.Image, hash);
                 }
             }
-            catch
+            else if (System.Windows.Clipboard.ContainsFileDropList())
             {
+                var dataObject = System.Windows.Clipboard.GetDataObject();
+                if (dataObject.GetDataPresent(System.Windows.DataFormats.FileDrop))
+                {
+                    var fileList = dataObject.GetData(System.Windows.DataFormats.FileDrop) as string[];
+                    if (fileList != null && fileList.Length > 0)
+                    {
+                        var sortedPaths = fileList.OrderBy(p => p.ToLowerInvariant()).ToList();
+                        var hash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", sortedPaths)));
+                        _lastContentSignature = ComputeSignature(ClipboardType.FileList, hash);
+                    }
+                }
             }
         }
 
@@ -149,94 +143,87 @@ namespace WinVClip.Services
 
         private void ProcessClipboard()
         {
+            bool hasText = false;
+            bool hasImage = false;
+            bool hasFileDrop = false;
+
             try
             {
-
-                bool hasText = false;
-                bool hasImage = false;
-                bool hasFileDrop = false;
-
-                try
-                {
-                    hasText = System.Windows.Clipboard.ContainsText();
-                    hasImage = System.Windows.Clipboard.ContainsImage();
-                    hasFileDrop = System.Windows.Clipboard.ContainsFileDropList();
-                }
-                catch
-                {
-                    return;
-                }
-
-                if (!hasText && !hasImage && !hasFileDrop)
-                    return;
-
-                var item = new ClipboardItem
-                {
-                    CreatedAt = DateTime.Now
-                };
-
-                if (hasText && (_settingsService.Settings.CaptureImages || _settingsService.Settings.CaptureFiles))
-                {
-                    var text = System.Windows.Clipboard.GetText();
-                    if (ShouldProcessText(text))
-                    {
-                        item.Type = ClipboardType.Text;
-                        item.Content = text;
-                        item.PreviewText = text;
-
-                        SaveItem(item);
-                        return;
-                    }
-                }
-
-                if (hasImage && _settingsService.Settings.CaptureImages)
-                {
-                    var image = GetClipboardImage();
-                    if (image != null)
-                    {
-                        ProcessImageClipboard(item, image);
-                    }
-                    return;
-                }
-
-                if (hasFileDrop && _settingsService.Settings.CaptureFiles)
-                {
-                    var dataObject = System.Windows.Clipboard.GetDataObject();
-                    if (dataObject.GetDataPresent(System.Windows.DataFormats.FileDrop))
-                    {
-                        var fileList = dataObject.GetData(System.Windows.DataFormats.FileDrop) as string[];
-                        if (fileList != null && fileList.Length > 0)
-                        {
-                            var filePaths = fileList.Where(f => File.Exists(f) || Directory.Exists(f)).ToList();
-                            var sortedPaths = filePaths.OrderBy(p => p.ToLowerInvariant()).ToList();
-                            if (ShouldProcessFileList(filePaths))
-                            {
-                                item.Type = ClipboardType.FileList;
-                                item.FilePaths = filePaths;
-                                item.Content = string.Join("\n", sortedPaths);
-                                
-                                if (filePaths.Count == 1)
-                                {
-                                    item.PreviewText = Path.GetFileName(filePaths[0]);
-                                }
-                                else
-                                {
-                                    var fileNames = filePaths.Take(2).Select(p => Path.GetFileName(p)).ToList();
-                                    if (filePaths.Count > 2)
-                                    {
-                                        fileNames.Add($"……(共{filePaths.Count}个文件/目录)");
-                                    }
-                                    item.PreviewText = string.Join("\n", fileNames);
-                                }
-                                
-                                SaveItem(item);
-                            }
-                        }
-                    }
-                }
+                hasText = System.Windows.Clipboard.ContainsText();
+                hasImage = System.Windows.Clipboard.ContainsImage();
+                hasFileDrop = System.Windows.Clipboard.ContainsFileDropList();
             }
             catch
             {
+                return;
+            }
+
+            if (!hasText && !hasImage && !hasFileDrop)
+                return;
+
+            var item = new ClipboardItem
+            {
+                CreatedAt = DateTime.Now
+            };
+
+            if (hasText && (_settingsService.Settings.CaptureImages || _settingsService.Settings.CaptureFiles))
+            {
+                var text = System.Windows.Clipboard.GetText();
+                if (ShouldProcessText(text))
+                {
+                    item.Type = ClipboardType.Text;
+                    item.Content = text;
+                    item.PreviewText = text;
+
+                    SaveItem(item);
+                    return;
+                }
+            }
+
+            if (hasImage && _settingsService.Settings.CaptureImages)
+            {
+                var image = GetClipboardImage();
+                if (image != null)
+                {
+                    ProcessImageClipboard(item, image);
+                }
+                return;
+            }
+
+            if (hasFileDrop && _settingsService.Settings.CaptureFiles)
+            {
+                var dataObject = System.Windows.Clipboard.GetDataObject();
+                if (dataObject.GetDataPresent(System.Windows.DataFormats.FileDrop))
+                {
+                    var fileList = dataObject.GetData(System.Windows.DataFormats.FileDrop) as string[];
+                    if (fileList != null && fileList.Length > 0)
+                    {
+                        var filePaths = fileList.Where(f => File.Exists(f) || Directory.Exists(f)).ToList();
+                        var sortedPaths = filePaths.OrderBy(p => p.ToLowerInvariant()).ToList();
+                        if (ShouldProcessFileList(filePaths))
+                        {
+                            item.Type = ClipboardType.FileList;
+                            item.FilePaths = filePaths;
+                            item.Content = string.Join("\n", sortedPaths);
+                            
+                            if (filePaths.Count == 1)
+                            {
+                                item.PreviewText = Path.GetFileName(filePaths[0]);
+                            }
+                            else
+                            {
+                                var fileNames = filePaths.Take(2).Select(p => Path.GetFileName(p)).ToList();
+                                if (filePaths.Count > 2)
+                                {
+                                    fileNames.Add($"……(共{filePaths.Count}个文件/目录)");
+                                }
+                                item.PreviewText = string.Join("\n", fileNames);
+                            }
+                            
+                            SaveItem(item);
+                        }
+                    }
+                }
             }
         }
 
@@ -321,24 +308,15 @@ namespace WinVClip.Services
 
         private void SaveItem(ClipboardItem item)
         {
-            // 提前生成缩略图，确保UI显示时已经准备好
             if (item.Type == ClipboardType.Image && !string.IsNullOrEmpty(item.ImagePath))
             {
-                try
-                {
-                    // 访问ImageThumbnail属性触发缩略图生成
-                    var thumbnail = item.ImageThumbnail;
-                }
-                catch
-                {
-                }
+                var thumbnail = item.ImageThumbnail;
             }
 
             var id = _databaseService.InsertItem(item);
             item.Id = id;
             OnClipboardChanged?.Invoke(item);
 
-            // 检查并清理超出历史记录数量限制的记录
             if (_settingsService.Settings.EnableAutoCleanup && _settingsService.Settings.MaxHistoryItems > 0)
             {
                 _databaseService.CleanupExcessHistoryItems(_settingsService.Settings.MaxHistoryItems);
@@ -598,18 +576,6 @@ namespace WinVClip.Services
                 Stop();
                 _disposed = true;
             }
-        }
-
-        private bool IsValidUrl(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text))
-                return false;
-
-            // 简单的URL检测：以http://或https://开头
-            text = text.Trim();
-            return text.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-                   text.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
-                   text.StartsWith("www.", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

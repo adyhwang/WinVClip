@@ -173,7 +173,8 @@ namespace WinVClip
 
             try
             {
-                if (File.Exists(text) || Directory.Exists(text))
+                string path = TrimQuotes(text);
+                if (File.Exists(path) || Directory.Exists(path))
                     return true;
             }
             catch
@@ -181,6 +182,26 @@ namespace WinVClip
             }
 
             return false;
+        }
+
+        private static string TrimQuotes(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return text;
+
+            text = text.Trim();
+            
+            if (text.StartsWith("\"") && text.EndsWith("\""))
+            {
+                return text.Substring(1, text.Length - 2);
+            }
+            
+            if (text.StartsWith("'") && text.EndsWith("'"))
+            {
+                return text.Substring(1, text.Length - 2);
+            }
+            
+            return text;
         }
     }
 
@@ -1531,10 +1552,11 @@ namespace WinVClip
                 string content = item.Content?.Trim();
                 if (!string.IsNullOrWhiteSpace(content))
                 {
-                    if (File.Exists(content))
-                        folderPath = Path.GetDirectoryName(content);
-                    else if (Directory.Exists(content))
-                        folderPath = content;
+                    string path = TrimQuotes(content);
+                    if (File.Exists(path))
+                        folderPath = Path.GetDirectoryName(path);
+                    else if (Directory.Exists(path))
+                        folderPath = path;
                 }
             }
 
@@ -1556,6 +1578,26 @@ namespace WinVClip
             {
                 MessageBox.Show($"{errorMessage}: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        private static string TrimQuotes(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return text;
+
+            text = text.Trim();
+            
+            if (text.StartsWith("\"") && text.EndsWith("\""))
+            {
+                return text.Substring(1, text.Length - 2);
+            }
+            
+            if (text.StartsWith("'") && text.EndsWith("'"))
+            {
+                return text.Substring(1, text.Length - 2);
+            }
+            
+            return text;
         }
 
         private bool IsValidUrl(string text)
@@ -1893,7 +1935,7 @@ namespace WinVClip
                 _tooltipTimer?.Stop();
                 _tooltipTimer = new System.Windows.Threading.DispatcherTimer
                 {
-                    Interval = TimeSpan.FromMilliseconds(item.PreviewDelay)
+                    Interval = TimeSpan.FromMilliseconds(500)
                 };
                 _tooltipTimer.Tick += (s, args) =>
                 {

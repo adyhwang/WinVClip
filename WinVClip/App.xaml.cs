@@ -112,16 +112,18 @@ namespace WinVClip
 
             _mainWindow.Hide();
 
-            Current.Exit += (s, args) =>
-            {
-                _clipboardMonitor?.Stop();
-                _clipboardMonitor?.Dispose();
-                _hotkeyService?.Dispose();
-                _cleanupService?.Dispose();
-                _trayService?.Dispose();
-                _databaseService?.Dispose();
-                _mutex?.Dispose();
-            };
+            Current.Exit += (s, args) => CleanupResources();
+        }
+
+        private static void CleanupResources()
+        {
+            _clipboardMonitor?.Stop();
+            _clipboardMonitor?.Dispose();
+            _hotkeyService?.Dispose();
+            _cleanupService?.Dispose();
+            _trayService?.Dispose();
+            _databaseService?.Dispose();
+            _mutex?.Dispose();
         }
 
         public static void ShowSettingsWindow()
@@ -210,12 +212,7 @@ namespace WinVClip
 
         protected override void OnExit(ExitEventArgs e)
         {
-            _clipboardMonitor?.Stop();
-            _clipboardMonitor?.Dispose();
-            _hotkeyService?.Dispose();
-            _trayService?.Dispose();
-            _databaseService?.Dispose();
-            _mutex?.Dispose();
+            CleanupResources();
             base.OnExit(e);
         }
     }
