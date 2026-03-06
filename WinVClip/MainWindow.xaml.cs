@@ -691,6 +691,11 @@ namespace WinVClip
                             ClipboardItems.Insert(i, newItem);
                         }
                     }
+                    else
+                    {
+                        ClipboardItems[i].GroupId = newItem.GroupId;
+                        ClipboardItems[i].GroupName = newItem.GroupName;
+                    }
                 }
                 else
                 {
