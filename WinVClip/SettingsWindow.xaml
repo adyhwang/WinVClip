@@ -72,7 +72,7 @@
 
                 <!-- 右侧内容 -->
                 <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                              Margin="24,20" Background="{DynamicResource WindowBackground}">
+                              Margin="12,8" Background="{DynamicResource WindowBackground}">
                     <ScrollViewer.Resources>
                         <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBarStyle}"/>
                     </ScrollViewer.Resources>
@@ -151,7 +151,7 @@
                             </Border>
 
                             <!-- 主题设置卡片 -->
-                            <Border Style="{DynamicResource SettingCardStyle}">
+                            <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                                         <TextBlock Text="&#xE790;" FontFamily="Segoe MDL2 Assets" FontSize="18" 
@@ -168,6 +168,60 @@
                                         <ComboBoxItem Content="浅色模式" Tag="Light"/>
                                         <ComboBoxItem Content="深色模式" Tag="Dark"/>
                                     </ComboBox>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 粘贴方式设置卡片 -->
+                            <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                        <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="18" 
+                                                   Foreground="{DynamicResource AccentColor}" Margin="0,0,10,0"/>
+                                        <TextBlock Text="粘贴方式" FontSize="16" FontWeight="SemiBold" 
+                                                   Foreground="{DynamicResource TextForeground}"/>
+                                    </StackPanel>
+                                    
+                                    <TextBlock Text="选择粘贴内容的快捷键方式" Foreground="{DynamicResource SecondaryTextForeground}" 
+                                               FontSize="13" Margin="0,0,0,8"/>
+                                    <ComboBox x:Name="PasteShortcutModeComboBox" 
+                                              SelectedValue="{Binding PasteShortcutMode}" SelectedValuePath="Tag" 
+                                              Style="{DynamicResource ModernComboBoxStyle}" Width="200" HorizontalAlignment="Left">
+                                        <ComboBoxItem Content="自动选择" Tag="Auto"/>
+                                        <ComboBoxItem Content="Ctrl+V" Tag="CtrlV"/>
+                                        <ComboBoxItem Content="Shift+Insert" Tag="ShiftInsert"/>
+                                    </ComboBox>
+                                    <TextBlock Text="自动选择：在终端中或按住 Ctrl/Alt 时自动使用 Shift+Insert" 
+                                               Foreground="{DynamicResource TertiaryTextForeground}" 
+                                               FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 管理员权限设置卡片 -->
+                            <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                        <TextBlock Text="&#xE7EF;" FontFamily="Segoe MDL2 Assets" FontSize="18" 
+                                                   Foreground="{DynamicResource AccentColor}" Margin="0,0,10,0"/>
+                                        <TextBlock Text="管理员权限" FontSize="16" FontWeight="SemiBold" 
+                                                   Foreground="{DynamicResource TextForeground}"/>
+                                    </StackPanel>
+                                    
+                                    <CheckBox Content="启动时自动获取管理员权限" IsChecked="{Binding IsAdministratorRun}" 
+                                              Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"/>
+                                    <TextBlock Text="每次启动时自动请求管理员权限运行" 
+                                               Foreground="{DynamicResource SecondaryTextForeground}" 
+                                               FontSize="12" Margin="28,-8,0,12"/>
+                                    
+                                    <Button x:Name="RequestAdminButton" Content="获取管理员权限" 
+                                            Padding="12,8" HorizontalAlignment="Left"
+                                            Style="{DynamicResource PrimaryButtonStyle}"
+                                            Click="RequestAdmin_Click"/>
+                                    <TextBlock Text="以管理员权限运行可向所有窗口发送粘贴操作" 
+                                               Foreground="{DynamicResource SecondaryTextForeground}" 
+                                               FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                                    <TextBlock Text="提示：普通权限无法向管理员权限的窗口（如管理员PowerShell、CMD等等）自动粘贴" 
+                                               Foreground="{DynamicResource TertiaryTextForeground}" 
+                                               FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>

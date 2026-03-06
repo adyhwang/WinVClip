@@ -307,7 +307,12 @@ namespace WinVClip.Services
             using var deleteCommand = _connection.CreateCommand();
             deleteCommand.CommandText = "DELETE FROM ClipboardItems WHERE CreatedAt < @Cutoff AND GroupId IS NULL";
             deleteCommand.Parameters.AddWithValue("@Cutoff", cutoffDate);
-            deleteCommand.ExecuteNonQuery();
+            int deletedCount = deleteCommand.ExecuteNonQuery();
+
+            if (deletedCount > 0)
+            {
+                VacuumDatabase();
+            }
         }
 
         public void ClearHistory()
@@ -700,7 +705,22 @@ namespace WinVClip.Services
                     using var deleteCommand = _connection.CreateCommand();
                     deleteCommand.CommandText = $"DELETE FROM ClipboardItems WHERE Id IN ({idsToDelete})";
                     deleteCommand.ExecuteNonQuery();
+
+                    VacuumDatabase();
                 }
+            }
+        }
+
+        public void VacuumDatabase()
+        {
+            try
+            {
+                using var command = _connection.CreateCommand();
+                command.CommandText = "VACUUM";
+                command.ExecuteNonQuery();
+            }
+            catch
+            {
             }
         }
 

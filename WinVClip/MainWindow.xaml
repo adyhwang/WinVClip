@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WinVClip"
         mc:Ignorable="d"
-        Title="WinVClip" Height="600" MinWidth="350" Width="350"
+        Title="WinVClip" MinHeight="500" Height="600" MinWidth="350" Width="350"
     WindowStyle="None" AllowsTransparency="True" Background="Transparent"
     ShowInTaskbar="False" Topmost="True" 
     PreviewKeyDown="Window_PreviewKeyDown"

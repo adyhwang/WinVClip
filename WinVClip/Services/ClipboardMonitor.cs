@@ -19,7 +19,7 @@ namespace WinVClip.Services
         private readonly SettingsService _settingsService;
         private bool _disposed;
         private bool _isMonitoring = true;
-        private string _lastContentSignature = string.Empty;
+        private readonly Dictionary<ClipboardType, string> _lastContentSignatures = new Dictionary<ClipboardType, string>();
         private readonly System.Windows.Threading.Dispatcher _dispatcher;
         private Timer? _timer;
         private readonly object _syncLock = new object();
@@ -50,22 +50,26 @@ namespace WinVClip.Services
 
         private void UpdateLastClipboardState()
         {
+            _lastContentSignatures.Clear();
+
             if (System.Windows.Clipboard.ContainsText())
             {
                 var text = System.Windows.Clipboard.GetText();
-                _lastContentSignature = ComputeSignature(ClipboardType.Text, text);
+                _lastContentSignatures[ClipboardType.Text] = ComputeSignature(ClipboardType.Text, text);
             }
-            else if (System.Windows.Clipboard.ContainsImage())
+
+            if (System.Windows.Clipboard.ContainsImage())
             {
                 var image = System.Windows.Clipboard.GetImage();
                 if (image != null)
                 {
                     var imageData = ImageToBytes(image);
                     var hash = ComputeHash(imageData);
-                    _lastContentSignature = ComputeSignature(ClipboardType.Image, hash);
+                    _lastContentSignatures[ClipboardType.Image] = ComputeSignature(ClipboardType.Image, hash);
                 }
             }
-            else if (System.Windows.Clipboard.ContainsFileDropList())
+
+            if (System.Windows.Clipboard.ContainsFileDropList())
             {
                 var dataObject = System.Windows.Clipboard.GetDataObject();
                 if (dataObject.GetDataPresent(System.Windows.DataFormats.FileDrop))
@@ -75,7 +79,7 @@ namespace WinVClip.Services
                     {
                         var sortedPaths = fileList.OrderBy(p => p.ToLowerInvariant()).ToList();
                         var hash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", sortedPaths)));
-                        _lastContentSignature = ComputeSignature(ClipboardType.FileList, hash);
+                        _lastContentSignatures[ClipboardType.FileList] = ComputeSignature(ClipboardType.FileList, hash);
                     }
                 }
             }
@@ -94,6 +98,8 @@ namespace WinVClip.Services
         }
 
         private bool _isIgnoringChange = false;
+        private bool _isPasteOperation = false;
+        private string _lastPasteHash = string.Empty;
 
         public void IgnoreNextChange(int milliseconds = 500)
         {
@@ -121,9 +127,48 @@ namespace WinVClip.Services
             }
         }
 
+        public void MarkPasteOperation()
+        {
+            _isPasteOperation = true;
+        }
+
+        public void SetLastPasteHashText(string text)
+        {
+            _lastPasteHash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(text));
+        }
+
+        public void SetLastPasteHashFiles(List<string> filePaths)
+        {
+            var sortedPaths = filePaths.OrderBy(p => p.ToLowerInvariant()).ToList();
+            _lastPasteHash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", sortedPaths)));
+        }
+
+        public bool IsPasteOperation()
+        {
+            return _isPasteOperation;
+        }
+
+        public void ClearPasteOperation()
+        {
+            _isPasteOperation = false;
+        }
+
+        public bool CheckAndClearPasteOperation()
+        {
+            if (_isPasteOperation)
+            {
+                _isPasteOperation = false;
+                return true;
+            }
+            return false;
+        }
+
         private void CheckClipboard(object? state)
         {
             if (!_isMonitoring || !_settingsService.Settings.MonitorEnabled)
+                return;
+
+            if (CheckAndClearPasteOperation())
                 return;
 
             _dispatcher.BeginInvoke(new Action(() =>
@@ -161,22 +206,19 @@ namespace WinVClip.Services
             if (!hasText && !hasImage && !hasFileDrop)
                 return;
 
-            var item = new ClipboardItem
-            {
-                CreatedAt = DateTime.Now
-            };
-
-            if (hasText && (_settingsService.Settings.CaptureImages || _settingsService.Settings.CaptureFiles))
+            if (hasText && _settingsService.Settings.CaptureImages)
             {
                 var text = System.Windows.Clipboard.GetText();
                 if (ShouldProcessText(text))
                 {
-                    item.Type = ClipboardType.Text;
-                    item.Content = text;
-                    item.PreviewText = text;
-
+                    var item = new ClipboardItem
+                    {
+                        Type = ClipboardType.Text,
+                        Content = text,
+                        PreviewText = text,
+                        CreatedAt = DateTime.Now
+                    };
                     SaveItem(item);
-                    return;
                 }
             }
 
@@ -185,9 +227,8 @@ namespace WinVClip.Services
                 var image = GetClipboardImage();
                 if (image != null)
                 {
-                    ProcessImageClipboard(item, image);
+                    ProcessImageClipboard(image);
                 }
-                return;
             }
 
             if (hasFileDrop && _settingsService.Settings.CaptureFiles)
@@ -202,9 +243,13 @@ namespace WinVClip.Services
                         var sortedPaths = filePaths.OrderBy(p => p.ToLowerInvariant()).ToList();
                         if (ShouldProcessFileList(filePaths))
                         {
-                            item.Type = ClipboardType.FileList;
-                            item.FilePaths = filePaths;
-                            item.Content = string.Join("\n", sortedPaths);
+                            var item = new ClipboardItem
+                            {
+                                Type = ClipboardType.FileList,
+                                FilePaths = filePaths,
+                                Content = string.Join("\n", sortedPaths),
+                                CreatedAt = DateTime.Now
+                            };
                             
                             if (filePaths.Count == 1)
                             {
@@ -234,18 +279,18 @@ namespace WinVClip.Services
 
             var signature = ComputeSignature(ClipboardType.Text, text);
             
-            if (signature == _lastContentSignature)
+            if (_lastContentSignatures.TryGetValue(ClipboardType.Text, out var lastSig) && signature == lastSig)
                 return false;
 
             if (_settingsService.Settings.RemoveDuplicates && _databaseService.TextExistsInDatabase(text))
             {
                 _databaseService.UpdateDuplicateItemTimestamp(text, (int)ClipboardType.Text);
-                _lastContentSignature = signature;
+                _lastContentSignatures[ClipboardType.Text] = signature;
                 OnDuplicateUpdated?.Invoke();
                 return false;
             }
 
-            _lastContentSignature = signature;
+            _lastContentSignatures[ClipboardType.Text] = signature;
             return true;
         }
 
@@ -256,18 +301,18 @@ namespace WinVClip.Services
 
             var signature = ComputeSignature(ClipboardType.Image, imageHash);
             
-            if (signature == _lastContentSignature)
+            if (_lastContentSignatures.TryGetValue(ClipboardType.Image, out var lastSig) && signature == lastSig)
                 return false;
 
             if (_settingsService.Settings.RemoveDuplicates && _databaseService.ImageExistsInDatabase(imageHash))
             {
                 _databaseService.UpdateDuplicateImageTimestamp(imageHash);
-                _lastContentSignature = signature;
+                _lastContentSignatures[ClipboardType.Image] = signature;
                 OnDuplicateUpdated?.Invoke();
                 return false;
             }
 
-            _lastContentSignature = signature;
+            _lastContentSignatures[ClipboardType.Image] = signature;
             return true;
         }
 
@@ -281,7 +326,7 @@ namespace WinVClip.Services
             var hash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", sortedPaths)));
             var signature = ComputeSignature(ClipboardType.FileList, hash);
             
-            if (signature == _lastContentSignature)
+            if (_lastContentSignatures.TryGetValue(ClipboardType.FileList, out var lastSig) && signature == lastSig)
                 return false;
 
             if (_settingsService.Settings.RemoveDuplicates && _databaseService.FileListExistsByPaths(filePaths, out var matchingContent))
@@ -290,12 +335,12 @@ namespace WinVClip.Services
                 {
                     _databaseService.UpdateDuplicateItemTimestamp(matchingContent, (int)ClipboardType.FileList);
                 }
-                _lastContentSignature = signature;
+                _lastContentSignatures[ClipboardType.FileList] = signature;
                 OnDuplicateUpdated?.Invoke();
                 return false;
             }
 
-            _lastContentSignature = signature;
+            _lastContentSignatures[ClipboardType.FileList] = signature;
             return true;
         }
 
@@ -500,15 +545,13 @@ namespace WinVClip.Services
             return null;
         }
 
-        private void ProcessImageClipboard(ClipboardItem item, BitmapSource image)
+        private void ProcessImageClipboard(BitmapSource image)
         {
             try
             {
-                // 创建images文件夹（如果不存在）
                 string imagesFolder = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "images");
                 System.IO.Directory.CreateDirectory(imagesFolder);
                 
-                // 获取图片数据
                 var imageData = ImageToBytes(image);
                 
                 if (imageData.Length == 0)
@@ -516,37 +559,34 @@ namespace WinVClip.Services
                     return;
                 }
                 
-                // 计算哈希值
                 string imageHash = ComputeHash(imageData);
                 
-                // 检查是否已存在相同哈希值的图片
                 if (ShouldProcessImage(imageData, imageHash))
                 {
-                    // 生成文件名：时间戳+哈希值
                     string timestamp = DateTime.Now.ToString("yyyyMMddHHmmssfff");
-                    string extension = ".png"; // 默认使用PNG格式
+                    string extension = ".png";
                     string fileName = $"{timestamp}_{imageHash.Substring(0, 8)}{extension}";
                     string relativePath = System.IO.Path.Combine("images", fileName);
                     string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, relativePath);
                     
-                    // 保存图片到文件
                     System.IO.File.WriteAllBytes(fullPath, imageData);
                     
-                    // 验证保存的文件是否有效
                     ValidateSavedImage(fullPath);
                     
-                    // 设置item属性
-                    item.Type = ClipboardType.Image;
-                    item.ImagePath = relativePath;
-                    item.ImageHash = imageHash;
-                    item.PreviewText = $"[图片] {image.PixelWidth}x{image.PixelHeight}";
+                    var item = new ClipboardItem
+                    {
+                        Type = ClipboardType.Image,
+                        ImagePath = relativePath,
+                        ImageHash = imageHash,
+                        PreviewText = $"[图片] {image.PixelWidth}x{image.PixelHeight}",
+                        CreatedAt = DateTime.Now
+                    };
 
                     SaveItem(item);
                 }
             }
             catch (Exception ex)
             {
-                // 可以添加日志记录
                 Console.WriteLine($"Process image clipboard error: {ex.Message}");
             }
         }

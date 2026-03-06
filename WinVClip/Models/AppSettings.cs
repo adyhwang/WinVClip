@@ -18,6 +18,8 @@ namespace WinVClip.Models
         public string SelectedSearchEngineId { get; set; } = "bing";
         public string CustomSearchEngineUrl { get; set; } = "";
         public bool MoveToTopAfterPaste { get; set; } = false;
+        public string PasteShortcutMode { get; set; } = "Auto";
+        public bool IsAdministratorRun { get; set; } = false;
 
         [JsonIgnore]
         public List<SearchEngine> SearchEngines { get; set; } = new List<SearchEngine>();

@@ -232,6 +232,22 @@ namespace WinVClip.Services
             SaveSettings();
         }
 
+        public void UpdatePasteShortcutMode(string mode)
+        {
+            Settings.PasteShortcutMode = mode;
+            SaveSettings();
+        }
+
+        public Services.PasteShortcutMode GetPasteShortcutMode()
+        {
+            return Settings.PasteShortcutMode?.ToLower() switch
+            {
+                "ctrlv" or "ctrl_v" or "ctrl-v" => Services.PasteShortcutMode.CtrlV,
+                "shiftinsert" or "shift_insert" or "shift-insert" => Services.PasteShortcutMode.ShiftInsert,
+                _ => Services.PasteShortcutMode.Auto
+            };
+        }
+
         public string GetSearchUrl(string text)
         {
             InitializeSearchEngines();

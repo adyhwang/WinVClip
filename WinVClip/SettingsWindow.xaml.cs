@@ -45,7 +45,8 @@ namespace WinVClip
                 Theme = _settingsService.Settings.Theme,
                 SelectedSearchEngineId = _settingsService.Settings.SelectedSearchEngineId,
                 CustomSearchEngineUrl = _settingsService.Settings.CustomSearchEngineUrl,
-                MaxHistoryItems = _settingsService.Settings.MaxHistoryItems
+                MaxHistoryItems = _settingsService.Settings.MaxHistoryItems,
+                IsAdministratorRun = _settingsService.Settings.IsAdministratorRun
             };
 
             _tempHotkey = _originalSettings.Hotkey;
@@ -64,7 +65,8 @@ namespace WinVClip
             DataContext = _settingsService.Settings;
             InitializeComponent();
             
-            // 设置开机启动复选框状态（从注册表读取）
+            UpdateAdminButtonState();
+
             if (StartWithWindowsCheckBox != null)
             {
                 StartWithWindowsCheckBox.IsChecked = _originalStartWithWindows;
@@ -486,7 +488,6 @@ namespace WinVClip
 
         private void RestoreSystemWinV_Click(object sender, RoutedEventArgs e)
         {
-            // 检查是否有管理员权限
             if (!IsAdministrator())
             {
                 var result = MessageBox.Show(
@@ -507,7 +508,6 @@ namespace WinVClip
                 using var key = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Clipboard");
                 key.SetValue("IsCloudAndHistoryFeatureAvailable", 1, Microsoft.Win32.RegistryValueKind.DWord);
 
-                // 重启资源管理器
                 RestartExplorer();
 
                 MessageBox.Show("系统 Win+V 已还原，资源管理器已重启。\n\n现在可以使用系统历史剪贴板功能了。", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -515,6 +515,37 @@ namespace WinVClip
             catch (Exception ex)
             {
                 MessageBox.Show($"还原系统 Win+V 失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void RequestAdmin_Click(object sender, RoutedEventArgs e)
+        {
+            if (IsAdministrator())
+            {
+                MessageBox.Show("当前已以管理员权限运行。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var result = MessageBox.Show(
+                "获取管理员权限需要重启程序。\n\n是否以管理员身份重启？",
+                "获取管理员权限",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.OK)
+            {
+                RestartAsAdministrator();
+            }
+        }
+
+        private void UpdateAdminButtonState()
+        {
+            if (RequestAdminButton == null) return;
+
+            if (IsAdministrator())
+            {
+                RequestAdminButton.Content = "已获取管理员权限";
+                RequestAdminButton.IsEnabled = false;
             }
         }
 

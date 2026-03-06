@@ -18,9 +18,13 @@ namespace WinVClip
         private static MainWindow? _mainWindow;
         private static SettingsWindow? _settingsWindow;
         private static Mutex? _mutex;
+        private static FocusService? _focusService;
+        private static WindowStateService? _windowStateService;
 
         public static DatabaseService DatabaseService => _databaseService ??= new DatabaseService(GetDatabasePath());
         public static SettingsService SettingsService => _settingsService ??= new SettingsService();
+        public static FocusService FocusService => _focusService ??= new FocusService();
+        public static WindowStateService WindowStateService => _windowStateService ??= new WindowStateService();
 
         private static string GetDatabasePath()
         {
@@ -54,14 +58,29 @@ namespace WinVClip
             base.OnStartup(e);
 
             _settingsService = SettingsService;
+
+            if (_settingsService.Settings.IsAdministratorRun && !IsAdministrator())
+            {
+                TryRestartAsAdministrator();
+                _mutex.Dispose();
+                Current.Shutdown();
+                return;
+            }
+
             _databaseService = DatabaseService;
 
             ThemeService.Instance.Initialize(_settingsService.Settings);
+
+            _focusService = FocusService;
+            _focusService.StartMonitoring();
+
+            _windowStateService = WindowStateService;
 
             _mainWindow = new MainWindow(_databaseService, _settingsService);
             _mainWindow.Show();
             
             var windowHandle = new System.Windows.Interop.WindowInteropHelper(_mainWindow).Handle;
+            _focusService.AddExcludedHwnd(windowHandle);
             _hotkeyService = new HotkeyService(windowHandle);
             var hotkeyRegistered = _hotkeyService.RegisterHotkey(_settingsService.Settings.Hotkey, () => 
             {
@@ -123,6 +142,7 @@ namespace WinVClip
             _cleanupService?.Dispose();
             _trayService?.Dispose();
             _databaseService?.Dispose();
+            _focusService?.Dispose();
             _mutex?.Dispose();
         }
 
@@ -180,6 +200,10 @@ namespace WinVClip
 
         public static ClipboardMonitor? GetClipboardMonitor() => _clipboardMonitor;
 
+        public static FocusService? GetFocusService() => _focusService;
+
+        public static WindowStateService? GetWindowStateService() => _windowStateService;
+
         public static void ToggleMainWindow()
         {
             _mainWindow?.ToggleVisibility();
@@ -207,6 +231,38 @@ namespace WinVClip
                         Current?.Shutdown();
                     });
                 };
+            }
+        }
+
+        private bool IsAdministrator()
+        {
+            try
+            {
+                var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+                var principal = new System.Security.Principal.WindowsPrincipal(identity);
+                return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void TryRestartAsAdministrator()
+        {
+            try
+            {
+                var processInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName 
+                        ?? System.Reflection.Assembly.GetExecutingAssembly().Location,
+                    UseShellExecute = true,
+                    Verb = "runas"
+                };
+                System.Diagnostics.Process.Start(processInfo);
+            }
+            catch
+            {
             }
         }
 

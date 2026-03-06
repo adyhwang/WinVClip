@@ -468,6 +468,7 @@ namespace WinVClip
             set
             {
                 _isPinned = value;
+                App.GetWindowStateService()?.SetPinned(value);
                 OnPropertyChanged();
             }
         }
@@ -846,6 +847,8 @@ namespace WinVClip
             ShowWithoutActivation();
             _isVisible = true;
             
+            App.GetWindowStateService()?.SetVisible();
+            
             SavePosition();
             
             _viewModel.LoadItems();
@@ -860,61 +863,31 @@ namespace WinVClip
             int windowWidth = (int)Width;
             int windowHeight = (int)Height;
             
-            // 优先尝试在鼠标右下角显示
-            var x = mousePos.X + 10;
-            var y = mousePos.Y + 10;
+            const int margin = 12; // 统一边距，参考 QuickClipboard
             
-            // 检查右下角是否有足够空间
-            bool canFitRight = x + windowWidth <= workingArea.Right;
-            bool canFitBottom = y + windowHeight <= workingArea.Bottom;
+            // 默认位置：鼠标右下方
+            int x = mousePos.X + margin;
+            int y = mousePos.Y + margin;
             
-            if (canFitRight && canFitBottom)
+            // 计算工作区边界
+            int workRight = workingArea.Left + workingArea.Width;
+            int workBottom = workingArea.Top + workingArea.Height;
+            
+            // 如果右边超出，移到左边
+            if (x + windowWidth > workRight)
             {
-                // 右下角有足够空间，直接使用
-                return new System.Drawing.Point(x, y);
+                x = mousePos.X - windowWidth - margin;
             }
             
-            // 右下角空间不足，尝试其他位置
-            if (canFitRight && !canFitBottom)
+            // 如果下边超出，移到上边
+            if (y + windowHeight > workBottom)
             {
-                // 右边有空间，但下面没有，尝试右上角
-                y = mousePos.Y - windowHeight - 10;
-                if (y >= workingArea.Top)
-                {
-                    return new System.Drawing.Point(x, y);
-                }
-                
-                // 右上角也没有空间，调整到屏幕底部
-                y = workingArea.Bottom - windowHeight;
-                return new System.Drawing.Point(x, y);
+                y = mousePos.Y - windowHeight - margin;
             }
             
-            if (!canFitRight && canFitBottom)
-            {
-                // 下面有空间，但右边没有，尝试左下角
-                x = mousePos.X - windowWidth - 10;
-                if (x >= workingArea.Left)
-                {
-                    return new System.Drawing.Point(x, y);
-                }
-                
-                // 左下角也没有空间，调整到屏幕右边
-                x = workingArea.Right - windowWidth;
-                return new System.Drawing.Point(x, y);
-            }
-            
-            // 右下角、右上角、左下角都没有足够空间，尝试左上角
-            x = mousePos.X - windowWidth - 10;
-            y = mousePos.Y - windowHeight - 10;
-            
-            if (x >= workingArea.Left && y >= workingArea.Top)
-            {
-                return new System.Drawing.Point(x, y);
-            }
-            
-            // 所有角落都没有足够空间，调整到屏幕可见区域
-            x = Math.Max(workingArea.Left, Math.Min(x, workingArea.Right - windowWidth));
-            y = Math.Max(workingArea.Top, Math.Min(y, workingArea.Bottom - windowHeight));
+            // 确保窗口在工作区内
+            x = Math.Max(workingArea.Left, Math.Min(x, workRight - windowWidth));
+            y = Math.Max(workingArea.Top, Math.Min(y, workBottom - windowHeight));
             
             return new System.Drawing.Point(x, y);
         }
@@ -1322,6 +1295,7 @@ namespace WinVClip
         {
             HideAndSave();
             _viewModel.IsPinned = false;
+            App.GetWindowStateService()?.SetHidden();
         }
 
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -1764,7 +1738,19 @@ namespace WinVClip
                 _isPasting = true;
 
                 SetClipboardContent(item);
-                App.GetClipboardMonitor()?.IgnoreNextChange(1000);
+
+                var clipboardMonitor = App.GetClipboardMonitor();
+                clipboardMonitor?.MarkPasteOperation();
+                clipboardMonitor?.IgnoreNextChange(1000);
+
+                if (item.Type == ClipboardType.Text)
+                {
+                    clipboardMonitor?.SetLastPasteHashText(item.Content ?? "");
+                }
+                else if (item.Type == ClipboardType.FileList && item.FilePaths != null)
+                {
+                    clipboardMonitor?.SetLastPasteHashFiles(item.FilePaths);
+                }
 
                 if (App.SettingsService.Settings.MoveToTopAfterPaste && !item.GroupId.HasValue)
                 {
@@ -1772,9 +1758,11 @@ namespace WinVClip
                     _viewModel.LoadItems();
                 }
 
-                var activeWindowHandle = GetForegroundWindow();
+                var focusService = App.GetFocusService();
+                var targetHwnd = focusService?.LastFocusHwnd ?? IntPtr.Zero;
 
-                if (!_viewModel.IsPinned)
+                var windowStateService = App.GetWindowStateService();
+                if (windowStateService != null && !windowStateService.IsPinned)
                 {
                     HideWindow();
                     Thread.Sleep(50);
@@ -1784,7 +1772,7 @@ namespace WinVClip
                     Thread.Sleep(30);
                 }
 
-                ActivateAndPaste(activeWindowHandle);
+                ActivateAndPaste(targetHwnd);
             }
             catch (Exception ex)
             {
@@ -1803,7 +1791,8 @@ namespace WinVClip
                 SetForegroundWindow(windowHandle);
                 Thread.Sleep(20);
             }
-            SimulatePaste();
+            var pasteMode = App.SettingsService?.GetPasteShortcutMode() ?? Services.PasteShortcutMode.Auto;
+            KeyboardService.SimulatePaste(pasteMode);
         }
 
         [DllImport("user32.dll")]
@@ -1812,14 +1801,6 @@ namespace WinVClip
         private const byte VK_CONTROL = 0x11;
         private const byte VK_V = 0x56;
         private const uint KEYEVENTF_KEYUP = 0x0002;
-
-        private void SimulatePaste()
-        {
-            keybd_event(VK_CONTROL, 0, 0, 0);
-            keybd_event(VK_V, 0, 0, 0);
-            keybd_event(VK_V, 0, KEYEVENTF_KEYUP, 0);
-            keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
-        }
 
         private void CopyToClipboard(ClipboardItem item)
         {
