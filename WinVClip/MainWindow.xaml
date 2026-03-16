@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WinVClip"
         mc:Ignorable="d"
-        Title="WinVClip" MinHeight="500" Height="600" MinWidth="350" Width="350"
+        Title="WinVClip" MinHeight="600" Height="600" MinWidth="350" Width="350"
     WindowStyle="None" AllowsTransparency="True" Background="Transparent"
     ShowInTaskbar="False" Topmost="True" 
     PreviewKeyDown="Window_PreviewKeyDown"
@@ -75,7 +75,7 @@
                 <RowDefinition Height="50"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
-                <RowDefinition Height="40"/>
+                <RowDefinition Height="20"/>
             </Grid.RowDefinitions>
 
             <Grid Grid.Row="0">
@@ -413,7 +413,7 @@
 
             <Grid Grid.Row="3">
                 <Button x:Name="ClearHistoryButton"
-                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                        HorizontalAlignment="Left" VerticalAlignment="Bottom"
                         Style="{DynamicResource LinkButtonStyle}"
                         Content="清空历史" ToolTip="清除记录"
                         Click="ClearHistoryButton_Click"
@@ -430,7 +430,7 @@
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>
-                <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                <TextBlock HorizontalAlignment="Right" VerticalAlignment="Bottom"
                            Text="{Binding Hotkey}"
                            Foreground="{DynamicResource SecondaryTextForeground}"
                            FontSize="10"/>

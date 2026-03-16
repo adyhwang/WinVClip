@@ -9,7 +9,10 @@
         Style="{DynamicResource SettingsWindowStyle}"
         MouseDown="Window_MouseDown">
     
-    <Border Background="{DynamicResource WindowBackground}" CornerRadius="8">
+    <Border Background="{DynamicResource WindowBackground}" 
+            BorderBrush="{DynamicResource BorderBrush}" 
+            BorderThickness="1" 
+            CornerRadius="8">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -302,6 +305,7 @@
                                                        FontSize="13" Margin="0,0,0,8"/>
                                             <ComboBox SelectedValue="{Binding RetentionDays}" SelectedValuePath="Tag" 
                                                       Style="{DynamicResource ModernComboBoxStyle}" Width="200" HorizontalAlignment="Left">
+                                                <ComboBoxItem Content="3天" Tag="3"/>
                                                 <ComboBoxItem Content="7天" Tag="7"/>
                                                 <ComboBoxItem Content="30天" Tag="30"/>
                                                 <ComboBoxItem Content="90天" Tag="90"/>
@@ -315,7 +319,7 @@
                                             <TextBlock Text="最大记录数" Foreground="{DynamicResource SecondaryTextForeground}" 
                                                        FontSize="13" Margin="0,0,0,8"/>
                                             <ComboBox SelectedValue="{Binding MaxHistoryItems}" SelectedValuePath="Tag" 
-                                                      Style="{DynamicResource ModernComboBoxStyle}" Width="200" HorizontalAlignment="Left">
+                                                      Style="{DynamicResource ModernComboBoxStyle}"  Width="200" HorizontalAlignment="Left">
                                                 <ComboBoxItem Content="50条" Tag="50"/>
                                                 <ComboBoxItem Content="100条" Tag="100"/>
                                                 <ComboBoxItem Content="200条" Tag="200"/>
