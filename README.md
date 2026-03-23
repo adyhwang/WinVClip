@@ -1,119 +1,309 @@
 # WinVClip
 
-一款功能强大、轻量级的 Windows 剪贴板管理工具，帮助你高效管理剪贴板历史记录。
-<img width="350" height="600" alt="1" src="https://github.com/user-attachments/assets/2765372b-064d-4c72-8169-239d3b979ae3" />
-<img width="197" height="164" alt="2" src="https://github.com/user-attachments/assets/ef7bd558-4887-4497-a8f3-503d843ea7db" />
-<img width="750" height="620" alt="3" src="https://github.com/user-attachments/assets/ccbc0794-56ea-4308-ba49-69b3a396300b" />
+<div align="center">
 
+![Version](https://img.shields.io/badge/version-1.8-blue.svg)
+![.NET Framework](https://img.shields.io/badge/.NET%20Framework-4.8-purple.svg)
+![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-## 功能特性
+**一款轻量级、功能强大的 Windows 剪贴板管理工具**
 
-- **多类型支持** - 支持文本、图片、文件列表和超链接的剪贴板内容捕获
-- **历史记录** - 自动保存剪贴板历史，方便随时回溯和复用
-- **快捷键操作** - 自定义全局快捷键，快速唤出主界面
-- **智能去重** - 自动过滤重复内容，避免历史记录冗余
-- **分组管理** - 将剪贴板项分组整理，提高查找效率
-- **搜索功能** - 内置搜索引擎，快速搜索剪贴板内容
-- **主题切换** - 支持亮色/暗色主题，跟随系统自动切换
-- **自动清理** - 可设置自动清理过期历史记录
-- **系统托盘** - 最小化到系统托盘，不占用任务栏空间
-- **数据持久化** - 使用 SQLite 数据库存储，数据安全可靠
+[功能特性](#功能特性) • [安装使用](#安装使用) • [使用指南](#使用指南) • [技术架构](#技术架构)
 
-## 系统要求
+</div>
 
-- Windows 7 或更高版本
-- .NET Framework 4.8 或更高版本
+---
 
-## 安装使用
+## 📖 简介
 
-### 从源码编译
+WinVClip 是一款使用 AI 辅助开发的 Windows 剪贴板管理工具，旨在帮助用户高效管理剪贴板历史记录。它能够自动捕获和存储剪贴板内容，支持多种数据类型，并提供便捷的搜索、分组和管理功能。
 
-1. 克隆仓库：
+<img width="350" height="600" alt="主界面" src="https://github.com/user-attachments/assets/2765372b-064d-4c72-8169-239d3b979ae3" />
+<img width="197" height="164" alt="托盘菜单" src="https://github.com/user-attachments/assets/ef7bd558-4887-4497-a8f3-503d843ea7db" />
+<img width="750" height="620" alt="设置窗口" src="https://github.com/user-attachments/assets/ccbc0794-56ea-4308-ba49-69b3a396300b" />
+
+---
+
+## ✨ 功能特性
+
+### 核心功能
+
+| 功能 | 描述 |
+|------|------|
+| 🔍 **多类型支持** | 支持文本、图片、文件列表、富文本（RTF/HTML）等多种剪贴板内容类型 |
+| 📋 **历史记录** | 自动保存剪贴板历史，支持无限条目存储，随时回溯和复用 |
+| ⌨️ **快捷键操作** | 全局快捷键快速唤出主界面，默认 `Ctrl+Shift+V`，支持自定义 |
+| 🎯 **智能去重** | 自动检测并过滤重复内容，避免历史记录冗余 |
+| 📁 **分组管理** | 将剪贴板项分组整理，支持创建、编辑、删除分组 |
+| 🔎 **搜索功能** | 内置搜索引擎，快速检索剪贴板内容 |
+| 🎨 **主题切换** | 支持亮色/暗色主题，可跟随系统自动切换 |
+
+### 高级功能
+
+| 功能 | 描述 |
+|------|------|
+| 🧹 **自动清理** | 可设置自动清理过期历史记录，支持自定义保留天数和条目上限 |
+| 💾 **数据备份** | 自动备份数据库，支持自定义备份频率和保留数量 |
+| 📍 **系统托盘** | 最小化到系统托盘，不占用任务栏空间 |
+| 🔒 **数据持久化** | 使用 SQLite 数据库存储，数据安全可靠 |
+| 🖥️ **智能粘贴** | 自动识别终端环境，智能选择 `Ctrl+V` 或 `Shift+Insert` |
+| 📌 **窗口置顶** | 支持窗口置顶功能，方便对照操作 |
+| 🏷️ **类型筛选** | 按内容类型（文本/图片/文件/富文本）筛选历史记录 |
+| 🔗 **快捷操作** | 右键菜单支持快速搜索、打开文件、访问链接等操作 |
+
+---
+
+## 🖥️ 系统要求
+
+- **操作系统**: Windows 7 SP1 或更高版本
+- **运行时**: .NET Framework 4.8 或更高版本
+
+---
+
+## 📥 安装使用
+
+### 方式一：直接运行
+
+1. 前往 [Releases](https://github.com/adyhwang/WinVClip/releases) 页面下载最新版本
+2. 解压下载的压缩包
+3. 双击运行 `WinVClip.exe`
+
+### 方式二：从源码编译
+
 ```bash
-git clone https://github.com/adyhwang/WinVClip/
+# 克隆仓库
+git clone https://github.com/adyhwang/WinVClip.git
 cd WinVClip
 ```
 
-2. 使用 Visual Studio 打开 `WinVClip.sln` 解决方案
+使用 Visual Studio 编译：
 
-3. 选择 Release 配置，点击生成解决方案
+1. 打开 `WinVClip.sln` 解决方案
+2. 选择 `Release` 配置
+3. 点击 `生成` → `生成解决方案`
+4. 编译输出位于 `WinVClip\bin\Release\net48\` 目录
 
-4. 在 `WinVClip\bin\Release\net48\` 目录下找到编译好的 `WinVClip.exe`
+---
 
-### 直接运行
-
-下载最新的 Release 版本，解压后直接运行 `WinVClip.exe` 即可。
-
-## 使用说明
+## 📚 使用指南
 
 ### 快捷键
 
-- 默认快捷键：`Ctrl + Shift + V`
-- 可在设置中自定义快捷键
+| 快捷键 | 功能 |
+|--------|------|
+| `Ctrl+Shift+V` | 显示/隐藏主界面（默认，可自定义） |
+| `Esc` | 隐藏主界面 |
+| `Enter` | 粘贴选中项并关闭窗口 |
+| `Right Click` | 打开右键菜单 |
 
 ### 基本操作
 
-- **复制内容** - 正常使用 Ctrl+C 复制内容，WinVClip 会自动捕获
-- **查看历史** - 按下快捷键或点击托盘图标打开主界面
-- **粘贴内容** - 单击历史记录项即可粘贴到当前焦点位置
-- **删除记录** - 右键记录后选择菜单删除
-- **批量操作** - 历史记录右键“多选模式”，进入批量操作，单击记录选择记录，右键菜单选择批量分组和批量删除
-- **搜索内容** - 在搜索框输入关键词快速查找
+#### 复制与捕获
+- 正常使用 `Ctrl+C` 复制内容，WinVClip 会自动捕获
+- 支持捕获文本、图片、文件、富文本等多种类型
+
+#### 查看与粘贴
+- 按下快捷键或点击托盘图标打开主界面
+- 单击历史记录项即可粘贴到当前焦点位置
+
+#### 编辑与管理
+- **编辑内容**: 右键菜单选择"编辑"
+- **删除记录**: 右键菜单选择"删除"
+- **批量操作**: 右键菜单选择"多选模式"，支持批量删除和分组
+
+#### 搜索与筛选
+- 在搜索框输入关键词快速查找
+- 点击筛选按钮按类型或分组过滤
 
 ### 分组管理
 
-1. 点击"分组管理"按钮
-2. 创建新分组或编辑现有分组
-3. 将剪贴板项拖拽到对应分组
+1. 点击主界面右键菜单 → "添加到分组"
+2. 选择已有分组或创建新分组
+3. 通过分组筛选快速定位内容
+4. 在设置 → 分组管理中编辑或删除分组
 
 ### 设置选项
 
-- **监控开关** - 启用/禁用剪贴板监控
-- **捕获设置** - 选择要捕获的内容类型（文本/链接/图片/文件）
-- **去重设置** - 开启/关闭重复内容过滤
-- **清理设置** - 设置自动清理天数和历史记录上限
-- **主题设置** - 选择亮色/暗色/自动主题
-- **搜索引擎** - 选择默认搜索引擎或添加自定义搜索引擎
+#### 常规设置
+- **快捷键**: 自定义全局快捷键
+- **主题**: 亮色/暗色/跟随系统
+- **粘贴方式**: 自动选择、Ctrl+V、Shift+Insert
 
-## 技术栈
+#### 捕获设置
+- **监控开关**: 启用/禁用剪贴板监控
+- **捕获类型**: 选择要捕获的内容类型
 
-- **开发框架** - WPF (.NET Framework 4.8)
-- **数据库** - SQLite (Microsoft.Data.Sqlite)
-- **UI 主题** - 自定义 XAML 主题系统
-- **快捷键** - Windows API (RegisterHotKey)
-- **系统托盘** - Windows API (Shell_NotifyIcon)
+#### 历史记录
+- **去重设置**: 开启/关闭重复内容过滤
+- **自动清理**: 设置保留天数和最大条目数
 
-## 项目结构
+#### 存储与备份
+- **数据库位置**: 查看或更改数据库路径
+- **备份设置**: 设置备份频率和保留数量
+
+#### 搜索引擎
+- 选择默认搜索引擎（Bing、百度、Google 等）
+- 支持添加自定义搜索引擎
+
+---
+
+## 🏗️ 技术架构
+
+### 技术栈
+
+| 技术 | 用途 |
+|------|------|
+| **WPF** | 用户界面框架 |
+| **.NET Framework 4.8** | 运行时环境 |
+| **SQLite** | 数据持久化存储 |
+| **Windows API** | 系统级功能实现 |
+
+### 核心依赖
+
+| 包 | 版本 | 用途 |
+|-----|------|------|
+| Microsoft.Data.Sqlite | 6.0.31 | SQLite 数据库访问 |
+| System.Text.Json | 6.0.9 | JSON 序列化 |
+| System.Drawing.Common | 6.0.0 | 图像处理 |
+
+### 项目结构
 
 ```
 WinVClip/
-├── Models/              # 数据模型
-│   ├── AppSettings.cs   # 应用设置
-│   ├── ClipboardItem.cs # 剪贴板项
-│   ├── ClipboardType.cs # 剪贴板类型
-│   ├── Group.cs         # 分组
-│   └── SearchEngine.cs  # 搜索引擎
-├── Services/            # 服务层
-│   ├── BackupService.cs # 备份服务
-│   ├── CleanupService.cs # 清理服务
-│   ├── ClipboardMonitor.cs # 剪贴板监控
-│   ├── DatabaseService.cs # 数据库服务
-│   ├── HotkeyService.cs # 快捷键服务
-│   ├── SettingsService.cs # 设置服务
-│   ├── ThemeService.cs  # 主题服务
-│   └── TrayService.cs   # 托盘服务
-├── Themes/              # 主题资源
-│   ├── DarkTheme.xaml   # 暗色主题
-│   ├── LightTheme.xaml  # 亮色主题
-│   └── SharedStyles.xaml # 共享样式
-└── Windows/             # 窗口
-    ├── MainWindow.xaml # 主窗口
-    ├── SettingsWindow.xaml # 设置窗口
-    ├── EditItemWindow.xaml # 编辑窗口
-    └── GroupManageWindow.xaml # 分组管理窗口
+├── Models/                      # 数据模型层
+│   ├── AppSettings.cs          # 应用程序设置模型
+│   ├── ClipboardItem.cs        # 剪贴板条目模型
+│   ├── ClipboardType.cs        # 剪贴板类型枚举
+│   ├── Group.cs                # 分组模型
+│   └── SearchEngine.cs         # 搜索引擎模型
+│
+├── Services/                    # 服务层
+│   ├── ClipboardMonitor.cs     # 剪贴板监控服务
+│   ├── DatabaseService.cs      # 数据库操作服务
+│   ├── SettingsService.cs      # 设置管理服务
+│   ├── HotkeyService.cs        # 全局快捷键服务
+│   ├── ThemeService.cs         # 主题管理服务
+│   ├── TrayService.cs          # 系统托盘服务
+│   ├── FocusService.cs         # 窗口焦点追踪服务
+│   ├── KeyboardService.cs      # 键盘模拟服务
+│   ├── WindowStateService.cs   # 窗口状态管理
+│   ├── BackupService.cs        # 数据备份服务
+│   └── CleanupService.cs       # 自动清理服务
+│
+├── Windows/                     # 窗口层
+│   ├── MainWindow.xaml         # 主窗口
+│   ├── SettingsWindow.xaml     # 设置窗口
+│   ├── EditItemWindow.xaml     # 编辑窗口
+│   └── GroupManageWindow.xaml  # 分组管理窗口
+│
+├── Themes/                      # 主题资源
+│   ├── LightTheme.xaml         # 亮色主题
+│   ├── DarkTheme.xaml          # 暗色主题
+│   └── SharedStyles.xaml       # 共享样式
+│
+└── App.xaml.cs                  # 应用程序入口
 ```
 
+### 架构设计
 
-## 致谢
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        用户界面层                            │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
+│  │MainWindow│  │Settings  │  │EditItem  │  │GroupMgmt │    │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                        服务层                                │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │Clipboard     │  │Database      │  │Settings      │      │
+│  │Monitor       │  │Service       │  │Service       │      │
+│  └──────────────┘  └──────────────┘  └──────────────┘      │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │Hotkey        │  │Theme         │  │Tray          │      │
+│  │Service       │  │Service       │  │Service       │      │
+│  └──────────────┘  └──────────────┘  └──────────────┘      │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                        数据层                                │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │              SQLite Database                          │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐   │  │
+│  │  │ClipboardItem│  │   Groups    │  │  Settings   │   │  │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘   │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
 
-感谢Trae/GLM/Kimi/DeepSeek等等
+---
+
+## 🔧 核心实现
+
+### 剪贴板监控
+
+使用定时器轮询机制监控剪贴板变化，支持内容签名去重：
+
+```csharp
+// 每 500ms 检查剪贴板状态
+_timer = new Timer(CheckClipboard, null, 500, 500);
+```
+
+### 全局快捷键
+
+使用 Windows API `RegisterHotKey` 注册全局快捷键：
+
+```csharp
+[DllImport("user32.dll")]
+private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+```
+
+### 系统托盘
+
+使用 Windows API `Shell_NotifyIcon` 实现系统托盘功能：
+
+```csharp
+[DllImport("shell32.dll")]
+private static extern bool Shell_NotifyIcon(uint dwMessage, ref NotifyIconData data);
+```
+
+### 主题系统
+
+通过监听注册表变化实现跟随系统主题：
+
+```csharp
+// 监听注册表键值变化
+Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+```
+
+---
+
+
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
+
+---
+
+## 🙏 致谢
+
+感谢以下 AI 工具在开发过程中提供的帮助：
+
+- **Trae** 
+- **GLM** 
+- **Kimi** 
+- **DeepSeek** 
+
+---
+
+<div align="center">
+
+**如果这个项目对你有帮助，请给一个 ⭐️ Star！**
+
+Made with ❤️ by [adyhwang](https://github.com/adyhwang)
+
+</div>
