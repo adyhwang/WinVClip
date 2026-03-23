@@ -46,6 +46,7 @@ namespace WinVClip
                     ClipboardType.Text => "文本",
                     ClipboardType.Image => "图片",
                     ClipboardType.FileList => "文件",
+                    ClipboardType.RichText => "富文本",
                     _ => "未知"
                 };
             }
@@ -64,6 +65,7 @@ namespace WinVClip
                     ClipboardType.Text => new SolidColorBrush(System.Windows.Media.Color.FromRgb(107, 114, 128)),
                     ClipboardType.Image => new SolidColorBrush(System.Windows.Media.Color.FromRgb(16, 185, 129)),
                     ClipboardType.FileList => new SolidColorBrush(System.Windows.Media.Color.FromRgb(245, 158, 11)),
+                    ClipboardType.RichText => new SolidColorBrush(System.Windows.Media.Color.FromRgb(139, 92, 246)),
                     _ => new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204))
                 };
             }
@@ -112,6 +114,22 @@ namespace WinVClip
             => throw new NotImplementedException();
     }
 
+    public class IsRichTextConverter : BaseConverter
+    {
+        public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            => value is ClipboardItem item && item.Type == ClipboardType.RichText
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+    }
+
+    public class RichTextHasImageConverter : BaseConverter
+    {
+        public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            => value is ClipboardItem item && item.Type == ClipboardType.RichText && !string.IsNullOrEmpty(item.ImagePath)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+    }
+
     public class ItemTypeToVisibilityConverter : BaseConverter
     {
         public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -124,25 +142,13 @@ namespace WinVClip
     {
         public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is not ClipboardItem item || item.Type != ClipboardType.Text)
+            if (value is not ClipboardItem item)
                 return Visibility.Collapsed;
 
-            string content = item.Content?.Trim() ?? "";
-            return IsUrl(content) ? Visibility.Visible : Visibility.Collapsed;
-        }
+            if (item.Type != ClipboardType.Text && item.Type != ClipboardType.RichText)
+                return Visibility.Collapsed;
 
-        private static bool IsUrl(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text))
-                return false;
-
-            if (Uri.TryCreate(text, UriKind.Absolute, out Uri uriResult))
-                return uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps;
-
-            if (text.StartsWith("www.", StringComparison.OrdinalIgnoreCase))
-                return Uri.TryCreate("http://" + text, UriKind.Absolute, out _);
-
-            return false;
+            return Visibility.Visible;
         }
     }
 
@@ -156,7 +162,7 @@ namespace WinVClip
             if (item.Type == ClipboardType.FileList && item.FilePaths?.Count > 0)
                 return Visibility.Visible;
 
-            if (item.Type == ClipboardType.Text)
+            if (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText)
             {
                 string content = item.Content?.Trim() ?? "";
                 if (IsLocalPath(content))
@@ -174,8 +180,12 @@ namespace WinVClip
             try
             {
                 string path = TrimQuotes(text);
-                if (File.Exists(path) || Directory.Exists(path))
-                    return true;
+                
+                if (Path.IsPathRooted(path) || path.Contains(Path.DirectorySeparatorChar) || path.Contains(Path.AltDirectorySeparatorChar))
+                {
+                    if (File.Exists(path) || Directory.Exists(path))
+                        return true;
+                }
             }
             catch
             {
@@ -606,6 +616,32 @@ namespace WinVClip
             }
         }
 
+        private bool _isLoadingMore = false;
+        public bool IsLoadingMore
+        {
+            get => _isLoadingMore;
+            set
+            {
+                _isLoadingMore = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private bool _hasMoreItems = true;
+        public bool HasMoreItems
+        {
+            get => _hasMoreItems;
+            set
+            {
+                _hasMoreItems = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private int _currentOffset = 0;
+        private const int PageSize = 30;
+        private const int CacheSize = 30;
+
         public string GroupFilterName => GetGroupName(GroupFilter, string.Empty);
 
         private string GetGroupName(long? groupId, string defaultValue)
@@ -638,24 +674,37 @@ namespace WinVClip
         public async Task LoadItemsAsync()
         {
             IsLoading = true;
+            _currentOffset = 0;
+            HasMoreItems = true;
             try
             {
                 List<ClipboardItem> newItems = null;
                 await Task.Run(() =>
                 {
-                    newItems = _databaseService.GetItems(100, 0, SearchText,
+                    newItems = _databaseService.GetItems(PageSize, _currentOffset, SearchText,
                         TypeFilter, GroupFilter);
                 });
                 
                 if (newItems == null)
                     return;
 
+                _currentOffset = newItems.Count;
+                HasMoreItems = newItems.Count >= PageSize;
+
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    UpdateItemsDiff(newItems);
+                    ClipboardItems.Clear();
+                    foreach (var item in newItems)
+                    {
+                        ClipboardItems.Add(item);
+                    }
                     OnPropertyChanged(nameof(HasItems));
                     OnPropertyChanged(nameof(IsEmpty));
                 });
+            }
+            catch (Exception)
+            {
+                HasMoreItems = false;
             }
             finally
             {
@@ -663,49 +712,58 @@ namespace WinVClip
             }
         }
 
-        private void UpdateItemsDiff(List<ClipboardItem> newItems)
+        public async Task LoadMoreItemsAsync()
         {
-            var newItemIds = new HashSet<long>(newItems.Select(i => i.Id));
-            var currentItemIds = new HashSet<long>(ClipboardItems.Select(i => i.Id));
+            if (IsLoadingMore || !HasMoreItems)
+                return;
 
-            var itemsToRemove = ClipboardItems.Where(i => !newItemIds.Contains(i.Id)).ToList();
-            foreach (var item in itemsToRemove)
+            IsLoadingMore = true;
+            try
             {
-                ClipboardItems.Remove(item);
-            }
-
-            for (int i = 0; i < newItems.Count; i++)
-            {
-                var newItem = newItems[i];
-                if (i < ClipboardItems.Count)
+                List<ClipboardItem> newItems = null;
+                await Task.Run(() =>
                 {
-                    if (ClipboardItems[i].Id != newItem.Id)
-                    {
-                        var existingIndex = ClipboardItems.ToList().FindIndex(ci => ci.Id == newItem.Id);
-                        if (existingIndex >= 0)
-                        {
-                            ClipboardItems.Move(existingIndex, i);
-                        }
-                        else
-                        {
-                            ClipboardItems.Insert(i, newItem);
-                        }
-                    }
-                    else
-                    {
-                        ClipboardItems[i].GroupId = newItem.GroupId;
-                        ClipboardItems[i].GroupName = newItem.GroupName;
-                    }
-                }
-                else
+                    newItems = _databaseService.GetItems(PageSize, _currentOffset, SearchText,
+                        TypeFilter, GroupFilter);
+                });
+                
+                if (newItems == null || newItems.Count == 0)
                 {
-                    ClipboardItems.Add(newItem);
+                    HasMoreItems = false;
+                    return;
                 }
-            }
 
-            while (ClipboardItems.Count > newItems.Count)
+                _currentOffset += newItems.Count;
+                HasMoreItems = newItems.Count >= PageSize;
+
+                await Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    foreach (var item in newItems)
+                    {
+                        ClipboardItems.Add(item);
+                    }
+                });
+            }
+            catch (Exception)
             {
-                ClipboardItems.RemoveAt(ClipboardItems.Count - 1);
+                HasMoreItems = false;
+            }
+            finally
+            {
+                IsLoadingMore = false;
+            }
+        }
+
+        public void TrimCache()
+        {
+            if (ClipboardItems.Count > CacheSize)
+            {
+                while (ClipboardItems.Count > CacheSize)
+                {
+                    ClipboardItems.RemoveAt(ClipboardItems.Count - 1);
+                }
+                _currentOffset = CacheSize;
+                HasMoreItems = true;
             }
         }
 
@@ -858,6 +916,11 @@ namespace WinVClip
             
             _viewModel.LoadItems();
             ClipboardListBox.SelectedIndex = 0;
+            
+            if (MainScrollViewer != null)
+            {
+                MainScrollViewer.ScrollToVerticalOffset(0);
+            }
             
             // 设置全局鼠标钩子以检测外部点击
             SetGlobalMouseHook();
@@ -1116,7 +1179,13 @@ namespace WinVClip
             Hide();
             _isVisible = false;
             
-            // 移除全局鼠标钩子
+            _viewModel.TrimCache();
+            
+            if (MainScrollViewer != null)
+            {
+                MainScrollViewer.ScrollToVerticalOffset(0);
+            }
+            
             RemoveGlobalMouseHook();
         }
 
@@ -1362,6 +1431,11 @@ namespace WinVClip
             _viewModel.TypeFilter = (int)ClipboardType.FileList;
         }
 
+        private void FilterRichText_Click(object sender, RoutedEventArgs e)
+        {
+            _viewModel.TypeFilter = (int)ClipboardType.RichText;
+        }
+
         private void GroupComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (GroupComboBox.SelectedItem is Group group)
@@ -1398,6 +1472,9 @@ namespace WinVClip
         private ContextMenu CreateGroupMenu(UIElement placementTarget, long? currentGroupId, Action<long?> onSelect)
         {
             var menu = new ContextMenu { Style = TryFindResource("ContextMenuStyle") as Style };
+            menu.PlacementTarget = placementTarget;
+            menu.Opened += ContextMenu_Opened;
+            menu.Loaded += (s, args) => SetContextMenuTopmost(menu);
             
             // 添加分组菜单项
             AddGroupMenuItem(menu, "全部", null, currentGroupId, onSelect);
@@ -1421,7 +1498,6 @@ namespace WinVClip
             };
             menu.Items.Add(manageItem);
             
-            menu.PlacementTarget = placementTarget;
             menu.IsOpen = true;
             return menu;
         }
@@ -1449,7 +1525,26 @@ namespace WinVClip
             menu.Items.Add(item);
         }
 
+        private void MainScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            if (e.VerticalChange == 0)
+                return;
 
+            var scrollViewer = sender as ScrollViewer;
+            if (scrollViewer == null)
+                return;
+
+            if (scrollViewer.ScrollableHeight <= 0)
+                return;
+
+            var threshold = 50;
+            var distanceToBottom = scrollViewer.ScrollableHeight - scrollViewer.VerticalOffset;
+            
+            if (distanceToBottom <= threshold)
+            {
+                _ = _viewModel.LoadMoreItemsAsync();
+            }
+        }
 
         private void ClipboardListBox_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
@@ -1505,7 +1600,7 @@ namespace WinVClip
         {
             if (ClipboardListBox.SelectedItem is not ClipboardItem item)
                 return;
-            if (item.Type != ClipboardType.Text)
+            if (item.Type != ClipboardType.Text && item.Type != ClipboardType.RichText)
                 return;
 
             string content = item.Content.Trim();
@@ -1526,7 +1621,7 @@ namespace WinVClip
                 string filePath = item.FilePaths[0];
                 folderPath = File.Exists(filePath) ? Path.GetDirectoryName(filePath) : filePath;
             }
-            else if (item.Type == ClipboardType.Text)
+            else if (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText)
             {
                 string content = item.Content?.Trim();
                 if (!string.IsNullOrWhiteSpace(content))
@@ -1605,7 +1700,7 @@ namespace WinVClip
         {
             if (ClipboardListBox.SelectedItem is not ClipboardItem item)
                 return;
-            if (item.Type != ClipboardType.Text)
+            if (item.Type != ClipboardType.Text && item.Type != ClipboardType.RichText)
             {
                 MessageBox.Show("只能编辑文本类型的内容", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
@@ -1625,6 +1720,117 @@ namespace WinVClip
                 CopyToClipboard(item);
         }
 
+        private void PasteWithFormat_Click(object sender, RoutedEventArgs e)
+        {
+            if (ClipboardListBox.SelectedItem is ClipboardItem item)
+                PasteItem(item);
+        }
+
+        private void PasteAsText_Click(object sender, RoutedEventArgs e)
+        {
+            if (ClipboardListBox.SelectedItem is not ClipboardItem item)
+                return;
+
+            if (_isPasting)
+                return;
+
+            try
+            {
+                _isPasting = true;
+                Clipboard.SetText(item.Content);
+
+                var clipboardMonitor = App.GetClipboardMonitor();
+                clipboardMonitor?.MarkPasteOperation();
+                clipboardMonitor?.IgnoreNextChange(1000);
+                clipboardMonitor?.SetLastPasteHashText(item.Content ?? "");
+
+                if (App.SettingsService.Settings.MoveToTopAfterPaste && !item.GroupId.HasValue)
+                {
+                    _databaseService.UpdateItemTimestampById(item.Id);
+                    _viewModel.LoadItems();
+                }
+
+                var focusService = App.GetFocusService();
+                var targetHwnd = focusService?.LastFocusHwnd ?? IntPtr.Zero;
+
+                var windowStateService = App.GetWindowStateService();
+                if (windowStateService != null && !windowStateService.IsPinned)
+                {
+                    HideWindow();
+                    Thread.Sleep(50);
+                }
+                else
+                {
+                    Thread.Sleep(30);
+                }
+
+                ActivateAndPaste(targetHwnd);
+            }
+            finally
+            {
+                _isPasting = false;
+            }
+        }
+
+        private void PasteAsImage_Click(object sender, RoutedEventArgs e)
+        {
+            if (ClipboardListBox.SelectedItem is not ClipboardItem item)
+                return;
+
+            if (_isPasting)
+                return;
+
+            try
+            {
+                _isPasting = true;
+
+                if (string.IsNullOrEmpty(item.ImagePath))
+                    return;
+
+                string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, item.ImagePath);
+                if (!System.IO.File.Exists(fullPath))
+                    return;
+
+                var image = new BitmapImage();
+                image.BeginInit();
+                image.UriSource = new Uri(fullPath);
+                image.CacheOption = BitmapCacheOption.OnLoad;
+                image.EndInit();
+
+                Clipboard.SetImage(image);
+
+                var clipboardMonitor = App.GetClipboardMonitor();
+                clipboardMonitor?.MarkPasteOperation();
+                clipboardMonitor?.IgnoreNextChange(1000);
+
+                if (App.SettingsService.Settings.MoveToTopAfterPaste && !item.GroupId.HasValue)
+                {
+                    _databaseService.UpdateItemTimestampById(item.Id);
+                    _viewModel.LoadItems();
+                }
+
+                var focusService = App.GetFocusService();
+                var targetHwnd = focusService?.LastFocusHwnd ?? IntPtr.Zero;
+
+                var windowStateService = App.GetWindowStateService();
+                if (windowStateService != null && !windowStateService.IsPinned)
+                {
+                    HideWindow();
+                    Thread.Sleep(50);
+                }
+                else
+                {
+                    Thread.Sleep(30);
+                }
+
+                ActivateAndPaste(targetHwnd);
+            }
+            finally
+            {
+                _isPasting = false;
+            }
+        }
+
         private void GroupMenuItem_Click(object sender, RoutedEventArgs e)
         {
             if (ClipboardListBox.SelectedItem is not ClipboardItem item)
@@ -1639,6 +1845,59 @@ namespace WinVClip
             menu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
             menu.IsOpen = true;
         }
+
+        private void ContextMenu_Opened(object sender, RoutedEventArgs e)
+        {
+            if (sender is ContextMenu contextMenu)
+            {
+                contextMenu.Closed += ContextMenu_Closed;
+                
+                if (_viewModel.IsPinned)
+                {
+                    Topmost = false;
+                }
+                
+                EnsureContextMenuTopmost(contextMenu);
+            }
+        }
+        
+        private void ContextMenu_Closed(object sender, RoutedEventArgs e)
+        {
+            if (_viewModel.IsPinned)
+            {
+                Topmost = true;
+            }
+        }
+        
+        private async void EnsureContextMenuTopmost(ContextMenu contextMenu)
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                SetContextMenuTopmost(contextMenu);
+                await System.Threading.Tasks.Task.Delay(10);
+            }
+        }
+        
+        private void SetContextMenuTopmost(ContextMenu contextMenu)
+        {
+            try
+            {
+                var hwndSource = PresentationSource.FromVisual(contextMenu) as HwndSource;
+                if (hwndSource != null)
+                {
+                    var hwnd = hwndSource.Handle;
+                    SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private const int HWND_TOPMOST = -1;
+
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowPos(IntPtr hWnd, int hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
         private void DeleteMenuItem_Click(object sender, RoutedEventArgs e)
         {
@@ -1680,6 +1939,9 @@ namespace WinVClip
             {
                 case ClipboardType.Text:
                     SetClipboardData(dataObject, d => d.SetText(item.Content), () => Clipboard.SetText(item.Content));
+                    break;
+                case ClipboardType.RichText:
+                    SetRichTextToClipboard(item, dataObject);
                     break;
                 case ClipboardType.Image:
                     SetImageToClipboard(item, dataObject);
@@ -1733,6 +1995,79 @@ namespace WinVClip
             }
         }
 
+        private static void SetRichTextToClipboard(ClipboardItem item, DataObject dataObject)
+        {
+            if (dataObject != null)
+            {
+                dataObject.SetText(item.Content, TextDataFormat.Text);
+                dataObject.SetText(item.Content, TextDataFormat.UnicodeText);
+                
+                if (item.RichFormat == "HTML" && !string.IsNullOrEmpty(item.RichContent))
+                {
+                    dataObject.SetText(item.RichContent, TextDataFormat.Html);
+                }
+                else if (item.RichFormat == "RTF" && !string.IsNullOrEmpty(item.RichContent))
+                {
+                    dataObject.SetText(item.RichContent, TextDataFormat.Rtf);
+                }
+
+                if (!string.IsNullOrEmpty(item.CsvContent))
+                {
+                    dataObject.SetText(item.CsvContent, TextDataFormat.CommaSeparatedValue);
+                }
+
+                if (!string.IsNullOrEmpty(item.ImagePath))
+                {
+                    string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, item.ImagePath);
+                    if (System.IO.File.Exists(fullPath))
+                    {
+                        var image = new BitmapImage();
+                        image.BeginInit();
+                        image.UriSource = new Uri(fullPath);
+                        image.CacheOption = BitmapCacheOption.OnLoad;
+                        image.EndInit();
+                        dataObject.SetImage(image);
+                    }
+                }
+            }
+            else
+            {
+                var richDataObject = new DataObject();
+                richDataObject.SetText(item.Content, TextDataFormat.Text);
+                richDataObject.SetText(item.Content, TextDataFormat.UnicodeText);
+                
+                if (item.RichFormat == "HTML" && !string.IsNullOrEmpty(item.RichContent))
+                {
+                    richDataObject.SetText(item.RichContent, TextDataFormat.Html);
+                }
+                else if (item.RichFormat == "RTF" && !string.IsNullOrEmpty(item.RichContent))
+                {
+                    richDataObject.SetText(item.RichContent, TextDataFormat.Rtf);
+                }
+
+                if (!string.IsNullOrEmpty(item.CsvContent))
+                {
+                    richDataObject.SetText(item.CsvContent, TextDataFormat.CommaSeparatedValue);
+                }
+
+                if (!string.IsNullOrEmpty(item.ImagePath))
+                {
+                    string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, item.ImagePath);
+                    if (System.IO.File.Exists(fullPath))
+                    {
+                        var image = new BitmapImage();
+                        image.BeginInit();
+                        image.UriSource = new Uri(fullPath);
+                        image.CacheOption = BitmapCacheOption.OnLoad;
+                        image.EndInit();
+                        richDataObject.SetImage(image);
+                    }
+                }
+                
+                Clipboard.SetDataObject(richDataObject);
+            }
+        }
+
         private void PasteItem(ClipboardItem item)
         {
             if (_isPasting)
@@ -1749,6 +2084,10 @@ namespace WinVClip
                 clipboardMonitor?.IgnoreNextChange(1000);
 
                 if (item.Type == ClipboardType.Text)
+                {
+                    clipboardMonitor?.SetLastPasteHashText(item.Content ?? "");
+                }
+                else if (item.Type == ClipboardType.RichText)
                 {
                     clipboardMonitor?.SetLastPasteHashText(item.Content ?? "");
                 }

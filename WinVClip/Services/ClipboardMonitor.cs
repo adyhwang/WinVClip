@@ -191,45 +191,25 @@ namespace WinVClip.Services
             bool hasText = false;
             bool hasImage = false;
             bool hasFileDrop = false;
+            bool hasRichText = false;
 
             try
             {
                 hasText = System.Windows.Clipboard.ContainsText();
                 hasImage = System.Windows.Clipboard.ContainsImage();
                 hasFileDrop = System.Windows.Clipboard.ContainsFileDropList();
+                
+                var dataObject = System.Windows.Clipboard.GetDataObject();
+                hasRichText = dataObject.GetDataPresent(System.Windows.DataFormats.Html) || 
+                              dataObject.GetDataPresent(System.Windows.DataFormats.Rtf);
             }
             catch
             {
                 return;
             }
 
-            if (!hasText && !hasImage && !hasFileDrop)
+            if (!hasText && !hasImage && !hasFileDrop && !hasRichText)
                 return;
-
-            if (hasText && _settingsService.Settings.CaptureImages)
-            {
-                var text = System.Windows.Clipboard.GetText();
-                if (ShouldProcessText(text))
-                {
-                    var item = new ClipboardItem
-                    {
-                        Type = ClipboardType.Text,
-                        Content = text,
-                        PreviewText = text,
-                        CreatedAt = DateTime.Now
-                    };
-                    SaveItem(item);
-                }
-            }
-
-            if (hasImage && _settingsService.Settings.CaptureImages)
-            {
-                var image = GetClipboardImage();
-                if (image != null)
-                {
-                    ProcessImageClipboard(image);
-                }
-            }
 
             if (hasFileDrop && _settingsService.Settings.CaptureFiles)
             {
@@ -267,7 +247,106 @@ namespace WinVClip.Services
                             
                             SaveItem(item);
                         }
+                        return;
                     }
+                }
+            }
+
+            if (hasRichText && hasText && _settingsService.Settings.CaptureImages)
+            {
+                var dataObject = System.Windows.Clipboard.GetDataObject();
+                string richContent = null;
+                string richFormat = null;
+                string csvContent = null;
+
+                if (dataObject.GetDataPresent(System.Windows.DataFormats.Html))
+                {
+                    richContent = dataObject.GetData(System.Windows.DataFormats.Html) as string;
+                    richFormat = "HTML";
+                }
+                else if (dataObject.GetDataPresent(System.Windows.DataFormats.Rtf))
+                {
+                    richContent = dataObject.GetData(System.Windows.DataFormats.Rtf) as string;
+                    richFormat = "RTF";
+                }
+
+                if (dataObject.GetDataPresent(System.Windows.DataFormats.CommaSeparatedValue))
+                {
+                    csvContent = dataObject.GetData(System.Windows.DataFormats.CommaSeparatedValue) as string;
+                }
+
+                var text = System.Windows.Clipboard.GetText();
+                if (!string.IsNullOrWhiteSpace(text) && !string.IsNullOrWhiteSpace(richContent))
+                {
+                    if (ShouldProcessRichText(text, richContent, richFormat))
+                    {
+                        string imagePath = null;
+                        string imageHash = null;
+
+                        if (hasImage)
+                        {
+                            var image = GetClipboardImage();
+                            if (image != null)
+                            {
+                                var imageData = ImageToBytes(image);
+                                if (imageData.Length > 0)
+                                {
+                                    imageHash = ComputeHash(imageData);
+                                    
+                                    string imagesFolder = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "images");
+                                    System.IO.Directory.CreateDirectory(imagesFolder);
+                                    
+                                    string timestamp = DateTime.Now.ToString("yyyyMMddHHmmssfff");
+                                    string fileName = $"{timestamp}_{imageHash.Substring(0, 8)}.png";
+                                    imagePath = System.IO.Path.Combine("images", fileName);
+                                    string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, imagePath);
+                                    
+                                    System.IO.File.WriteAllBytes(fullPath, imageData);
+                                }
+                            }
+                        }
+
+                        var item = new ClipboardItem
+                        {
+                            Type = ClipboardType.RichText,
+                            Content = text,
+                            RichContent = richContent,
+                            RichFormat = richFormat,
+                            CsvContent = csvContent,
+                            ImagePath = imagePath,
+                            ImageHash = imageHash,
+                            PreviewText = text.Length > 100 ? text.Substring(0, 100) : text,
+                            CreatedAt = DateTime.Now
+                        };
+                        SaveItem(item);
+                    }
+                    return;
+                }
+            }
+
+            if (hasImage && _settingsService.Settings.CaptureImages)
+            {
+                var image = GetClipboardImage();
+                if (image != null)
+                {
+                    ProcessImageClipboard(image);
+                }
+                return;
+            }
+
+            if (hasText && _settingsService.Settings.CaptureImages)
+            {
+                var text = System.Windows.Clipboard.GetText();
+                if (ShouldProcessText(text))
+                {
+                    var item = new ClipboardItem
+                    {
+                        Type = ClipboardType.Text,
+                        Content = text,
+                        PreviewText = text,
+                        CreatedAt = DateTime.Now
+                    };
+                    SaveItem(item);
                 }
             }
         }
@@ -291,6 +370,28 @@ namespace WinVClip.Services
             }
 
             _lastContentSignatures[ClipboardType.Text] = signature;
+            return true;
+        }
+
+        private bool ShouldProcessRichText(string text, string richContent, string richFormat)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+
+            var signature = ComputeSignature(ClipboardType.RichText, text + richContent);
+            
+            if (_lastContentSignatures.TryGetValue(ClipboardType.RichText, out var lastSig) && signature == lastSig)
+                return false;
+
+            if (_settingsService.Settings.RemoveDuplicates && _databaseService.RichTextExistsInDatabase(text, richContent))
+            {
+                _databaseService.UpdateDuplicateRichTextTimestamp(text, richContent);
+                _lastContentSignatures[ClipboardType.RichText] = signature;
+                OnDuplicateUpdated?.Invoke();
+                return false;
+            }
+
+            _lastContentSignatures[ClipboardType.RichText] = signature;
             return true;
         }
 

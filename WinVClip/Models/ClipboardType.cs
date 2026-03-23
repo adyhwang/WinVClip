@@ -4,6 +4,7 @@ namespace WinVClip.Models
     {
         Text,
         Image,
-        FileList
+        FileList,
+        RichText
     }
 }

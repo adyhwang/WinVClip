@@ -177,6 +177,11 @@
                             PreviewMouseDown="Button_PreviewMouseDown"
                             Style="{StaticResource IconButtonStyle}"
                             Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=2}"/>
+                    <Button Width="28" Height="28" Margin="2,0" Content="📝" ToolTip="富文本"
+                            Click="FilterRichText_Click"
+                            PreviewMouseDown="Button_PreviewMouseDown"
+                            Style="{StaticResource IconButtonStyle}"
+                            Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=3}"/>
                 </StackPanel>
                 
                     
@@ -204,34 +209,45 @@
                               HorizontalScrollBarVisibility="Disabled"
                               Margin="0,0,-8,0"
                               PanningMode="VerticalOnly"
-                              CanContentScroll="True">
+                              ScrollChanged="MainScrollViewer_ScrollChanged">
                     <ScrollViewer.Resources>
                         <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBarStyle}"/>
                     </ScrollViewer.Resources>
 
-                    <ListBox x:Name="ClipboardListBox"
-                             Background="Transparent" BorderThickness="0"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                             ScrollViewer.CanContentScroll="True"
-                             VirtualizingPanel.IsVirtualizing="True"
-                             VirtualizingPanel.VirtualizationMode="Recycling"
-                             VirtualizingPanel.ScrollUnit="Item"
-                             VirtualizingPanel.CacheLength="5,5"
-                             VirtualizingPanel.CacheLengthUnit="Item"
-                             SelectionMode="Single"
-                             SelectedIndex="0"
-                             ItemContainerStyle="{DynamicResource ClipboardItemContainerStyle}"
-                             ItemsSource="{Binding ClipboardItems}"
-                             IsSynchronizedWithCurrentItem="False"
+                    <StackPanel>
+                        <ListBox x:Name="ClipboardListBox"
+                                 Background="Transparent" BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                 VirtualizingPanel.IsVirtualizing="False"
+                                 SelectionMode="Single"
+                                 SelectedIndex="0"
+                                 ItemContainerStyle="{DynamicResource ClipboardItemContainerStyle}"
+                                 ItemsSource="{Binding ClipboardItems}"
+                                 IsSynchronizedWithCurrentItem="False"
 
-                             PreviewMouseLeftButtonUp="ClipboardListBox_PreviewMouseLeftButtonUp"
-                             PreviewMouseWheel="ClipboardListBox_PreviewMouseWheel"
-                             KeyDown="ClipboardListBox_KeyDown"
-                             AllowDrop="True">
+                                 PreviewMouseLeftButtonUp="ClipboardListBox_PreviewMouseLeftButtonUp"
+                                 PreviewMouseWheel="ClipboardListBox_PreviewMouseWheel"
+                                 KeyDown="ClipboardListBox_KeyDown"
+                                 AllowDrop="True">
 
                         <ListBox.ContextMenu>
-                            <ContextMenu Style="{DynamicResource ContextMenuStyle}">
+                            <ContextMenu Style="{DynamicResource ContextMenuStyle}" Opened="ContextMenu_Opened">
+                                <MenuItem Header="带格式粘贴" Icon="📋" Click="PasteWithFormat_Click"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding ., Converter={local:IsRichTextConverter}}"
+                                          DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <MenuItem Header="纯文本粘贴" Icon="📝" Click="PasteAsText_Click"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding ., Converter={local:IsRichTextConverter}}"
+                                          DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <MenuItem Header="图片粘贴" Icon="🖼️" Click="PasteAsImage_Click"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding ., Converter={local:RichTextHasImageConverter}}"
+                                          DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <Separator Style="{DynamicResource SeparatorStyle}"
+                                          Visibility="{Binding ., Converter={local:IsRichTextConverter}}"
+                                          DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                 <MenuItem Header="在浏览器打开" Icon="🌐" Click="OpenInBrowserMenuItem_Click"
                                           Style="{DynamicResource MenuItemStyle}"
                                           Visibility="{Binding ., Converter={local:ItemTypeToUrlVisibilityConverter}}"
@@ -330,6 +346,14 @@
                                                                Foreground="{DynamicResource TypeBadgeForeground}"
                                                                FontSize="10"/>
                                                 </Border>
+                                                <Border Background="#10B981"
+                                                        Padding="4,1,4,1" CornerRadius="3"
+                                                        Margin="0,0,4,0"
+                                                        Visibility="{Binding ShowImageBadge, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                    <TextBlock Text="图片"
+                                                               Foreground="White"
+                                                               FontSize="10"/>
+                                                </Border>
                                                 <Border Background="{DynamicResource GroupBadgeBackground}"
                                                         Padding="4,1,4,1" CornerRadius="3"
                                                         Visibility="{Binding GroupName, Converter={StaticResource StringToVisibilityConverter}}">
@@ -362,6 +386,35 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
+                    
+                    <StackPanel Orientation="Horizontal" 
+                                HorizontalAlignment="Center" 
+                                Margin="0,8,0,8"
+                                Visibility="{Binding IsLoadingMore, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="⏳" FontSize="14" 
+                                   VerticalAlignment="Center"
+                                   RenderTransformOrigin="0.5,0.5">
+                            <TextBlock.RenderTransform>
+                                <RotateTransform CenterX="7" CenterY="7"/>
+                            </TextBlock.RenderTransform>
+                            <TextBlock.Triggers>
+                                <EventTrigger RoutedEvent="Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard RepeatBehavior="Forever">
+                                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Angle"
+                                                             From="0" To="360" Duration="0:0:1"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </TextBlock.Triggers>
+                        </TextBlock>
+                        <TextBlock Text="加载更多..." 
+                                   Foreground="{DynamicResource SecondaryTextForeground}"
+                                   FontSize="12" 
+                                   Margin="8,0,0,0"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
                 </ScrollViewer>
 
                 <!-- 空状态提示 -->
@@ -420,7 +473,8 @@
                         PreviewMouseDown="Button_PreviewMouseDown">
                     <Button.ContextMenu>
                         <ContextMenu x:Name="ClearHistoryContextMenu"
-                                     Style="{DynamicResource ContextMenuStyle}">
+                                     Style="{DynamicResource ContextMenuStyle}"
+                                     Opened="ContextMenu_Opened">
                             <MenuItem Header="清空所有历史记录" 
                                       Style="{DynamicResource MenuItemStyle}"
                                       Click="ClearAllHistoryMenuItem_Click"/>

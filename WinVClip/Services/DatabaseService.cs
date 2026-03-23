@@ -52,6 +52,8 @@ namespace WinVClip.Services
             command.ExecuteNonQuery();
 
             EnsureGroupIdColumn();
+            EnsureRichTextColumns();
+            EnsureCsvContentColumn();
             EnsureDefaultGroup();
         }
 
@@ -90,6 +92,63 @@ namespace WinVClip.Services
                 alterCommand.CommandText = @"
                     ALTER TABLE ClipboardItems ADD COLUMN GroupId INTEGER DEFAULT NULL;
                 ";
+                alterCommand.ExecuteNonQuery();
+            }
+        }
+
+        private void EnsureRichTextColumns()
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = @"PRAGMA table_info(ClipboardItems);";
+
+            bool hasRichContentColumn = false;
+            bool hasRichFormatColumn = false;
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                string? columnName = reader["name"]?.ToString();
+                if (columnName == "RichContent")
+                    hasRichContentColumn = true;
+                if (columnName == "RichFormat")
+                    hasRichFormatColumn = true;
+            }
+
+            if (!hasRichContentColumn)
+            {
+                using var alterCommand = _connection.CreateCommand();
+                alterCommand.CommandText = @"ALTER TABLE ClipboardItems ADD COLUMN RichContent TEXT;";
+                alterCommand.ExecuteNonQuery();
+            }
+
+            if (!hasRichFormatColumn)
+            {
+                using var alterCommand = _connection.CreateCommand();
+                alterCommand.CommandText = @"ALTER TABLE ClipboardItems ADD COLUMN RichFormat TEXT;";
+                alterCommand.ExecuteNonQuery();
+            }
+        }
+
+        private void EnsureCsvContentColumn()
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = @"PRAGMA table_info(ClipboardItems);";
+
+            bool hasCsvContentColumn = false;
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                string? columnName = reader["name"]?.ToString();
+                if (columnName == "CsvContent")
+                {
+                    hasCsvContentColumn = true;
+                    break;
+                }
+            }
+
+            if (!hasCsvContentColumn)
+            {
+                using var alterCommand = _connection.CreateCommand();
+                alterCommand.CommandText = @"ALTER TABLE ClipboardItems ADD COLUMN CsvContent TEXT;";
                 alterCommand.ExecuteNonQuery();
             }
         }
@@ -141,12 +200,15 @@ namespace WinVClip.Services
         {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
-                INSERT INTO ClipboardItems (Type, Content, ImagePath, ImageHash, FilePaths, CreatedAt, PreviewText, GroupId)
-                VALUES (@Type, @Content, @ImagePath, @ImageHash, @FilePaths, @CreatedAt, @PreviewText, @GroupId);
+                INSERT INTO ClipboardItems (Type, Content, RichContent, RichFormat, CsvContent, ImagePath, ImageHash, FilePaths, CreatedAt, PreviewText, GroupId)
+                VALUES (@Type, @Content, @RichContent, @RichFormat, @CsvContent, @ImagePath, @ImageHash, @FilePaths, @CreatedAt, @PreviewText, @GroupId);
                 SELECT last_insert_rowid();
             ";
             command.Parameters.AddWithValue("@Type", (int)item.Type);
             command.Parameters.AddWithValue("@Content", item.Content ?? "");
+            command.Parameters.AddWithValue("@RichContent", item.RichContent ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@RichFormat", item.RichFormat ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@CsvContent", item.CsvContent ?? (object)DBNull.Value);
             command.Parameters.AddWithValue("@ImagePath", item.ImagePath ?? (object)DBNull.Value);
             command.Parameters.AddWithValue("@ImageHash", item.ImageHash ?? (object)DBNull.Value);
             command.Parameters.AddWithValue("@FilePaths", string.Join("|", item.FilePaths));
@@ -185,7 +247,7 @@ namespace WinVClip.Services
             }
 
             command.CommandText = $@"
-                SELECT c.Id, c.Type, c.Content, c.ImagePath, c.ImageHash, c.FilePaths, c.CreatedAt, c.PreviewText, c.GroupId, g.Name as GroupName
+                SELECT c.Id, c.Type, c.Content, c.RichContent, c.RichFormat, c.CsvContent, c.ImagePath, c.ImageHash, c.FilePaths, c.CreatedAt, c.PreviewText, c.GroupId, g.Name as GroupName
                 FROM ClipboardItems c
                 LEFT JOIN Groups g ON c.GroupId = g.Id
                 {whereClause}
@@ -239,7 +301,7 @@ namespace WinVClip.Services
         {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
-                SELECT c.Id, c.Type, c.Content, c.ImagePath, c.ImageHash, c.FilePaths, c.CreatedAt, c.PreviewText, c.GroupId, g.Name as GroupName
+                SELECT c.Id, c.Type, c.Content, c.RichContent, c.RichFormat, c.CsvContent, c.ImagePath, c.ImageHash, c.FilePaths, c.CreatedAt, c.PreviewText, c.GroupId, g.Name as GroupName
                 FROM ClipboardItems c
                 LEFT JOIN Groups g ON c.GroupId = g.Id
                 WHERE c.Id = @Id
@@ -408,6 +470,21 @@ namespace WinVClip.Services
             });
         }
 
+        public int UpdateDuplicateRichTextTimestamp(string content, string richContent)
+        {
+            return ExecuteNonQueryWithRetry(@"
+                UPDATE ClipboardItems 
+                SET CreatedAt = @CreatedAt 
+                WHERE Content = @Content AND RichContent = @RichContent AND Type = @Type
+            ", cmd =>
+            {
+                cmd.Parameters.AddWithValue("@Content", content);
+                cmd.Parameters.AddWithValue("@RichContent", richContent);
+                cmd.Parameters.AddWithValue("@Type", (int)Models.ClipboardType.RichText);
+                cmd.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
+            });
+        }
+
         public int UpdateDuplicateImageTimestamp(string imageHash)
         {
             return ExecuteNonQueryWithRetry(@"
@@ -566,7 +643,7 @@ namespace WinVClip.Services
         {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
-                SELECT c.Id, c.Type, c.Content, c.ImagePath, c.ImageHash, c.FilePaths, c.CreatedAt, c.PreviewText, c.GroupId
+                SELECT c.Id, c.Type, c.Content, c.RichContent, c.RichFormat, c.CsvContent, c.ImagePath, c.ImageHash, c.FilePaths, c.CreatedAt, c.PreviewText, c.GroupId
                 FROM ClipboardItems c
                 WHERE c.ImageHash = @ImageHash
                 ORDER BY c.CreatedAt DESC
@@ -590,6 +667,18 @@ namespace WinVClip.Services
                 {
                     cmd.Parameters.AddWithValue("@Content", content);
                     cmd.Parameters.AddWithValue("@Type", (int)Models.ClipboardType.Text);
+                }, 0) > 0;
+        }
+
+        public bool RichTextExistsInDatabase(string content, string richContent)
+        {
+            return ExecuteScalarWithRetry<int>(
+                "SELECT COUNT(*) FROM ClipboardItems WHERE Content = @Content AND RichContent = @RichContent AND Type = @Type",
+                cmd =>
+                {
+                    cmd.Parameters.AddWithValue("@Content", content);
+                    cmd.Parameters.AddWithValue("@RichContent", richContent);
+                    cmd.Parameters.AddWithValue("@Type", (int)Models.ClipboardType.RichText);
                 }, 0) > 0;
         }
 
@@ -736,13 +825,16 @@ namespace WinVClip.Services
                 Id = reader.GetInt64(0),
                 Type = (Models.ClipboardType)reader.GetInt32(1),
                 Content = reader["Content"]?.ToString() ?? "",
+                RichContent = reader["RichContent"]?.ToString(),
+                RichFormat = reader["RichFormat"]?.ToString(),
+                CsvContent = reader["CsvContent"]?.ToString(),
                 ImagePath = reader["ImagePath"]?.ToString(),
                 ImageHash = reader["ImageHash"]?.ToString(),
                 FilePaths = filePaths,
-                CreatedAt = reader.GetDateTime(6),
+                CreatedAt = reader.GetDateTime(9),
                 PreviewText = reader["PreviewText"]?.ToString() ?? "",
-                GroupId = reader.IsDBNull(8) ? (long?)null : reader.GetInt64(8),
-                GroupName = reader.IsDBNull(9) ? null : reader.GetString(9)
+                GroupId = reader.IsDBNull(11) ? (long?)null : reader.GetInt64(11),
+                GroupName = reader.IsDBNull(12) ? null : reader.GetString(12)
             };
         }
 

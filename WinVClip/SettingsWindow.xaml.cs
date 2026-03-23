@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -568,30 +571,183 @@ namespace WinVClip
         {
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
-                Filter = "数据库文件 (*.db)|*.db",
-                DefaultExt = ".db",
-                FileName = $"clipboard_history_backup_{DateTime.Now:yyyyMMdd_HHmmss}.db"
+                Filter = "ZIP压缩文件 (*.zip)|*.zip",
+                DefaultExt = ".zip",
+                FileName = $"WinVClip_backup_{DateTime.Now:yyyy_MM_dd}.zip"
             };
             
             if (dialog.ShowDialog() == true)
             {
                 try
                 {
-                    var sourcePath = _settingsService.Settings.DatabasePath;
-                    if (System.IO.File.Exists(sourcePath))
-                    {
-                        System.IO.File.Copy(sourcePath, dialog.FileName, true);
-                        MessageBox.Show("数据库备份成功！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-                    }
-                    else
+                    var dbPath = _settingsService.Settings.DatabasePath;
+                    if (!File.Exists(dbPath))
                     {
                         MessageBox.Show("数据库文件不存在", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+
+                    var dbDir = System.IO.Path.GetDirectoryName(dbPath);
+                    var imagesPath = System.IO.Path.Combine(dbDir, "images");
+                    var tempDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp");
+                    var tempBackupPath = System.IO.Path.Combine(tempDir, $"Backup_{Guid.NewGuid():N}");
+                    
+                    Directory.CreateDirectory(tempBackupPath);
+
+                    try
+                    {
+                        var tempDbPath = System.IO.Path.Combine(tempBackupPath, "clipboard_history.db");
+                        File.Copy(dbPath, tempDbPath, true);
+
+                        var tempImagesPath = System.IO.Path.Combine(tempBackupPath, "images");
+                        if (Directory.Exists(imagesPath))
+                        {
+                            CopyDirectory(imagesPath, tempImagesPath);
+                        }
+
+                        using (var zip = ZipFile.Open(dialog.FileName, ZipArchiveMode.Create))
+                        {
+                            zip.CreateEntryFromFile(tempDbPath, "clipboard_history.db");
+
+                            if (Directory.Exists(tempImagesPath))
+                            {
+                                var imageFiles = Directory.GetFiles(tempImagesPath, "*.*", SearchOption.AllDirectories);
+                                foreach (var imageFile in imageFiles)
+                                {
+                                    var relativePath = imageFile.Substring(tempImagesPath.Length + 1);
+                                    zip.CreateEntryFromFile(imageFile, System.IO.Path.Combine("images", relativePath));
+                                }
+                            }
+                        }
+
+                        if (Directory.Exists(tempBackupPath))
+                        {
+                            Directory.Delete(tempBackupPath, true);
+                        }
+
+                        MessageBox.Show("备份成功！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    catch
+                    {
+                        if (Directory.Exists(tempBackupPath))
+                        {
+                            Directory.Delete(tempBackupPath, true);
+                        }
+                        throw;
                     }
                 }
                 catch (Exception ex)
                 {
                     MessageBox.Show($"备份失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
+            }
+        }
+
+        private static void CopyDirectory(string sourceDir, string destDir)
+        {
+            Directory.CreateDirectory(destDir);
+
+            foreach (var file in Directory.GetFiles(sourceDir))
+            {
+                var destFile = System.IO.Path.Combine(destDir, System.IO.Path.GetFileName(file));
+                File.Copy(file, destFile, true);
+            }
+
+            foreach (var dir in Directory.GetDirectories(sourceDir))
+            {
+                var destSubDir = System.IO.Path.Combine(destDir, System.IO.Path.GetFileName(dir));
+                CopyDirectory(dir, destSubDir);
+            }
+        }
+
+        private void RestoreBackup_Click(object sender, RoutedEventArgs e)
+        {
+            var result = MessageBox.Show(
+                "恢复备份将覆盖当前所有数据，程序将自动重启。是否继续？",
+                "确认恢复",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.Yes)
+                return;
+
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "ZIP压缩文件 (*.zip)|*.zip",
+                DefaultExt = ".zip"
+            };
+
+            if (dialog.ShowDialog() != true)
+                return;
+
+            try
+            {
+                var dbPath = _settingsService.Settings.DatabasePath;
+                var dbDir = System.IO.Path.GetDirectoryName(dbPath);
+                var imagesPath = System.IO.Path.Combine(dbDir, "images");
+                var tempDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp");
+                var tempExtractPath = System.IO.Path.Combine(tempDir, $"Restore_{Guid.NewGuid():N}");
+
+                Directory.CreateDirectory(tempExtractPath);
+
+                try
+                {
+                    ZipFile.ExtractToDirectory(dialog.FileName, tempExtractPath);
+
+                    var extractedDbPath = System.IO.Path.Combine(tempExtractPath, "clipboard_history.db");
+                    if (!File.Exists(extractedDbPath))
+                    {
+                        MessageBox.Show("备份文件中未找到数据库", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                        Directory.Delete(tempExtractPath, true);
+                        return;
+                    }
+
+                    var extractedImagesPath = System.IO.Path.Combine(tempExtractPath, "images");
+
+                    App.DatabaseService.Dispose();
+
+                    try
+                    {
+                        File.Copy(extractedDbPath, dbPath, true);
+
+                        if (Directory.Exists(imagesPath))
+                        {
+                            Directory.Delete(imagesPath, true);
+                        }
+
+                        if (Directory.Exists(extractedImagesPath))
+                        {
+                            CopyDirectory(extractedImagesPath, imagesPath);
+                        }
+
+                        try
+                        {
+                            Directory.Delete(tempExtractPath, true);
+                        }
+                        catch { }
+
+                        MessageBox.Show("恢复成功！程序将自动重启。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                        Process.Start(Application.ResourceAssembly.Location);
+                        Application.Current.Shutdown();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"恢复失败: {ex.Message}\n请手动重启程序。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                        Process.Start(Application.ResourceAssembly.Location);
+                        Application.Current.Shutdown();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (Directory.Exists(tempExtractPath))
+                        Directory.Delete(tempExtractPath, true);
+                    MessageBox.Show($"解压失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"恢复失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

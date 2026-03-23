@@ -386,20 +386,56 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <Button Grid.Column="0" Content="备份数据库" 
+                                        <Button Grid.Column="0" Content="备份数据" 
                                                 Style="{DynamicResource ActionButtonStyle}"
                                                 Margin="0,0,8,0" Padding="16,12"
                                                 Click="BackupDatabase_Click"/>
-                                        <Button Grid.Column="1" Content="导出文本" 
+                                        <Button Grid.Column="1" Content="恢复备份" 
+                                                Style="{DynamicResource ActionButtonStyle}"
+                                                Margin="4,0,4,0" Padding="16,12"
+                                                Click="RestoreBackup_Click"/>
+                                        <Button Grid.Column="2" Content="导出文本" 
                                                 Style="{DynamicResource ActionButtonStyle}"
                                                 Margin="4,0,4,0" Padding="16,12"
                                                 Click="ExportData_Click"/>
-                                        <Button Grid.Column="2" Content="导入文本" 
+                                        <Button Grid.Column="3" Content="导入文本" 
                                                 Style="{DynamicResource ActionButtonStyle}"
                                                 Margin="8,0,0,0" Padding="16,12"
                                                 Click="ImportData_Click"/>
                                     </Grid>
+                                    
+                                    <Border Background="{DynamicResource InfoBackground}" 
+                                            BorderBrush="{DynamicResource InfoBorderBrush}" BorderThickness="1"
+                                            CornerRadius="6" Padding="12,10" Margin="0,12,0,0">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="14" 
+                                                           Foreground="{DynamicResource InfoForeground}" Margin="0,0,8,0"/>
+                                                <TextBlock Text="备份数据：将数据库和图片打包为ZIP文件" 
+                                                           Foreground="{DynamicResource InfoForeground}" FontSize="12"/>
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="14" 
+                                                           Foreground="{DynamicResource InfoForeground}" Margin="0,0,8,0"/>
+                                                <TextBlock Text="恢复备份：从ZIP文件恢复数据并重启程序" 
+                                                           Foreground="{DynamicResource InfoForeground}" FontSize="12"/>
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="14" 
+                                                           Foreground="{DynamicResource InfoForeground}" Margin="0,0,8,0"/>
+                                                <TextBlock Text="导出文本：将文本记录导出为TXT文件" 
+                                                           Foreground="{DynamicResource InfoForeground}" FontSize="12"/>
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="14" 
+                                                           Foreground="{DynamicResource InfoForeground}" Margin="0,0,8,0"/>
+                                                <TextBlock Text="导入文本：从TXT文件导入文本记录（一行一个记录）" 
+                                                           Foreground="{DynamicResource InfoForeground}" FontSize="12"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
                             </Border>
                         </StackPanel>

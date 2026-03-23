@@ -624,7 +624,7 @@
     </Style>
     
     <Style x:Key="ScrollBarStyle" TargetType="ScrollBar">
-        <Setter Property="Width" Value="4"/>
+        <Setter Property="Width" Value="8"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -635,7 +635,8 @@
                                 <Thumb Name="PART_Thumb" Margin="0">
                                     <Thumb.Style>
                                         <Style TargetType="Thumb">
-                                            <Setter Property="Width" Value="4"/>
+                                            <Setter Property="Width" Value="8"/>
+                                            <Setter Property="Background" Value="#C0C0C0"/>
                                             <Setter Property="Template">
                                                 <Setter.Value>
                                                     <ControlTemplate TargetType="Thumb">
@@ -663,7 +664,7 @@
                                                     <Trigger.ExitActions>
                                                         <BeginStoryboard>
                                                             <Storyboard>
-                                                                <DoubleAnimation Storyboard.TargetProperty="Width" To="4" Duration="0:0:0.2">
+                                                                <DoubleAnimation Storyboard.TargetProperty="Width" To="8" Duration="0:0:0.2">
                                                                     <DoubleAnimation.EasingFunction>
                                                                         <CubicEase EasingMode="EaseOut"/>
                                                                     </DoubleAnimation.EasingFunction>

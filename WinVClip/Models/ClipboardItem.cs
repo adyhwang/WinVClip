@@ -10,6 +10,9 @@ namespace WinVClip.Models
         public long Id { get; set; }
         public ClipboardType Type { get; set; }
         public string Content { get; set; } = string.Empty;
+        public string? RichContent { get; set; }
+        public string? RichFormat { get; set; }
+        public string? CsvContent { get; set; }
         public string? ImagePath { get; set; }
         public string? ImageHash { get; set; }
         public List<string> FilePaths { get; set; } = new List<string>();
@@ -41,6 +44,9 @@ namespace WinVClip.Models
 
         public string FormattedTime => CreatedAt.ToString("HH:mm:ss");
         public string FormattedDate => CreatedAt.ToString("MM-dd");
+
+        public bool HasImage => !string.IsNullOrEmpty(ImagePath);
+        public bool ShowImageBadge => HasImage && Type != ClipboardType.Image;
 
         private System.Windows.Media.ImageSource? _imageThumbnail;
         public System.Windows.Media.ImageSource? ImageThumbnail
