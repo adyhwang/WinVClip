@@ -693,10 +693,34 @@ namespace WinVClip
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    ClipboardItems.Clear();
-                    foreach (var item in newItems)
+                    if (ClipboardItems.Count == 0)
                     {
-                        ClipboardItems.Add(item);
+                        foreach (var item in newItems)
+                        {
+                            ClipboardItems.Add(item);
+                        }
+                    }
+                    else if (newItems.Count == 0)
+                    {
+                        ClipboardItems.Clear();
+                    }
+                    else
+                    {
+                        for (int i = 0; i < Math.Max(ClipboardItems.Count, newItems.Count); i++)
+                        {
+                            if (i < newItems.Count)
+                            {
+                                if (i < ClipboardItems.Count)
+                                    ClipboardItems[i] = newItems[i];
+                                else
+                                    ClipboardItems.Add(newItems[i]);
+                            }
+                            else
+                            {
+                                ClipboardItems.RemoveAt(ClipboardItems.Count - 1);
+                                i--;
+                            }
+                        }
                     }
                     OnPropertyChanged(nameof(HasItems));
                     OnPropertyChanged(nameof(IsEmpty));

@@ -42,7 +42,21 @@ namespace WinVClip.Models
             }
         }
 
-        public string FormattedTime => CreatedAt.ToString("HH:mm:ss");
+        public string FormattedTime
+        {
+            get
+            {
+                var today = DateTime.Today;
+                if (CreatedAt.Date == today)
+                {
+                    return CreatedAt.ToString("HH:mm");
+                }
+                else
+                {
+                    return CreatedAt.ToString("MM/dd");
+                }
+            }
+        }
         public string FormattedDate => CreatedAt.ToString("MM-dd");
 
         public bool HasImage => !string.IsNullOrEmpty(ImagePath);

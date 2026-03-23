@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using WinVClip.Models;
 
 namespace WinVClip.Services
 {
@@ -217,6 +218,91 @@ namespace WinVClip.Services
             command.Parameters.AddWithValue("@GroupId", item.GroupId ?? (object)DBNull.Value);
 
             return Convert.ToInt64(command.ExecuteScalar());
+        }
+
+        public int InsertItemsBatch(List<Models.ClipboardItem> items)
+        {
+            if (items == null || items.Count == 0)
+                return 0;
+
+            using var transaction = _connection.BeginTransaction();
+            try
+            {
+                using var command = _connection.CreateCommand();
+                command.CommandText = @"
+                    INSERT INTO ClipboardItems (Type, Content, RichContent, RichFormat, CsvContent, ImagePath, ImageHash, FilePaths, CreatedAt, PreviewText, GroupId)
+                    VALUES (@Type, @Content, @RichContent, @RichFormat, @CsvContent, @ImagePath, @ImageHash, @FilePaths, @CreatedAt, @PreviewText, @GroupId);
+                ";
+
+                var typeParam = command.CreateParameter();
+                typeParam.ParameterName = "@Type";
+                command.Parameters.Add(typeParam);
+
+                var contentParam = command.CreateParameter();
+                contentParam.ParameterName = "@Content";
+                command.Parameters.Add(contentParam);
+
+                var richContentParam = command.CreateParameter();
+                richContentParam.ParameterName = "@RichContent";
+                command.Parameters.Add(richContentParam);
+
+                var richFormatParam = command.CreateParameter();
+                richFormatParam.ParameterName = "@RichFormat";
+                command.Parameters.Add(richFormatParam);
+
+                var csvContentParam = command.CreateParameter();
+                csvContentParam.ParameterName = "@CsvContent";
+                command.Parameters.Add(csvContentParam);
+
+                var imagePathParam = command.CreateParameter();
+                imagePathParam.ParameterName = "@ImagePath";
+                command.Parameters.Add(imagePathParam);
+
+                var imageHashParam = command.CreateParameter();
+                imageHashParam.ParameterName = "@ImageHash";
+                command.Parameters.Add(imageHashParam);
+
+                var filePathsParam = command.CreateParameter();
+                filePathsParam.ParameterName = "@FilePaths";
+                command.Parameters.Add(filePathsParam);
+
+                var createdAtParam = command.CreateParameter();
+                createdAtParam.ParameterName = "@CreatedAt";
+                command.Parameters.Add(createdAtParam);
+
+                var previewTextParam = command.CreateParameter();
+                previewTextParam.ParameterName = "@PreviewText";
+                command.Parameters.Add(previewTextParam);
+
+                var groupIdParam = command.CreateParameter();
+                groupIdParam.ParameterName = "@GroupId";
+                command.Parameters.Add(groupIdParam);
+
+                foreach (var item in items)
+                {
+                    typeParam.Value = (int)item.Type;
+                    contentParam.Value = item.Content ?? "";
+                    richContentParam.Value = item.RichContent ?? (object)DBNull.Value;
+                    richFormatParam.Value = item.RichFormat ?? (object)DBNull.Value;
+                    csvContentParam.Value = item.CsvContent ?? (object)DBNull.Value;
+                    imagePathParam.Value = item.ImagePath ?? (object)DBNull.Value;
+                    imageHashParam.Value = item.ImageHash ?? (object)DBNull.Value;
+                    filePathsParam.Value = string.Join("|", item.FilePaths ?? new List<string>());
+                    createdAtParam.Value = item.CreatedAt;
+                    previewTextParam.Value = item.PreviewText ?? "";
+                    groupIdParam.Value = item.GroupId ?? (object)DBNull.Value;
+
+                    command.ExecuteNonQuery();
+                }
+
+                transaction.Commit();
+                return items.Count;
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
         }
 
         public List<Models.ClipboardItem> GetItems(int limit = 100, int offset = 0, string? searchText = null, 
@@ -532,6 +618,64 @@ namespace WinVClip.Services
                 return (true, isGrouped);
             }
             return (false, false);
+        }
+
+        public Dictionary<string, bool> GetExistingTextContents(HashSet<string> contents)
+        {
+            var result = new Dictionary<string, bool>();
+            if (contents == null || contents.Count == 0)
+                return result;
+
+            using var command = _connection.CreateCommand();
+            command.CommandText = @"
+                SELECT Content, GroupId IS NOT NULL as IsGrouped 
+                FROM ClipboardItems 
+                WHERE Type = @Type AND Content IN ({0})";
+            command.Parameters.AddWithValue("@Type", (int)ClipboardType.Text);
+
+            var placeholders = new List<string>();
+            var paramIndex = 0;
+            foreach (var content in contents)
+            {
+                var paramName = $"@C{paramIndex++}";
+                placeholders.Add(paramName);
+                command.Parameters.AddWithValue(paramName, content);
+            }
+            command.CommandText = string.Format(command.CommandText, string.Join(",", placeholders));
+
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var content = reader.GetString(0);
+                var isGrouped = reader.GetBoolean(1);
+                result[content] = isGrouped;
+            }
+            return result;
+        }
+
+        public int DeleteUngroupedDuplicatesBatch(HashSet<string> contents)
+        {
+            if (contents == null || contents.Count == 0)
+                return 0;
+
+            using var command = _connection.CreateCommand();
+            command.CommandText = @"
+                DELETE FROM ClipboardItems 
+                WHERE Type = @Type AND GroupId IS NULL AND Content IN ({0});
+                SELECT changes();";
+            command.Parameters.AddWithValue("@Type", (int)ClipboardType.Text);
+
+            var placeholders = new List<string>();
+            var paramIndex = 0;
+            foreach (var content in contents)
+            {
+                var paramName = $"@C{paramIndex++}";
+                placeholders.Add(paramName);
+                command.Parameters.AddWithValue(paramName, content);
+            }
+            command.CommandText = string.Format(command.CommandText, string.Join(",", placeholders));
+
+            return Convert.ToInt32(command.ExecuteScalar());
         }
 
         /// <summary>

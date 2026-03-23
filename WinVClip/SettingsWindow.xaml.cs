@@ -840,103 +840,94 @@ namespace WinVClip
                         var lines = System.IO.File.ReadAllLines(dialog.FileName);
                         var totalLines = lines.Length;
                         var importCount = 0;
-                        var processedCount = 0;
                         var skippedCount = 0;
                         var deletedCount = 0;
 
-                        // 计算有效行数
-                        var validLines = lines.Where(line => !string.IsNullOrWhiteSpace(line.Trim())).Count();
-
                         await Dispatcher.InvokeAsync(() =>
                         {
-                            statusText.Text = $"正在检查重复数据...";
-                            progressBar.Maximum = totalLines;
-                            detailText.Text = $"文件共 {totalLines} 行，有效数据约 {validLines} 条";
+                            statusText.Text = $"正在分析文件...";
+                            progressBar.Maximum = 1;
+                            progressBar.Value = 0;
+                            detailText.Text = $"文件共 {totalLines} 行";
                             progressWindow.Show();
                         });
 
-                        // 第一阶段：处理重复数据
-                        // 策略：保留已分组的，删除未分组的，如果已分组则跳过导入
+                        var uniqueContents = new HashSet<string>();
                         foreach (var line in lines)
                         {
                             var trimmedLine = line.Trim();
                             if (!string.IsNullOrWhiteSpace(trimmedLine))
                             {
-                                var (exists, isGrouped) = App.DatabaseService.CheckContentExists(trimmedLine, (int)ClipboardType.Text);
-                                if (exists)
-                                {
-                                    if (isGrouped)
-                                    {
-                                        // 已分组：保留，跳过导入
-                                        skippedCount++;
-                                    }
-                                    else
-                                    {
-                                        // 未分组：删除旧数据，导入新数据
-                                        var deleted = App.DatabaseService.DeleteUngroupedDuplicates(trimmedLine, (int)ClipboardType.Text);
-                                        deletedCount += deleted;
-                                    }
-                                }
+                                uniqueContents.Add(trimmedLine);
                             }
                         }
 
                         await Dispatcher.InvokeAsync(() =>
                         {
-                            var infoText = "";
-                            if (deletedCount > 0)
-                                infoText += $"已清理 {deletedCount} 条未分组重复数据。";
-                            if (skippedCount > 0)
-                                infoText += $"已跳过 {skippedCount} 条已分组数据。";
-                            detailText.Text = infoText;
-                            statusText.Text = $"正在导入数据 (0/{validLines})...";
+                            statusText.Text = $"正在检查重复数据...";
+                            detailText.Text = $"共 {uniqueContents.Count} 条不重复数据";
                         });
 
-                        // 第二阶段：从最后一行开始导入到第一行（倒序导入）
+                        var existingContents = App.DatabaseService.GetExistingTextContents(uniqueContents);
+
+                        var groupedContents = new HashSet<string>();
+                        var ungroupedContents = new HashSet<string>();
+
+                        foreach (var kvp in existingContents)
+                        {
+                            if (kvp.Value)
+                                groupedContents.Add(kvp.Key);
+                            else
+                                ungroupedContents.Add(kvp.Key);
+                        }
+
+                        skippedCount = groupedContents.Count;
+
+                        await Dispatcher.InvokeAsync(() =>
+                        {
+                            statusText.Text = $"正在清理未分组重复数据...";
+                            detailText.Text = $"已分组: {groupedContents.Count} 条，未分组: {ungroupedContents.Count} 条";
+                        });
+
+                        if (ungroupedContents.Count > 0)
+                        {
+                            deletedCount = App.DatabaseService.DeleteUngroupedDuplicatesBatch(ungroupedContents);
+                        }
+
+                        await Dispatcher.InvokeAsync(() =>
+                        {
+                            statusText.Text = $"正在准备导入数据...";
+                            detailText.Text = $"已清理 {deletedCount} 条，跳过 {skippedCount} 条";
+                        });
+
+                        var itemsToImport = new List<ClipboardItem>();
+                        var baseTime = DateTime.Now;
+
                         for (int i = lines.Length - 1; i >= 0; i--)
                         {
-                            processedCount++;
                             var trimmedLine = lines[i].Trim();
-                            if (!string.IsNullOrWhiteSpace(trimmedLine))
+                            if (!string.IsNullOrWhiteSpace(trimmedLine) && !groupedContents.Contains(trimmedLine))
                             {
-                                // 检查是否已存在（包括已分组的）
-                                var (exists, isGrouped) = App.DatabaseService.CheckContentExists(trimmedLine, (int)ClipboardType.Text);
-                                if (exists)
-                                {
-                                    // 已存在（无论是分组还是未分组），都不导入
-                                    continue;
-                                }
-
-                                var item = new ClipboardItem
+                                itemsToImport.Add(new ClipboardItem
                                 {
                                     Type = ClipboardType.Text,
                                     Content = trimmedLine,
-                                    CreatedAt = DateTime.Now,
+                                    CreatedAt = baseTime.AddSeconds(itemsToImport.Count),
                                     PreviewText = trimmedLine.Length > 100 ? trimmedLine.Substring(0, 100) : trimmedLine
-                                };
-                                App.DatabaseService.InsertItem(item);
-                                importCount++;
-                            }
-
-                            // 每处理 10 条或最后一条时更新进度
-                            if (processedCount % 10 == 0 || i == 0)
-                            {
-                                await Dispatcher.InvokeAsync(() =>
-                                {
-                                    progressBar.Value = processedCount;
-                                    statusText.Text = $"正在导入数据 ({importCount}/{validLines})...";
-                                    if (importCount > 0 && trimmedLine.Length > 0)
-                                    {
-                                        var preview = trimmedLine.Length > 30 ? trimmedLine.Substring(0, 30) + "..." : trimmedLine;
-                                        detailText.Text = $"当前: {preview}";
-                                    }
                                 });
                             }
+                        }
 
-                            // 每 50 条暂停一下，避免阻塞 UI
-                            if (processedCount % 50 == 0)
-                            {
-                                await Task.Delay(1);
-                            }
+                        await Dispatcher.InvokeAsync(() =>
+                        {
+                            statusText.Text = $"正在批量导入 {itemsToImport.Count} 条记录...";
+                            progressBar.Value = 0;
+                            progressBar.Maximum = 1;
+                        });
+
+                        if (itemsToImport.Count > 0)
+                        {
+                            importCount = App.DatabaseService.InsertItemsBatch(itemsToImport);
                         }
 
                         await Dispatcher.InvokeAsync(() =>
