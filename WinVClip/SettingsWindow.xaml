@@ -382,28 +382,43 @@
                                     </StackPanel>
                                     
                                     <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Button Grid.Column="0" Content="备份数据" 
-                                                Style="{DynamicResource ActionButtonStyle}"
-                                                Margin="0,0,8,0" Padding="16,12"
-                                                Click="BackupDatabase_Click"/>
-                                        <Button Grid.Column="1" Content="恢复备份" 
-                                                Style="{DynamicResource ActionButtonStyle}"
-                                                Margin="4,0,4,0" Padding="16,12"
-                                                Click="RestoreBackup_Click"/>
-                                        <Button Grid.Column="2" Content="导出文本" 
-                                                Style="{DynamicResource ActionButtonStyle}"
-                                                Margin="4,0,4,0" Padding="16,12"
-                                                Click="ExportData_Click"/>
-                                        <Button Grid.Column="3" Content="导入文本" 
-                                                Style="{DynamicResource ActionButtonStyle}"
-                                                Margin="8,0,0,0" Padding="16,12"
-                                                Click="ImportData_Click"/>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid Grid.Row="0" Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Button Grid.Column="0" Content="备份数据" 
+                                                    Style="{DynamicResource ActionButtonStyle}"
+                                                    Margin="0,0,8,0" Padding="16,12"
+                                                    Click="BackupDatabase_Click"/>
+                                            <Button Grid.Column="1" Content="恢复备份" 
+                                                    Style="{DynamicResource ActionButtonStyle}"
+                                                    Margin="8,0,0,0" Padding="16,12"
+                                                    Click="RestoreBackup_Click"/>
+                                        </Grid>
+                                        <Grid Grid.Row="1">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Button Grid.Column="0" Content="导出JSON" 
+                                                    Style="{DynamicResource ActionButtonStyle}"
+                                                    Margin="0,0,8,0" Padding="16,12"
+                                                    Click="ExportJson_Click"/>
+                                            <Button Grid.Column="1" Content="导入JSON" 
+                                                    Style="{DynamicResource ActionButtonStyle}"
+                                                    Margin="4,0,4,0" Padding="16,12"
+                                                    Click="ImportJson_Click"/>
+                                            <Button Grid.Column="2" Content="导入纯文本" 
+                                                    Style="{DynamicResource ActionButtonStyle}"
+                                                    Margin="8,0,0,0" Padding="16,12"
+                                                    Click="ImportData_Click"/>
+                                        </Grid>
                                     </Grid>
                                     
                                     <Border Background="{DynamicResource InfoBackground}" 
@@ -425,13 +440,19 @@
                                             <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                                                 <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="14" 
                                                            Foreground="{DynamicResource InfoForeground}" Margin="0,0,8,0"/>
-                                                <TextBlock Text="导出文本：将文本记录导出为TXT文件" 
+                                                <TextBlock Text="导出JSON：导出文本、富文本和文件类型的记录为JSON文件" 
+                                                           Foreground="{DynamicResource InfoForeground}" FontSize="12"/>
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="14" 
+                                                           Foreground="{DynamicResource InfoForeground}" Margin="0,0,8,0"/>
+                                                <TextBlock Text="导入JSON：从JSON文件导入记录" 
                                                            Foreground="{DynamicResource InfoForeground}" FontSize="12"/>
                                             </StackPanel>
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="14" 
                                                            Foreground="{DynamicResource InfoForeground}" Margin="0,0,8,0"/>
-                                                <TextBlock Text="导入文本：从TXT文件导入文本记录（一行一个记录）" 
+                                                <TextBlock Text="导入纯文本：从TXT文件导入文本记录（一行一个记录）" 
                                                            Foreground="{DynamicResource InfoForeground}" FontSize="12"/>
                                             </StackPanel>
                                         </StackPanel>

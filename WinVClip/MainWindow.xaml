@@ -157,12 +157,12 @@
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,4">
                     <TextBlock Text="格式" Foreground="{DynamicResource SecondaryTextForeground}" FontSize="11" 
                                VerticalAlignment="Center" Margin="0,0,0,0" Width="30"/>
-                    <Button Width="28" Height="28" Margin="2,0" Content="📋" ToolTip="全部"
+                    <Button Width="28" Height="28" Margin="2,0" Content="☑︎" ToolTip="全部"
                             Click="FilterAll_Click"
                             PreviewMouseDown="Button_PreviewMouseDown"
                             Style="{StaticResource IconButtonStyle}"
                             Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=-1}"/>
-                    <Button Width="28" Height="28" Margin="2,0" Content="🗛" ToolTip="文本"
+                    <Button Width="28" Height="28" Margin="2,0" Content="Aa" ToolTip="文本"
                             Click="FilterText_Click"
                             PreviewMouseDown="Button_PreviewMouseDown"
                             Style="{StaticResource IconButtonStyle}"
@@ -172,16 +172,11 @@
                             PreviewMouseDown="Button_PreviewMouseDown"
                             Style="{StaticResource IconButtonStyle}"
                             Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=1}"/>
-                    <Button Width="28" Height="28" Margin="2,0" Content="📁" ToolTip="文件"
+                    <Button Width="28" Height="28" Margin="2,0" Content="📂" ToolTip="文件"
                             Click="FilterFile_Click"
                             PreviewMouseDown="Button_PreviewMouseDown"
                             Style="{StaticResource IconButtonStyle}"
                             Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=2}"/>
-                    <Button Width="28" Height="28" Margin="2,0" Content="📝" ToolTip="富文本"
-                            Click="FilterRichText_Click"
-                            PreviewMouseDown="Button_PreviewMouseDown"
-                            Style="{StaticResource IconButtonStyle}"
-                            Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=3}"/>
                 </StackPanel>
                 
                     

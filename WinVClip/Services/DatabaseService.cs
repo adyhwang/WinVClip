@@ -322,8 +322,17 @@ namespace WinVClip.Services
 
             if (typeFilter.HasValue)
             {
-                whereClause.Append(" AND Type = @Type");
-                parameters.Add(new SqliteParameter("@Type", typeFilter.Value));
+                if (typeFilter.Value == (int)Models.ClipboardType.Text)
+                {
+                    whereClause.Append(" AND (Type = @Type OR Type = @RichTextType)");
+                    parameters.Add(new SqliteParameter("@Type", typeFilter.Value));
+                    parameters.Add(new SqliteParameter("@RichTextType", (int)Models.ClipboardType.RichText));
+                }
+                else
+                {
+                    whereClause.Append(" AND Type = @Type");
+                    parameters.Add(new SqliteParameter("@Type", typeFilter.Value));
+                }
             }
 
             if (groupIdFilter.HasValue)
@@ -373,8 +382,17 @@ namespace WinVClip.Services
 
             if (typeFilter.HasValue)
             {
-                whereClause.Append(" AND Type = @Type");
-                parameters.Add(new SqliteParameter("@Type", typeFilter.Value));
+                if (typeFilter.Value == (int)Models.ClipboardType.Text)
+                {
+                    whereClause.Append(" AND (Type = @Type OR Type = @RichTextType)");
+                    parameters.Add(new SqliteParameter("@Type", typeFilter.Value));
+                    parameters.Add(new SqliteParameter("@RichTextType", (int)Models.ClipboardType.RichText));
+                }
+                else
+                {
+                    whereClause.Append(" AND Type = @Type");
+                    parameters.Add(new SqliteParameter("@Type", typeFilter.Value));
+                }
             }
 
             command.CommandText = $"SELECT COUNT(*) FROM ClipboardItems {whereClause}";

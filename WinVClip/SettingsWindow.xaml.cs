@@ -953,6 +953,167 @@ namespace WinVClip
             }
         }
 
+        private void ExportJson_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "JSON文件 (*.json)|*.json",
+                DefaultExt = ".json",
+                FileName = $"clipboard_export_{DateTime.Now:yyyyMMdd_HHmmss}.json"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                try
+                {
+                    var items = App.DatabaseService.GetAllItems();
+                    var exportItems = new List<object>();
+
+                    foreach (var item in items)
+                    {
+                        if (item.Type == ClipboardType.Text && !string.IsNullOrWhiteSpace(item.Content))
+                        {
+                            exportItems.Add(new
+                            {
+                                Type = "Text",
+                                Content = item.Content,
+                                CreatedAt = item.CreatedAt
+                            });
+                        }
+                        else if (item.Type == ClipboardType.RichText && !string.IsNullOrWhiteSpace(item.RichContent))
+                        {
+                            exportItems.Add(new
+                            {
+                                Type = "RichText",
+                                Content = item.Content,
+                                RichContent = item.RichContent,
+                                RichFormat = item.RichFormat,
+                                CreatedAt = item.CreatedAt
+                            });
+                        }
+                        else if (item.Type == ClipboardType.FileList && item.FilePaths != null && item.FilePaths.Count > 0)
+                        {
+                            exportItems.Add(new
+                            {
+                                Type = "FileList",
+                                FilePaths = item.FilePaths,
+                                CreatedAt = item.CreatedAt
+                            });
+                        }
+                    }
+
+                    var json = System.Text.Json.JsonSerializer.Serialize(exportItems, new System.Text.Json.JsonSerializerOptions
+                    {
+                        WriteIndented = true,
+                        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                    });
+
+                    System.IO.File.WriteAllText(dialog.FileName, json, Encoding.UTF8);
+                    MessageBox.Show($"导出成功！共导出 {exportItems.Count} 条记录。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"导出失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private void ImportJson_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "JSON文件 (*.json)|*.json",
+                DefaultExt = ".json"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                try
+                {
+                    var json = System.IO.File.ReadAllText(dialog.FileName, Encoding.UTF8);
+                    var importItems = System.Text.Json.JsonSerializer.Deserialize<List<System.Text.Json.JsonElement>>(json);
+
+                    if (importItems == null || importItems.Count == 0)
+                    {
+                        MessageBox.Show("文件中没有可导入的数据。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+
+                    var itemsToImport = new List<ClipboardItem>();
+                    var baseTime = DateTime.Now;
+
+                    foreach (var item in importItems)
+                    {
+                        var type = item.GetProperty("Type").GetString();
+                        var createdAtStr = item.TryGetProperty("CreatedAt", out var createdAtProp) 
+                            ? createdAtProp.GetDateTime() 
+                            : baseTime.AddSeconds(itemsToImport.Count);
+
+                        if (type == "Text")
+                        {
+                            var content = item.GetProperty("Content").GetString();
+                            if (!string.IsNullOrWhiteSpace(content))
+                            {
+                                itemsToImport.Add(new ClipboardItem
+                                {
+                                    Type = ClipboardType.Text,
+                                    Content = content,
+                                    CreatedAt = createdAtStr,
+                                    PreviewText = content.Length > 100 ? content.Substring(0, 100) : content
+                                });
+                            }
+                        }
+                        else if (type == "RichText")
+                        {
+                            var content = item.TryGetProperty("Content", out var contentProp) ? contentProp.GetString() : "";
+                            var richContent = item.GetProperty("RichContent").GetString();
+                            var richFormat = item.TryGetProperty("RichFormat", out var formatProp) ? formatProp.GetString() : null;
+
+                            if (!string.IsNullOrWhiteSpace(richContent))
+                            {
+                                itemsToImport.Add(new ClipboardItem
+                                {
+                                    Type = ClipboardType.RichText,
+                                    Content = content ?? "",
+                                    RichContent = richContent,
+                                    RichFormat = richFormat,
+                                    CreatedAt = createdAtStr,
+                                    PreviewText = !string.IsNullOrWhiteSpace(content) && content.Length > 100 
+                                        ? content.Substring(0, 100) 
+                                        : content ?? ""
+                                });
+                            }
+                        }
+                        else if (type == "FileList")
+                        {
+                            var filePaths = item.GetProperty("FilePaths").EnumerateArray()
+                                .Select(p => p.GetString())
+                                .Where(p => p != null)
+                                .ToList()!;
+
+                            if (filePaths.Count > 0)
+                            {
+                                itemsToImport.Add(new ClipboardItem
+                                {
+                                    Type = ClipboardType.FileList,
+                                    FilePaths = filePaths,
+                                    CreatedAt = createdAtStr,
+                                    PreviewText = string.Join("\n", filePaths.Take(3)) + (filePaths.Count > 3 ? $"\n...共{filePaths.Count}个文件" : "")
+                                });
+                            }
+                        }
+                    }
+
+                    var importCount = App.DatabaseService.InsertItemsBatch(itemsToImport);
+                    MessageBox.Show($"导入成功！共导入 {importCount} 条记录。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"导入失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
         private void OKButton_Click(object sender, RoutedEventArgs e)
         {
             var monitoringChanged = _settingsService.Settings.MonitorEnabled != _originalSettings.MonitorEnabled;

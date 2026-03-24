@@ -1455,11 +1455,6 @@ namespace WinVClip
             _viewModel.TypeFilter = (int)ClipboardType.FileList;
         }
 
-        private void FilterRichText_Click(object sender, RoutedEventArgs e)
-        {
-            _viewModel.TypeFilter = (int)ClipboardType.RichText;
-        }
-
         private void GroupComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (GroupComboBox.SelectedItem is Group group)
