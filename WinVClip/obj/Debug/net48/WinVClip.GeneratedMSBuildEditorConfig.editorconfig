@@ -1,0 +1,8 @@
+is_global = true
+build_property.RootNamespace = WinVClip
+build_property.ProjectDir = d:\AdyHwang\project\WinVClip\WinVClip\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 
+build_property.CsWinRTUseWindowsUIXamlProjections = false
+build_property.EffectiveAnalysisLevelStyle = 
+build_property.EnableCodeStyleSeverity = 

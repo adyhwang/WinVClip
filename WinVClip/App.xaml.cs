@@ -59,6 +59,13 @@ namespace WinVClip
 
             _settingsService = SettingsService;
 
+            LocalizationService.Instance.Initialize(_settingsService.Settings.Language);
+            if (string.IsNullOrEmpty(_settingsService.Settings.Language))
+            {
+                _settingsService.Settings.Language = LocalizationService.Instance.CurrentLanguageCode;
+                _settingsService.SaveSettings();
+            }
+
             if (_settingsService.Settings.IsAdministratorRun && !IsAdministrator())
             {
                 TryRestartAsAdministrator();
@@ -103,13 +110,15 @@ namespace WinVClip
 
             if (!hotkeyRegistered)
             {
-                // 快捷键注册失败，显示托盘通知
-                _trayService.ShowNotification("快捷键注册失败", "当前快捷键可能被占用，请在设置中修改其他快捷键");
+                _trayService.ShowNotification(
+                    Loc.Get("App.HotkeyRegisterFailed"),
+                    Loc.Get("App.HotkeyRegisterFailedMessage"));
             }
             else
             {
-                // 快捷键注册成功，显示托盘通知
-                _trayService.ShowNotification("WinVClip 已启动", $"快捷键 {_settingsService.Settings.Hotkey} 已注册\n单击托盘图标显示主界面");
+                _trayService.ShowNotification(
+                    Loc.Get("App.Started"),
+                    string.Format(Loc.Get("App.StartedMessage", "Hotkey {0} registered"), _settingsService.Settings.Hotkey));
             }
 
             _clipboardMonitor = new ClipboardMonitor(_databaseService, _settingsService);

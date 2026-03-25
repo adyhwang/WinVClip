@@ -16,10 +16,11 @@ namespace WinVClip.Models
         public int MaxHistoryItems { get; set; } = 200;
         public string Theme { get; set; } = "Auto";
         public string SelectedSearchEngineId { get; set; } = "bing";
-        public string CustomSearchEngineUrl { get; set; } = "";
+        public string CustomSearchEngineUrl { get; set; } = "https://www.bing.com/search?q=%s";
         public bool MoveToTopAfterPaste { get; set; } = false;
         public string PasteShortcutMode { get; set; } = "Auto";
         public bool IsAdministratorRun { get; set; } = false;
+        public string Language { get; set; } = "";
 
         [JsonIgnore]
         public List<SearchEngine> SearchEngines { get; set; } = new List<SearchEngine>();

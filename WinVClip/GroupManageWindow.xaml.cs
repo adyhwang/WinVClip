@@ -19,7 +19,15 @@ namespace WinVClip
         {
             InitializeComponent();
             _databaseService = databaseService;
+            ApplyLocalization();
             LoadGroups();
+        }
+
+        private void ApplyLocalization()
+        {
+            Title = Loc.Get("GroupManage.Title", "管理分组");
+            TitleText.Text = Loc.Get("GroupManage.Title", "管理分组");
+            AddButton.Content = Loc.Get("GroupManage.AddGroup", "添加分组");
         }
 
         protected override void OnSourceInitialized(EventArgs e)
@@ -44,7 +52,7 @@ namespace WinVClip
             string groupName = NewGroupNameTextBox.Text.Trim();
             if (string.IsNullOrWhiteSpace(groupName))
             {
-                MessageBox.Show("请输入分组名称", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(Loc.Get("Message.GroupNameEmpty", "请输入分组名称"), Loc.Get("Common.OK", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -56,7 +64,7 @@ namespace WinVClip
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"添加分组失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(string.Format(Loc.Get("Message.AddGroupFailed", "添加分组失败: {0}"), ex.Message), Loc.Get("Common.OK", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -66,8 +74,8 @@ namespace WinVClip
             {
                 var inputDialog = new InputDialogWindow
                 {
-                    Title = "编辑分组",
-                    Prompt = "请输入新的分组名称:",
+                    Title = Loc.Get("GroupManage.EditGroup", "编辑分组"),
+                    Prompt = Loc.Get("GroupManage.EnterNewName", "请输入新的分组名称:"),
                     DefaultValue = selectedGroup.Name,
                     Owner = this
                 };
@@ -84,7 +92,7 @@ namespace WinVClip
                         }
                         catch (Exception ex)
                         {
-                            MessageBox.Show($"更新分组失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                            MessageBox.Show(string.Format(Loc.Get("Message.UpdateGroupFailed", "更新分组失败: {0}"), ex.Message), Loc.Get("Common.OK", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
                         }
                     }
                 }
@@ -96,8 +104,8 @@ namespace WinVClip
             if (sender is Button button && button.DataContext is Group selectedGroup)
             {
                 var result = MessageBox.Show(
-                    $"确定要删除分组 \"{selectedGroup.Name}\" 吗？",
-                    "确认删除",
+                    string.Format(Loc.Get("GroupManage.ConfirmDelete", "确定要删除分组 \"{0}\" 吗？"), selectedGroup.Name),
+                    Loc.Get("Common.Delete", "确认删除"),
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Question);
 
@@ -110,7 +118,7 @@ namespace WinVClip
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show($"删除分组失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBox.Show(string.Format(Loc.Get("Message.DeleteGroupFailed", "删除分组失败: {0}"), ex.Message), Loc.Get("Common.OK", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
                     }
                 }
             }
@@ -196,7 +204,7 @@ namespace WinVClip
 
             var okButton = new System.Windows.Controls.Button
             {
-                Content = "确定",
+                Content = Loc.Get("Common.OK", "确定"),
                 Width = 100,
                 Height = 32,
                 Margin = new System.Windows.Thickness(0, 0, 10, 0),
@@ -207,7 +215,7 @@ namespace WinVClip
 
             var cancelButton = new System.Windows.Controls.Button
             {
-                Content = "取消",
+                Content = Loc.Get("Common.Cancel", "取消"),
                 Width = 100,
                 Height = 32,
                 Margin = new System.Windows.Thickness(0, 0, 0, 0),

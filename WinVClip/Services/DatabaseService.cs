@@ -63,7 +63,7 @@ namespace WinVClip.Services
             using var command = _connection.CreateCommand();
             command.CommandText = @"
                 INSERT OR IGNORE INTO Groups (Name, CreatedAt)
-                VALUES ('收藏', datetime('now'));
+                VALUES ('Favorite', datetime('now'));
             ";
             command.ExecuteNonQuery();
         }

@@ -43,14 +43,14 @@ namespace WinVClip
             {
                 return type switch
                 {
-                    ClipboardType.Text => "文本",
-                    ClipboardType.Image => "图片",
-                    ClipboardType.FileList => "文件",
-                    ClipboardType.RichText => "富文本",
-                    _ => "未知"
+                    ClipboardType.Text => Loc.Get("ClipboardType.Text", "文本"),
+                    ClipboardType.Image => Loc.Get("ClipboardType.Image", "图片"),
+                    ClipboardType.FileList => Loc.Get("ClipboardType.FileList", "文件"),
+                    ClipboardType.RichText => Loc.Get("ClipboardType.RichText", "富文本"),
+                    _ => Loc.Get("ClipboardType.Unknown", "未知")
                 };
             }
-            return "未知";
+            return Loc.Get("ClipboardType.Unknown", "未知");
         }
     }
 
@@ -223,6 +223,14 @@ namespace WinVClip
                 : Visibility.Collapsed;
     }
 
+    public class IsEditableTypeConverter : BaseConverter
+    {
+        public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            => value is ClipboardItem item && (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+    }
+
     public class TypeToVisibilityConverter : BaseConverter
     {
         public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -323,6 +331,32 @@ namespace WinVClip
         }
     }
 
+    public class EditMenuVisibilityConverter : MarkupExtension, IMultiValueConverter
+    {
+        public override object ProvideValue(IServiceProvider serviceProvider)
+        {
+            return this;
+        }
+
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (values.Length >= 2 && values[0] is ClipboardItem item && values[1] is MainViewModel viewModel)
+            {
+                if (viewModel.IsMultiSelectMode)
+                    return Visibility.Collapsed;
+                
+                if (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText)
+                    return Visibility.Visible;
+            }
+            return Visibility.Collapsed;
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        {
+            return null;
+        }
+    }
+
     public class PreviewTemplateSelector : DataTemplateSelector
     {
         public DataTemplate TextTemplate { get; set; }
@@ -357,7 +391,7 @@ namespace WinVClip
             var result = string.Join("\n", previewLines);
             var suffix = lines.Length > 10 ? "……" : "";
             
-            return $"{result}\n{suffix}(共{content.Length}个字符)";
+            return $"{result}\n{suffix}{string.Format(Loc.Get("Preview.CharCount", "(共{0}个字符)"), content.Length)}";
         }
     }
 
@@ -392,10 +426,10 @@ namespace WinVClip
             var fileCount = filePaths.Count - folderCount;
             
             return folderCount > 0 && fileCount > 0
-                ? $"……(共{fileCount}个文件、{folderCount}个目录)"
+                ? string.Format(Loc.Get("Preview.FilesAndFolders", "……(共{0}个文件、{1}个目录)"), fileCount, folderCount)
                 : folderCount > 0
-                    ? $"……(共{folderCount}个目录)"
-                    : $"……(共{fileCount}个文件)";
+                    ? string.Format(Loc.Get("Preview.Folders", "……(共{0}个目录)"), folderCount)
+                    : string.Format(Loc.Get("Preview.Files", "……(共{0}个文件)"), fileCount);
         }
     }
 
@@ -470,6 +504,8 @@ namespace WinVClip
         public ObservableCollection<ClipboardItem> ClipboardItems { get; } = new ObservableCollection<ClipboardItem>();
 
         public string Hotkey => _settingsService.Settings.Hotkey;
+        
+        public string ImageBadgeText => Loc.Get("MainWindow.Badge.Image", "图片");
 
         private bool _isPinned = false;
         public bool IsPinned
@@ -587,18 +623,18 @@ namespace WinVClip
             }
         }
 
-        public string CurrentGroupName => GetGroupName(GroupFilter, "全部");
+        public string CurrentGroupName => GetGroupName(GroupFilter, Loc.Get("Common.All", "全部"));
 
         public void LoadGroups()
         {
             Groups.Clear();
-            Groups.Add(new Group { Id = 0, Name = "全部" });
             var groups = _databaseService.GetAllGroups();
             foreach (var group in groups)
             {
                 Groups.Add(group);
             }
-            Groups.Add(new Group { Id = -1L, Name = "管理分组" });
+            Groups.Add(new Group { Id = 0, Name = "☑︎ " + Loc.Get("Common.All", "全部") });
+            Groups.Add(new Group { Id = -1L, Name = "⚙️ " + Loc.Get("Settings.System.GroupManagement.Open", "管理分组") });
         }
 
         public bool HasItems => ClipboardItems.Count > 0;
@@ -869,6 +905,8 @@ namespace WinVClip
 
             DataContext = _viewModel;
             InitializeComponent();
+            
+            ApplyLocalization();
 
             _savedLeft = Left;
             _savedTop = Top;
@@ -876,6 +914,42 @@ namespace WinVClip
             SourceInitialized += MainWindow_SourceInitialized;
             _settingsService.SettingsChanged += OnSettingsChanged;
             _viewModel.ItemAdded += OnItemAdded;
+        }
+
+        private void ApplyLocalization()
+        {
+            FilterToggleButton.ToolTip = Loc.Get("MainWindow.ToolTip.Filter", "筛选");
+            SettingsButton.ToolTip = Loc.Get("MainWindow.ToolTip.Settings", "设置");
+            PinButton.ToolTip = Loc.Get("MainWindow.ToolTip.Pin", "置顶");
+            CloseButton.ToolTip = Loc.Get("MainWindow.ToolTip.Close", "关闭 (ESC)");
+            
+            FilterAllButton.ToolTip = Loc.Get("MainWindow.Filter.All", "全部");
+            FilterTextButton.ToolTip = Loc.Get("MainWindow.Filter.Text", "文本");
+            FilterImageButton.ToolTip = Loc.Get("MainWindow.Filter.Image", "图片");
+            FilterFileButton.ToolTip = Loc.Get("MainWindow.Filter.File", "文件");
+            
+            MenuPasteWithFormat.Header = Loc.Get("MainWindow.ContextMenu.PasteWithFormat", "带格式粘贴");
+            MenuPasteAsText.Header = Loc.Get("MainWindow.ContextMenu.PasteAsText", "纯文本粘贴");
+            MenuPasteAsImage.Header = Loc.Get("MainWindow.ContextMenu.PasteAsImage", "图片粘贴");
+            MenuOpenInBrowser.Header = Loc.Get("MainWindow.ContextMenu.OpenInBrowser", "在浏览器打开");
+            MenuOpenFolder.Header = Loc.Get("MainWindow.ContextMenu.OpenFolder", "打开文件夹");
+            MenuEdit.Header = Loc.Get("MainWindow.ContextMenu.Edit", "编辑");
+            MenuCopy.Header = Loc.Get("MainWindow.ContextMenu.Copy", "复制");
+            MenuGroup.Header = Loc.Get("MainWindow.ContextMenu.Group", "分组");
+            MenuDelete.Header = Loc.Get("MainWindow.ContextMenu.Delete", "删除");
+            MenuMultiSelectMode.Header = Loc.Get("MainWindow.ContextMenu.MultiSelectMode", "多选模式");
+            MenuBatchDelete.Header = Loc.Get("MainWindow.ContextMenu.BatchDelete", "批量删除");
+            MenuBatchGroup.Header = Loc.Get("MainWindow.ContextMenu.BatchGroup", "批量分组");
+            MenuExitMultiSelectMode.Header = Loc.Get("MainWindow.ContextMenu.ExitMultiSelectMode", "返回常规模式");
+            
+            LoadingMoreText.Text = Loc.Get("MainWindow.Status.LoadingMore", "加载更多...");
+            EmptyStateText.Text = Loc.Get("MainWindow.Status.Empty", "暂无剪贴板记录");
+            LoadingText.Text = Loc.Get("MainWindow.Status.Loading", "加载中...");
+            
+            ClearHistoryButton.Content = Loc.Get("MainWindow.Button.ClearHistory", "清空历史");
+            ClearHistoryButton.ToolTip = Loc.Get("MainWindow.ToolTip.ClearHistory", "清除记录");
+            MenuClearAllHistory.Header = Loc.Get("MainWindow.ContextMenu.ClearAllHistory", "清空所有历史记录");
+            MenuClearUngroupedHistory.Header = Loc.Get("MainWindow.ContextMenu.ClearUngroupedHistory", "清空所有未分组记录");
         }
 
         private void OnItemAdded(object sender, EventArgs e)
@@ -1669,7 +1743,7 @@ namespace WinVClip
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"{errorMessage}: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"{Loc.Get("Message.Error", "错误")}: {ex.Message}", Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -1721,7 +1795,7 @@ namespace WinVClip
                 return;
             if (item.Type != ClipboardType.Text && item.Type != ClipboardType.RichText)
             {
-                MessageBox.Show("只能编辑文本类型的内容", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(Loc.Get("MainWindow.Message.OnlyTextEdit", "只能编辑文本类型的内容"), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -1934,8 +2008,8 @@ namespace WinVClip
 
         private void ClearAllHistoryMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            if (MessageBox.Show("确定要清空所有剪贴板历史记录吗？\n\n此操作将删除所有记录（包括已分组的记录）。",
-                "确认", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+            if (MessageBox.Show(Loc.Get("MainWindow.Message.ConfirmClearAll", "确定要清空所有剪贴板历史记录吗？\n\n此操作将删除所有记录（包括已分组的记录）。"),
+                Loc.Get("Common.OK", "确认"), MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
             {
                 _databaseService.ClearHistory();
                 _viewModel.LoadItems();
@@ -1944,8 +2018,8 @@ namespace WinVClip
 
         private void ClearUngroupedHistoryMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            if (MessageBox.Show("确定要清空所有未分组的剪贴板历史记录吗？\n\n已分组的记录将保留。", 
-                "确认", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            if (MessageBox.Show(Loc.Get("MainWindow.Message.ConfirmClearUngrouped", "确定要清空所有未分组的剪贴板历史记录吗？\n\n已分组的记录将保留。"), 
+                Loc.Get("Common.OK", "确认"), MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
             {
                 _databaseService.ClearUngroupedHistory();
                 _viewModel.LoadItems();
@@ -2139,7 +2213,7 @@ namespace WinVClip
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"粘贴失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
@@ -2176,7 +2250,7 @@ namespace WinVClip
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"复制失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.CopyFailed", "复制失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -2200,11 +2274,11 @@ namespace WinVClip
 
         private void BatchDelete_Click(object sender, RoutedEventArgs e)
         {
-            var selectedItems = GetSelectedItemsOrShowMessage("请先选择要删除的项");
+            var selectedItems = GetSelectedItemsOrShowMessage(Loc.Get("MainWindow.Message.SelectItemsToDelete", "请先选择要删除的项"));
             if (selectedItems == null) return;
 
-            if (MessageBox.Show($"确定要删除选中的 {selectedItems.Count} 项吗？", 
-                "确认", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            if (MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.ConfirmDeleteSelected", "确定要删除选中的 {0} 项吗？"), selectedItems.Count), 
+                Loc.Get("Message.Confirm", "确认"), MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
             {
                 foreach (var item in selectedItems)
                     _databaseService.DeleteItem(item.Id);
@@ -2216,7 +2290,7 @@ namespace WinVClip
 
         private void BatchGroup_Click(object sender, RoutedEventArgs e)
         {
-            var selectedItems = GetSelectedItemsOrShowMessage("请先选择要分组的项");
+            var selectedItems = GetSelectedItemsOrShowMessage(Loc.Get("MainWindow.Message.SelectItemsToGroup", "请先选择要分组的项"));
             if (selectedItems == null) return;
 
             var menu = CreateGroupMenu(null, null, groupId =>
@@ -2236,7 +2310,7 @@ namespace WinVClip
             var selectedItems = _viewModel.GetSelectedItems();
             if (selectedItems.Count == 0)
             {
-                MessageBox.Show(emptyMessage, "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(emptyMessage, Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return null;
             }
             return selectedItems;

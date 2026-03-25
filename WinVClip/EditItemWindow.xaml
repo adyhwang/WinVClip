@@ -19,7 +19,7 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             
-            <TextBlock Grid.Row="0" Text="编辑剪贴板内容" 
+            <TextBlock Grid.Row="0" x:Name="TitleText" Text="编辑剪贴板内容" 
                        Foreground="{DynamicResource TextForeground}"
                        FontSize="16" FontWeight="SemiBold"
                        Margin="0,0,0,12"/>
@@ -38,10 +38,10 @@
             
             <StackPanel Grid.Row="2" Orientation="Horizontal" 
                         HorizontalAlignment="Right" Margin="0,16,0,0">
-                <Button Content="取消" Width="80" Height="32" Margin="0,0,8,0"
+                <Button x:Name="CancelButton" Content="取消" Width="80" Height="32" Margin="0,0,8,0"
                         Style="{DynamicResource SecondaryButtonStyle}"
                         Click="CancelButton_Click"/>
-                <Button Content="保存" Width="80" Height="32"
+                <Button x:Name="SaveButton" Content="保存" Width="80" Height="32"
                         Style="{DynamicResource PrimaryButtonStyle}"
                         Click="SaveButton_Click"/>
             </StackPanel>

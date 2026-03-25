@@ -240,7 +240,7 @@ namespace WinVClip.Services
                                 var fileNames = filePaths.Take(2).Select(p => Path.GetFileName(p)).ToList();
                                 if (filePaths.Count > 2)
                                 {
-                                    fileNames.Add($"……(共{filePaths.Count}个文件/目录)");
+                                    fileNames.Add(string.Format(Loc.Get("Preview.FilesAndFoldersShort", "……(共{0}个文件/目录)"), filePaths.Count));
                                 }
                                 item.PreviewText = string.Join("\n", fileNames);
                             }
@@ -679,7 +679,7 @@ namespace WinVClip.Services
                         Type = ClipboardType.Image,
                         ImagePath = relativePath,
                         ImageHash = imageHash,
-                        PreviewText = $"[图片] {image.PixelWidth}x{image.PixelHeight}",
+                        PreviewText = $"{image.PixelWidth}x{image.PixelHeight}",
                         CreatedAt = DateTime.Now
                     };
 

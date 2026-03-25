@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using WinVClip.Models;
+using WinVClip.Services;
 
 namespace WinVClip
 {
@@ -13,6 +14,15 @@ namespace WinVClip
             _item = item;
             DataContext = _item;
             InitializeComponent();
+            ApplyLocalization();
+        }
+
+        private void ApplyLocalization()
+        {
+            Title = Loc.Get("EditItem.Title", "编辑内容");
+            TitleText.Text = Loc.Get("EditItem.EditClipboard", "编辑剪贴板内容");
+            CancelButton.Content = Loc.Get("Common.Cancel", "取消");
+            SaveButton.Content = Loc.Get("Common.Save", "保存");
         }
 
         protected override void OnSourceInitialized(EventArgs e)

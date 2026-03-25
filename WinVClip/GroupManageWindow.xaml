@@ -35,6 +35,7 @@
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" 
+                       x:Name="TitleText"
                        Text="管理分组" 
                        FontSize="20" 
                        FontWeight="SemiBold"
@@ -124,6 +125,7 @@
                          KeyDown="NewGroupNameTextBox_KeyDown"/>
 
                 <Button Grid.Column="1" 
+                        x:Name="AddButton"
                         Content="添加分组" 
                         Width="120" Height="40"
                         Style="{DynamicResource PrimaryButtonStyle}"

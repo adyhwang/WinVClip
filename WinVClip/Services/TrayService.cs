@@ -122,11 +122,11 @@ namespace WinVClip.Services
             menu.Style = Application.Current.TryFindResource("ContextMenuStyle") as Style;
             
             // 显示主界面
-            var showItem = CreateMenuItem("📋 显示主界面", "显示 WinVClip 主窗口", () => OnShowWindow?.Invoke());
+            var showItem = CreateMenuItem("📋 " + Loc.Get("Tray.Show", "显示主界面"), Loc.Get("Tray.Show", "显示 WinVClip 主窗口"), () => OnShowWindow?.Invoke());
             menu.Items.Add(showItem);
             
             // 设置
-            var settingsItem = CreateMenuItem("⚙️ 设置", "打开设置窗口", () => OnOpenSettings?.Invoke());
+            var settingsItem = CreateMenuItem("⚙️ " + Loc.Get("Tray.Settings", "设置"), Loc.Get("Tray.Settings", "打开设置窗口"), () => OnOpenSettings?.Invoke());
             menu.Items.Add(settingsItem);
             
             // 分隔线
@@ -135,7 +135,7 @@ namespace WinVClip.Services
             // 监控开关
             var monitoringItem = new System.Windows.Controls.MenuItem 
             { 
-                Header = _settingsService.Settings.MonitorEnabled ? "⛔︎ 禁用监听" : "👁︎ 启用监听",
+                Header = _settingsService.Settings.MonitorEnabled ? "⛔︎ " + Loc.Get("Tray.MonitoringDisabled", "禁用监听") : "👁︎ " + Loc.Get("Tray.MonitoringEnabled", "启用监听"),
                 ToolTip = "切换剪贴板监控状态"
             };
             monitoringItem.Style = Application.Current.TryFindResource("MenuItemStyle") as Style;
@@ -146,7 +146,7 @@ namespace WinVClip.Services
             menu.Items.Add(CreateSeparator());
             
             // 退出
-            var exitItem = CreateMenuItem("❌ 退出", "退出 WinVClip", () => OnExit?.Invoke());
+            var exitItem = CreateMenuItem("❌ " + Loc.Get("Tray.Exit", "退出"), Loc.Get("Tray.Exit", "退出 WinVClip"), () => OnExit?.Invoke());
             menu.Items.Add(exitItem);
             
             // 在鼠标位置显示菜单
