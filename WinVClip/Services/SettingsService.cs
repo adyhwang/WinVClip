@@ -129,38 +129,6 @@ namespace WinVClip.Services
             }
         }
 
-        public void UpdateHotkey(string hotkey)
-        {
-            Settings.Hotkey = hotkey;
-            SaveSettings();
-        }
-
-        public void UpdateMonitoring(bool enabled)
-        {
-            Settings.MonitorEnabled = enabled;
-            SaveSettings();
-        }
-
-        public void UpdateCaptureSettings(bool images, bool files)
-        {
-            Settings.CaptureImages = images;
-            Settings.CaptureFiles = files;
-            SaveSettings();
-        }
-
-        public void UpdateDuplicateHandling(bool removeDuplicates)
-        {
-            Settings.RemoveDuplicates = removeDuplicates;
-            SaveSettings();
-        }
-
-        public void UpdateCleanupSettings(bool enabled, int retentionDays)
-        {
-            Settings.EnableAutoCleanup = enabled;
-            Settings.RetentionDays = retentionDays;
-            SaveSettings();
-        }
-
         /// <summary>
         /// 检查是否已设置为开机启动（从注册表读取）
         /// </summary>
@@ -223,19 +191,6 @@ namespace WinVClip.Services
                 };
                 SaveSettings();
             }
-        }
-
-        public void UpdateSearchEngineSettings(string selectedId, string customUrl)
-        {
-            Settings.SelectedSearchEngineId = selectedId;
-            Settings.CustomSearchEngineUrl = customUrl;
-            SaveSettings();
-        }
-
-        public void UpdatePasteShortcutMode(string mode)
-        {
-            Settings.PasteShortcutMode = mode;
-            SaveSettings();
         }
 
         public Services.PasteShortcutMode GetPasteShortcutMode()

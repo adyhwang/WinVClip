@@ -367,40 +367,6 @@ namespace WinVClip.Services
             return GetItems(int.MaxValue, 0);
         }
 
-        public int GetItemCount(string? searchText = null, int? typeFilter = null)
-        {
-            using var command = _connection.CreateCommand();
-
-            var whereClause = new StringBuilder("WHERE 1=1");
-            var parameters = new List<SqliteParameter>();
-
-            if (!string.IsNullOrEmpty(searchText))
-            {
-                whereClause.Append(" AND (Content LIKE @Search OR PreviewText LIKE @Search)");
-                parameters.Add(new SqliteParameter("@Search", $"%{searchText}%"));
-            }
-
-            if (typeFilter.HasValue)
-            {
-                if (typeFilter.Value == (int)Models.ClipboardType.Text)
-                {
-                    whereClause.Append(" AND (Type = @Type OR Type = @RichTextType)");
-                    parameters.Add(new SqliteParameter("@Type", typeFilter.Value));
-                    parameters.Add(new SqliteParameter("@RichTextType", (int)Models.ClipboardType.RichText));
-                }
-                else
-                {
-                    whereClause.Append(" AND Type = @Type");
-                    parameters.Add(new SqliteParameter("@Type", typeFilter.Value));
-                }
-            }
-
-            command.CommandText = $"SELECT COUNT(*) FROM ClipboardItems {whereClause}";
-            parameters.ForEach(p => command.Parameters.Add(p));
-
-            return Convert.ToInt32(command.ExecuteScalar());
-        }
-
         public Models.ClipboardItem? GetItem(long id)
         {
             using var command = _connection.CreateCommand();
@@ -541,25 +507,6 @@ namespace WinVClip.Services
             deleteCommand.ExecuteNonQuery();
         }
 
-        public bool ItemExists(string content, int type)
-        {
-            using var command = _connection.CreateCommand();
-            command.CommandText = "SELECT COUNT(*) FROM ClipboardItems WHERE Content = @Content AND Type = @Type AND CreatedAt > @RecentTime";
-            command.Parameters.AddWithValue("@Content", content);
-            command.Parameters.AddWithValue("@Type", type);
-            command.Parameters.AddWithValue("@RecentTime", DateTime.Now.AddSeconds(-5));
-            return Convert.ToInt32(command.ExecuteScalar()) > 0;
-        }
-
-        public void DeleteDuplicateItems(string content, int type)
-        {
-            using var command = _connection.CreateCommand();
-            command.CommandText = "DELETE FROM ClipboardItems WHERE Content = @Content AND Type = @Type";
-            command.Parameters.AddWithValue("@Content", content);
-            command.Parameters.AddWithValue("@Type", type);
-            command.ExecuteNonQuery();
-        }
-
         public int UpdateDuplicateItemTimestamp(string content, int type)
         {
             return ExecuteNonQueryWithRetry(@"
@@ -696,18 +643,193 @@ namespace WinVClip.Services
             return Convert.ToInt32(command.ExecuteScalar());
         }
 
-        /// <summary>
-        /// 删除未分组的重复项，保留已分组的
-        /// </summary>
-        public int DeleteUngroupedDuplicates(string content, int type)
+        public Dictionary<string, bool> GetExistingRichTextContents(HashSet<string> richContents)
         {
+            var result = new Dictionary<string, bool>();
+            if (richContents == null || richContents.Count == 0)
+                return result;
+
+            using var command = _connection.CreateCommand();
+            command.CommandText = @"
+                SELECT RichContent, GroupId IS NOT NULL as IsGrouped 
+                FROM ClipboardItems 
+                WHERE Type = @Type AND RichContent IN ({0})";
+            command.Parameters.AddWithValue("@Type", (int)ClipboardType.RichText);
+
+            var placeholders = new List<string>();
+            var paramIndex = 0;
+            foreach (var content in richContents)
+            {
+                var paramName = $"@R{paramIndex++}";
+                placeholders.Add(paramName);
+                command.Parameters.AddWithValue(paramName, content);
+            }
+            command.CommandText = string.Format(command.CommandText, string.Join(",", placeholders));
+
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var content = reader.GetString(0);
+                var isGrouped = reader.GetBoolean(1);
+                result[content] = isGrouped;
+            }
+            return result;
+        }
+
+        public int DeleteUngroupedRichTextDuplicatesBatch(HashSet<string> richContents)
+        {
+            if (richContents == null || richContents.Count == 0)
+                return 0;
+
             using var command = _connection.CreateCommand();
             command.CommandText = @"
                 DELETE FROM ClipboardItems 
-                WHERE Content = @Content AND Type = @Type AND GroupId IS NULL;
+                WHERE Type = @Type AND GroupId IS NULL AND RichContent IN ({0});
                 SELECT changes();";
-            command.Parameters.AddWithValue("@Content", content);
-            command.Parameters.AddWithValue("@Type", type);
+            command.Parameters.AddWithValue("@Type", (int)ClipboardType.RichText);
+
+            var placeholders = new List<string>();
+            var paramIndex = 0;
+            foreach (var content in richContents)
+            {
+                var paramName = $"@R{paramIndex++}";
+                placeholders.Add(paramName);
+                command.Parameters.AddWithValue(paramName, content);
+            }
+            command.CommandText = string.Format(command.CommandText, string.Join(",", placeholders));
+
+            return Convert.ToInt32(command.ExecuteScalar());
+        }
+
+        public Dictionary<string, bool> GetExistingFileListSignatures(HashSet<string> signatures)
+        {
+            var result = new Dictionary<string, bool>();
+            if (signatures == null || signatures.Count == 0)
+                return result;
+
+            using var command = _connection.CreateCommand();
+            command.CommandText = @"
+                SELECT FilePaths, GroupId IS NOT NULL as IsGrouped 
+                FROM ClipboardItems 
+                WHERE Type = @Type";
+            command.Parameters.AddWithValue("@Type", (int)ClipboardType.FileList);
+
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var filePathsStr = reader.GetString(0);
+                var isGrouped = reader.GetBoolean(1);
+                if (!string.IsNullOrEmpty(filePathsStr))
+                {
+                    var filePaths = filePathsStr.Split('|').ToList();
+                    var signature = string.Join("|", filePaths.OrderBy(p => p));
+                    if (signatures.Contains(signature))
+                    {
+                        result[signature] = isGrouped;
+                    }
+                }
+            }
+            return result;
+        }
+
+        public int DeleteUngroupedFileListDuplicatesBatch(HashSet<string> signatures)
+        {
+            if (signatures == null || signatures.Count == 0)
+                return 0;
+
+            var deletedCount = 0;
+            using var command = _connection.CreateCommand();
+            command.CommandText = @"
+                SELECT Id, FilePaths FROM ClipboardItems 
+                WHERE Type = @Type AND GroupId IS NULL";
+            command.Parameters.AddWithValue("@Type", (int)ClipboardType.FileList);
+
+            var idsToDelete = new List<int>();
+            using (var reader = command.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    var id = reader.GetInt32(0);
+                    var filePathsStr = reader.GetString(1);
+                    if (!string.IsNullOrEmpty(filePathsStr))
+                    {
+                        var filePaths = filePathsStr.Split('|').ToList();
+                        var signature = string.Join("|", filePaths.OrderBy(p => p));
+                        if (signatures.Contains(signature))
+                        {
+                            idsToDelete.Add(id);
+                        }
+                    }
+                }
+            }
+
+            foreach (var id in idsToDelete)
+            {
+                using var deleteCommand = _connection.CreateCommand();
+                deleteCommand.CommandText = "DELETE FROM ClipboardItems WHERE Id = @Id";
+                deleteCommand.Parameters.AddWithValue("@Id", id);
+                deleteCommand.ExecuteNonQuery();
+                deletedCount++;
+            }
+
+            return deletedCount;
+        }
+
+        public Dictionary<string, bool> GetExistingImageHashes(HashSet<string> imageHashes)
+        {
+            var result = new Dictionary<string, bool>();
+            if (imageHashes == null || imageHashes.Count == 0)
+                return result;
+
+            using var command = _connection.CreateCommand();
+            command.CommandText = @"
+                SELECT ImageHash, GroupId IS NOT NULL as IsGrouped 
+                FROM ClipboardItems 
+                WHERE Type = @Type AND ImageHash IN ({0})";
+            command.Parameters.AddWithValue("@Type", (int)ClipboardType.Image);
+
+            var placeholders = new List<string>();
+            var paramIndex = 0;
+            foreach (var hash in imageHashes)
+            {
+                var paramName = $"@H{paramIndex++}";
+                placeholders.Add(paramName);
+                command.Parameters.AddWithValue(paramName, hash);
+            }
+            command.CommandText = string.Format(command.CommandText, string.Join(",", placeholders));
+
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var hash = reader.GetString(0);
+                var isGrouped = reader.GetBoolean(1);
+                result[hash] = isGrouped;
+            }
+            return result;
+        }
+
+        public int DeleteUngroupedImageDuplicatesBatch(HashSet<string> imageHashes)
+        {
+            if (imageHashes == null || imageHashes.Count == 0)
+                return 0;
+
+            using var command = _connection.CreateCommand();
+            command.CommandText = @"
+                DELETE FROM ClipboardItems 
+                WHERE Type = @Type AND GroupId IS NULL AND ImageHash IN ({0});
+                SELECT changes();";
+            command.Parameters.AddWithValue("@Type", (int)ClipboardType.Image);
+
+            var placeholders = new List<string>();
+            var paramIndex = 0;
+            foreach (var hash in imageHashes)
+            {
+                var paramName = $"@H{paramIndex++}";
+                placeholders.Add(paramName);
+                command.Parameters.AddWithValue(paramName, hash);
+            }
+            command.CommandText = string.Format(command.CommandText, string.Join(",", placeholders));
+
             return Convert.ToInt32(command.ExecuteScalar());
         }
 
@@ -749,6 +871,20 @@ namespace WinVClip.Services
             return Convert.ToInt64(command.ExecuteScalar());
         }
 
+        public long InsertGroup(string name, DateTime createdAt)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = @"
+                INSERT INTO Groups (Name, CreatedAt)
+                VALUES (@Name, @CreatedAt);
+                SELECT last_insert_rowid();
+            ";
+            command.Parameters.AddWithValue("@Name", name);
+            command.Parameters.AddWithValue("@CreatedAt", createdAt);
+
+            return Convert.ToInt64(command.ExecuteScalar());
+        }
+
         public void UpdateGroup(long id, string name)
         {
             using var command = _connection.CreateCommand();
@@ -764,18 +900,6 @@ namespace WinVClip.Services
             command.CommandText = "DELETE FROM Groups WHERE Id = @Id";
             command.Parameters.AddWithValue("@Id", id);
             command.ExecuteNonQuery();
-        }
-
-        public string? GetGroupName(long? groupId)
-        {
-            if (!groupId.HasValue)
-                return null;
-
-            using var command = _connection.CreateCommand();
-            command.CommandText = "SELECT Name FROM Groups WHERE Id = @Id";
-            command.Parameters.AddWithValue("@Id", groupId.Value);
-            var result = command.ExecuteScalar();
-            return result?.ToString();
         }
 
         public void UpdateItemGroup(long itemId, long? groupId)
@@ -841,17 +965,6 @@ namespace WinVClip.Services
                     cmd.Parameters.AddWithValue("@Content", content);
                     cmd.Parameters.AddWithValue("@RichContent", richContent);
                     cmd.Parameters.AddWithValue("@Type", (int)Models.ClipboardType.RichText);
-                }, 0) > 0;
-        }
-
-        public bool FileListExistsInDatabase(string content)
-        {
-            return ExecuteScalarWithRetry<int>(
-                "SELECT COUNT(*) FROM ClipboardItems WHERE Content = @Content AND Type = @Type",
-                cmd =>
-                {
-                    cmd.Parameters.AddWithValue("@Content", content);
-                    cmd.Parameters.AddWithValue("@Type", (int)Models.ClipboardType.FileList);
                 }, 0) > 0;
         }
 

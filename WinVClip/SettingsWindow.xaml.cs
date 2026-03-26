@@ -183,9 +183,9 @@ namespace WinVClip
             
             BackupDataHint.Text = Loc.Get("Settings.Storage.BackupHint", "备份数据：将数据库和图片打包为ZIP文件");
             RestoreBackupHint.Text = Loc.Get("Settings.Storage.RestoreHint", "恢复备份：从ZIP文件恢复数据并重启程序");
-            ExportJsonHint.Text = Loc.Get("Settings.Storage.ExportJsonHint", "导出JSON：导出文本、富文本和文件类型的记录为JSON文件");
-            ImportJsonHint.Text = Loc.Get("Settings.Storage.ImportJsonHint", "导入JSON：从JSON文件导入记录");
-            ImportTextHint.Text = Loc.Get("Settings.Storage.ImportTextHint", "导入纯文本：从TXT文件导入文本记录（一行一个记录）");
+            ExportJsonHint.Text = Loc.Get("Settings.Storage.ExportJsonHint", "导出JSON：导出所有分组和剪贴板记录为JSON文件");
+            ImportJsonHint.Text = Loc.Get("Settings.Storage.ImportJsonHint", "导入JSON：从JSON文件导入分组和记录，自动处理重复");
+            ImportTextHint.Text = Loc.Get("Settings.Storage.ImportTextHint", "导入纯文本：从TXT文件导入文本记录（一行一条记录）");
         }
 
         private void ApplyPanelSearchLocalization()
@@ -273,7 +273,7 @@ namespace WinVClip
             _isSettingHotkey = true;
             _tempHotkey = HotkeyTextBox.Text;
             _pressedModifiers.Clear();
-            HotkeyTextBox.Text = "按下快捷键组合...";
+            HotkeyTextBox.Text = Loc.Get("Settings.General.Hotkey.PressingKeys", "按下快捷键组合...");
         }
 
         private void HotkeyTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -407,7 +407,7 @@ namespace WinVClip
                 var newHotkey = HotkeyTextBox.Text;
 
                 // 如果用户没有输入任何内容，恢复原来的快捷键
-                if (string.IsNullOrWhiteSpace(newHotkey) || newHotkey == "按下快捷键组合...")
+                if (string.IsNullOrWhiteSpace(newHotkey) || newHotkey == Loc.Get("Settings.General.Hotkey.PressingKeys", "按下快捷键组合..."))
                 {
                     HotkeyTextBox.Text = _tempHotkey;
                     return;
@@ -711,7 +711,7 @@ namespace WinVClip
 
             if (IsAdministrator())
             {
-                RequestAdminButton.Content = "已获取管理员权限";
+                RequestAdminButton.Content = Loc.Get("Settings.Admin.HasAdmin", "已获取管理员权限");
                 RequestAdminButton.IsEnabled = false;
             }
         }
@@ -720,7 +720,7 @@ namespace WinVClip
         {
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
-                Filter = "数据库文件 (*.db)|*.db|所有文件 (*.*)|*.*",
+                Filter = Loc.Get("FileDialog.Filter.Database", "数据库文件 (*.db)|*.db") + "|" + Loc.Get("FileDialog.Filter.AllFiles", "所有文件 (*.*)|*.*"),
                 DefaultExt = ".db",
                 FileName = "clipboard_history.db"
             };
@@ -735,7 +735,7 @@ namespace WinVClip
         {
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
-                Filter = "ZIP压缩文件 (*.zip)|*.zip",
+                Filter = Loc.Get("FileDialog.Filter.Zip", "ZIP压缩文件 (*.zip)|*.zip"),
                 DefaultExt = ".zip",
                 FileName = $"WinVClip_backup_{DateTime.Now:yyyy_MM_dd}.zip"
             };
@@ -837,7 +837,7 @@ namespace WinVClip
 
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
-                Filter = "ZIP压缩文件 (*.zip)|*.zip",
+                Filter = Loc.Get("FileDialog.Filter.Zip", "ZIP压缩文件 (*.zip)|*.zip"),
                 DefaultExt = ".zip"
             };
 
@@ -915,45 +915,11 @@ namespace WinVClip
             }
         }
 
-        private void ExportData_Click(object sender, RoutedEventArgs e)
-        {
-            var dialog = new Microsoft.Win32.SaveFileDialog
-            {
-                Filter = "文本文件 (*.txt)|*.txt",
-                DefaultExt = ".txt",
-                FileName = $"clipboard_export_{DateTime.Now:yyyyMMdd_HHmmss}.txt"
-            };
-            
-            if (dialog.ShowDialog() == true)
-            {
-                try
-                {
-                    var items = App.DatabaseService.GetAllItems();
-                    var lines = new List<string>();
-                    
-                    foreach (var item in items)
-                    {
-                        if (item.Type == ClipboardType.Text && !string.IsNullOrWhiteSpace(item.Content))
-                        {
-                            lines.Add(item.Content);
-                        }
-                    }
-                    
-                    System.IO.File.WriteAllLines(dialog.FileName, lines);
-                    MessageBox.Show(string.Format(Loc.Get("Settings.Storage.ExportTextSuccess", "导出成功！共导出 {0} 条文本记录。"), lines.Count), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show(string.Format(Loc.Get("Settings.Storage.ExportFailed", "导出失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
-        }
-
         private void ImportData_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
-                Filter = "文本文件 (*.txt)|*.txt",
+                Filter = Loc.Get("FileDialog.Filter.Text", "文本文件 (*.txt)|*.txt"),
                 DefaultExt = ".txt"
             };
 
@@ -962,7 +928,7 @@ namespace WinVClip
                 // 创建进度窗口
                 var progressWindow = new Window
                 {
-                    Title = "导入数据",
+                    Title = Loc.Get("Import.Title", "导入数据"),
                     Width = 350,
                     Height = 150,
                     WindowStartupLocation = WindowStartupLocation.CenterOwner,
@@ -974,7 +940,7 @@ namespace WinVClip
                 var stackPanel = new StackPanel { Margin = new Thickness(20) };
                 var statusText = new TextBlock
                 {
-                    Text = "正在读取文件...",
+                    Text = Loc.Get("Import.ReadingFile", "正在读取文件..."),
                     Margin = new Thickness(0, 0, 0, 10)
                 };
                 var progressBar = new ProgressBar
@@ -1009,10 +975,10 @@ namespace WinVClip
 
                         await Dispatcher.InvokeAsync(() =>
                         {
-                            statusText.Text = $"正在分析文件...";
+                            statusText.Text = Loc.Get("Import.AnalyzingFile", "正在分析文件...");
                             progressBar.Maximum = 1;
                             progressBar.Value = 0;
-                            detailText.Text = $"文件共 {totalLines} 行";
+                            detailText.Text = string.Format(Loc.Get("Import.FileTotalLines", "文件共 {0} 行"), totalLines);
                             progressWindow.Show();
                         });
 
@@ -1028,8 +994,8 @@ namespace WinVClip
 
                         await Dispatcher.InvokeAsync(() =>
                         {
-                            statusText.Text = $"正在检查重复数据...";
-                            detailText.Text = $"共 {uniqueContents.Count} 条不重复数据";
+                            statusText.Text = Loc.Get("Import.CheckingDuplicates", "正在检查重复数据...");
+                            detailText.Text = string.Format(Loc.Get("Import.UniqueDataCount", "共 {0} 条不重复数据"), uniqueContents.Count);
                         });
 
                         var existingContents = App.DatabaseService.GetExistingTextContents(uniqueContents);
@@ -1049,8 +1015,8 @@ namespace WinVClip
 
                         await Dispatcher.InvokeAsync(() =>
                         {
-                            statusText.Text = $"正在清理未分组重复数据...";
-                            detailText.Text = $"已分组: {groupedContents.Count} 条，未分组: {ungroupedContents.Count} 条";
+                            statusText.Text = Loc.Get("Import.CleaningDuplicates", "正在清理未分组重复数据...");
+                            detailText.Text = string.Format(Loc.Get("Import.GroupedCount", "已分组: {0} 条"), groupedContents.Count) + "，" + string.Format(Loc.Get("Import.UngroupedCount", "未分组: {0} 条"), ungroupedContents.Count);
                         });
 
                         if (ungroupedContents.Count > 0)
@@ -1060,8 +1026,8 @@ namespace WinVClip
 
                         await Dispatcher.InvokeAsync(() =>
                         {
-                            statusText.Text = $"正在准备导入数据...";
-                            detailText.Text = $"已清理 {deletedCount} 条，跳过 {skippedCount} 条";
+                            statusText.Text = Loc.Get("Import.PreparingImport", "正在准备导入数据...");
+                            detailText.Text = string.Format(Loc.Get("Import.CleanedCount", "已清理 {0} 条，跳过 {1} 条"), deletedCount, skippedCount);
                         });
 
                         var itemsToImport = new List<ClipboardItem>();
@@ -1084,7 +1050,7 @@ namespace WinVClip
 
                         await Dispatcher.InvokeAsync(() =>
                         {
-                            statusText.Text = $"正在批量导入 {itemsToImport.Count} 条记录...";
+                            statusText.Text = string.Format(Loc.Get("Import.Importing", "正在导入数据...")) + " " + string.Format(Loc.Get("Import.Progress", "{0} 条记录"), itemsToImport.Count);
                             progressBar.Value = 0;
                             progressBar.Maximum = 1;
                         });
@@ -1121,7 +1087,7 @@ namespace WinVClip
         {
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
-                Filter = "JSON文件 (*.json)|*.json",
+                Filter = Loc.Get("FileDialog.Filter.Json", "JSON文件 (*.json)|*.json"),
                 DefaultExt = ".json",
                 FileName = $"clipboard_export_{DateTime.Now:yyyyMMdd_HHmmss}.json"
             };
@@ -1131,42 +1097,46 @@ namespace WinVClip
                 try
                 {
                     var items = App.DatabaseService.GetAllItems();
-                    var exportItems = new List<object>();
+                    var groups = App.DatabaseService.GetAllGroups();
 
+                    var exportItems = new List<object>();
                     foreach (var item in items)
                     {
-                        if (item.Type == ClipboardType.Text && !string.IsNullOrWhiteSpace(item.Content))
+                        exportItems.Add(new
                         {
-                            exportItems.Add(new
-                            {
-                                Type = "Text",
-                                Content = item.Content,
-                                CreatedAt = item.CreatedAt
-                            });
-                        }
-                        else if (item.Type == ClipboardType.RichText && !string.IsNullOrWhiteSpace(item.RichContent))
-                        {
-                            exportItems.Add(new
-                            {
-                                Type = "RichText",
-                                Content = item.Content,
-                                RichContent = item.RichContent,
-                                RichFormat = item.RichFormat,
-                                CreatedAt = item.CreatedAt
-                            });
-                        }
-                        else if (item.Type == ClipboardType.FileList && item.FilePaths != null && item.FilePaths.Count > 0)
-                        {
-                            exportItems.Add(new
-                            {
-                                Type = "FileList",
-                                FilePaths = item.FilePaths,
-                                CreatedAt = item.CreatedAt
-                            });
-                        }
+                            Type = item.Type.ToString(),
+                            Content = item.Content,
+                            RichContent = item.RichContent,
+                            RichFormat = item.RichFormat,
+                            CsvContent = item.CsvContent,
+                            ImagePath = item.ImagePath,
+                            ImageHash = item.ImageHash,
+                            FilePaths = item.FilePaths,
+                            CreatedAt = item.CreatedAt,
+                            PreviewText = item.PreviewText,
+                            GroupId = item.GroupId,
+                            GroupName = item.GroupName
+                        });
                     }
 
-                    var json = System.Text.Json.JsonSerializer.Serialize(exportItems, new System.Text.Json.JsonSerializerOptions
+                    var exportGroups = new List<object>();
+                    foreach (var group in groups)
+                    {
+                        exportGroups.Add(new
+                        {
+                            Id = group.Id,
+                            Name = group.Name,
+                            CreatedAt = group.CreatedAt
+                        });
+                    }
+
+                    var exportData = new
+                    {
+                        Groups = exportGroups,
+                        Items = exportItems
+                    };
+
+                    var json = System.Text.Json.JsonSerializer.Serialize(exportData, new System.Text.Json.JsonSerializerOptions
                     {
                         WriteIndented = true,
                         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
@@ -1186,7 +1156,7 @@ namespace WinVClip
         {
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
-                Filter = "JSON文件 (*.json)|*.json",
+                Filter = Loc.Get("FileDialog.Filter.Json", "JSON文件 (*.json)|*.json"),
                 DefaultExt = ".json"
             };
 
@@ -1195,7 +1165,22 @@ namespace WinVClip
                 try
                 {
                     var json = System.IO.File.ReadAllText(dialog.FileName, Encoding.UTF8);
-                    var importItems = System.Text.Json.JsonSerializer.Deserialize<List<System.Text.Json.JsonElement>>(json);
+                    using var jsonDoc = System.Text.Json.JsonDocument.Parse(json);
+                    var root = jsonDoc.RootElement;
+
+                    if (root.ValueKind != System.Text.Json.JsonValueKind.Object || 
+                        !root.TryGetProperty("Items", out var itemsProp))
+                    {
+                        MessageBox.Show(Loc.Get("Settings.Storage.NoDataToImport", "文件中没有可导入的数据。"), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+
+                    var importItems = itemsProp.EnumerateArray().ToList();
+                    List<System.Text.Json.JsonElement>? importGroups = null;
+                    if (root.TryGetProperty("Groups", out var groupsProp))
+                    {
+                        importGroups = groupsProp.EnumerateArray().ToList();
+                    }
 
                     if (importItems == null || importItems.Count == 0)
                     {
@@ -1203,73 +1188,292 @@ namespace WinVClip
                         return;
                     }
 
-                    var itemsToImport = new List<ClipboardItem>();
+                    var existingGroups = App.DatabaseService.GetAllGroups();
+                    var groupNameToId = existingGroups.ToDictionary(g => g.Name, g => g.Id, StringComparer.OrdinalIgnoreCase);
+                    var importedGroupIdMap = new Dictionary<long, long>();
+
+                    if (importGroups != null)
+                    {
+                        foreach (var group in importGroups)
+                        {
+                            var groupName = group.TryGetProperty("Name", out var nameProp) && nameProp.ValueKind != System.Text.Json.JsonValueKind.Null 
+                                ? nameProp.GetString() : null;
+                            var originalId = group.TryGetProperty("Id", out var idProp) && idProp.ValueKind == System.Text.Json.JsonValueKind.Number 
+                                ? idProp.GetInt64() : 0;
+                            
+                            if (!string.IsNullOrWhiteSpace(groupName))
+                            {
+                                if (!groupNameToId.ContainsKey(groupName))
+                                {
+                                    var createdAt = group.TryGetProperty("CreatedAt", out var createdProp) && createdProp.ValueKind != System.Text.Json.JsonValueKind.Null
+                                        ? createdProp.GetDateTime() 
+                                        : DateTime.Now;
+                                    var newId = App.DatabaseService.InsertGroup(groupName, createdAt);
+                                    groupNameToId[groupName] = newId;
+                                    if (originalId > 0)
+                                        importedGroupIdMap[originalId] = newId;
+                                }
+                                else if (originalId > 0)
+                                {
+                                    importedGroupIdMap[originalId] = groupNameToId[groupName];
+                                }
+                            }
+                        }
+                    }
+
+                    var textContents = new HashSet<string>();
+                    var richTextContents = new HashSet<string>();
+                    var fileListSignatures = new HashSet<string>();
+                    var imageHashes = new HashSet<string>();
                     var baseTime = DateTime.Now;
 
                     foreach (var item in importItems)
                     {
-                        var type = item.GetProperty("Type").GetString();
-                        var createdAtStr = item.TryGetProperty("CreatedAt", out var createdAtProp) 
+                        var typeStr = item.TryGetProperty("Type", out var typeProp) && typeProp.ValueKind != System.Text.Json.JsonValueKind.Null 
+                            ? typeProp.GetString() : "Text";
+                        
+                        if (typeStr == "Text")
+                        {
+                            var content = item.TryGetProperty("Content", out var contentProp) && contentProp.ValueKind != System.Text.Json.JsonValueKind.Null 
+                                ? contentProp.GetString() : null;
+                            if (!string.IsNullOrWhiteSpace(content))
+                            {
+                                textContents.Add(content);
+                            }
+                        }
+                        else if (typeStr == "RichText")
+                        {
+                            var richContent = item.TryGetProperty("RichContent", out var richContentProp) && richContentProp.ValueKind != System.Text.Json.JsonValueKind.Null 
+                                ? richContentProp.GetString() : null;
+                            if (!string.IsNullOrWhiteSpace(richContent))
+                            {
+                                richTextContents.Add(richContent);
+                            }
+                        }
+                        else if (typeStr == "FileList")
+                        {
+                            if (item.TryGetProperty("FilePaths", out var filePathsProp) && filePathsProp.ValueKind == System.Text.Json.JsonValueKind.Array)
+                            {
+                                var filePaths = filePathsProp.EnumerateArray()
+                                    .Where(p => p.ValueKind != System.Text.Json.JsonValueKind.Null)
+                                    .Select(p => p.GetString())
+                                    .Where(p => p != null)
+                                    .ToList()!;
+                                if (filePaths.Count > 0)
+                                {
+                                    var signature = string.Join("|", filePaths.OrderBy(p => p));
+                                    fileListSignatures.Add(signature);
+                                }
+                            }
+                        }
+                        else if (typeStr == "Image")
+                        {
+                            var imageHash = item.TryGetProperty("ImageHash", out var hashProp) && hashProp.ValueKind != System.Text.Json.JsonValueKind.Null 
+                                ? hashProp.GetString() : null;
+                            if (!string.IsNullOrWhiteSpace(imageHash))
+                            {
+                                imageHashes.Add(imageHash);
+                            }
+                        }
+                    }
+
+                    var existingTextContents = App.DatabaseService.GetExistingTextContents(textContents);
+                    var groupedTextContents = new HashSet<string>();
+                    var ungroupedTextContents = new HashSet<string>();
+                    foreach (var kvp in existingTextContents)
+                    {
+                        if (kvp.Value)
+                            groupedTextContents.Add(kvp.Key);
+                        else
+                            ungroupedTextContents.Add(kvp.Key);
+                    }
+
+                    var existingRichTextContents = App.DatabaseService.GetExistingRichTextContents(richTextContents);
+                    var groupedRichTextContents = new HashSet<string>();
+                    var ungroupedRichTextContents = new HashSet<string>();
+                    foreach (var kvp in existingRichTextContents)
+                    {
+                        if (kvp.Value)
+                            groupedRichTextContents.Add(kvp.Key);
+                        else
+                            ungroupedRichTextContents.Add(kvp.Key);
+                    }
+
+                    var existingFileListSignatures = App.DatabaseService.GetExistingFileListSignatures(fileListSignatures);
+                    var groupedFileListSignatures = new HashSet<string>();
+                    var ungroupedFileListSignatures = new HashSet<string>();
+                    foreach (var kvp in existingFileListSignatures)
+                    {
+                        if (kvp.Value)
+                            groupedFileListSignatures.Add(kvp.Key);
+                        else
+                            ungroupedFileListSignatures.Add(kvp.Key);
+                    }
+
+                    var existingImageHashes = App.DatabaseService.GetExistingImageHashes(imageHashes);
+                    var groupedImageHashes = new HashSet<string>();
+                    var ungroupedImageHashes = new HashSet<string>();
+                    foreach (var kvp in existingImageHashes)
+                    {
+                        if (kvp.Value)
+                            groupedImageHashes.Add(kvp.Key);
+                        else
+                            ungroupedImageHashes.Add(kvp.Key);
+                    }
+
+                    var deletedCount = 0;
+                    if (ungroupedTextContents.Count > 0)
+                        deletedCount += App.DatabaseService.DeleteUngroupedDuplicatesBatch(ungroupedTextContents);
+                    if (ungroupedRichTextContents.Count > 0)
+                        deletedCount += App.DatabaseService.DeleteUngroupedRichTextDuplicatesBatch(ungroupedRichTextContents);
+                    if (ungroupedFileListSignatures.Count > 0)
+                        deletedCount += App.DatabaseService.DeleteUngroupedFileListDuplicatesBatch(ungroupedFileListSignatures);
+                    if (ungroupedImageHashes.Count > 0)
+                        deletedCount += App.DatabaseService.DeleteUngroupedImageDuplicatesBatch(ungroupedImageHashes);
+
+                    var itemsToImport = new List<ClipboardItem>();
+                    var skippedCount = groupedTextContents.Count + groupedRichTextContents.Count + groupedFileListSignatures.Count + groupedImageHashes.Count;
+                    var addedTextContents = new HashSet<string>();
+                    var addedRichTextContents = new HashSet<string>();
+                    var addedFileListSignatures = new HashSet<string>();
+                    var addedImageHashes = new HashSet<string>();
+
+                    foreach (var item in importItems)
+                    {
+                        var typeStr = item.TryGetProperty("Type", out var typeProp) && typeProp.ValueKind != System.Text.Json.JsonValueKind.Null 
+                            ? typeProp.GetString() : "Text";
+                        var createdAt = item.TryGetProperty("CreatedAt", out var createdAtProp) && createdAtProp.ValueKind != System.Text.Json.JsonValueKind.Null
                             ? createdAtProp.GetDateTime() 
                             : baseTime.AddSeconds(itemsToImport.Count);
 
-                        if (type == "Text")
+                        long? groupId = null;
+                        if (item.TryGetProperty("GroupId", out var groupIdProp) && groupIdProp.ValueKind == System.Text.Json.JsonValueKind.Number)
                         {
-                            var content = item.GetProperty("Content").GetString();
-                            if (!string.IsNullOrWhiteSpace(content))
+                            var originalGroupId = groupIdProp.GetInt64();
+                            if (originalGroupId > 0 && importedGroupIdMap.TryGetValue(originalGroupId, out var newGroupId))
                             {
+                                groupId = newGroupId;
+                            }
+                        }
+                        if (groupId == null && item.TryGetProperty("GroupName", out var groupNameProp) && groupNameProp.ValueKind != System.Text.Json.JsonValueKind.Null)
+                        {
+                            var groupName = groupNameProp.GetString();
+                            if (!string.IsNullOrWhiteSpace(groupName) && groupNameToId.TryGetValue(groupName, out var existingGroupId))
+                            {
+                                groupId = existingGroupId;
+                            }
+                        }
+
+                        if (typeStr == "Text")
+                        {
+                            var content = item.TryGetProperty("Content", out var contentProp) && contentProp.ValueKind != System.Text.Json.JsonValueKind.Null 
+                                ? contentProp.GetString() : null;
+                            if (!string.IsNullOrWhiteSpace(content) && !groupedTextContents.Contains(content) && !addedTextContents.Contains(content))
+                            {
+                                addedTextContents.Add(content);
+                                var previewText = item.TryGetProperty("PreviewText", out var previewProp) && previewProp.ValueKind != System.Text.Json.JsonValueKind.Null 
+                                    ? previewProp.GetString() : null;
                                 itemsToImport.Add(new ClipboardItem
                                 {
                                     Type = ClipboardType.Text,
                                     Content = content,
-                                    CreatedAt = createdAtStr,
-                                    PreviewText = content.Length > 100 ? content.Substring(0, 100) : content
+                                    CreatedAt = createdAt,
+                                    PreviewText = !string.IsNullOrWhiteSpace(previewText) ? previewText : (content.Length > 100 ? content.Substring(0, 100) : content),
+                                    GroupId = groupId
                                 });
                             }
                         }
-                        else if (type == "RichText")
+                        else if (typeStr == "RichText")
                         {
-                            var content = item.TryGetProperty("Content", out var contentProp) ? contentProp.GetString() : "";
-                            var richContent = item.GetProperty("RichContent").GetString();
-                            var richFormat = item.TryGetProperty("RichFormat", out var formatProp) ? formatProp.GetString() : null;
+                            var content = item.TryGetProperty("Content", out var contentProp) && contentProp.ValueKind != System.Text.Json.JsonValueKind.Null 
+                                ? contentProp.GetString() : "";
+                            var richContent = item.TryGetProperty("RichContent", out var richContentProp) && richContentProp.ValueKind != System.Text.Json.JsonValueKind.Null 
+                                ? richContentProp.GetString() : null;
+                            var richFormat = item.TryGetProperty("RichFormat", out var formatProp) && formatProp.ValueKind != System.Text.Json.JsonValueKind.Null 
+                                ? formatProp.GetString() : null;
 
-                            if (!string.IsNullOrWhiteSpace(richContent))
+                            if (!string.IsNullOrWhiteSpace(richContent) && !groupedRichTextContents.Contains(richContent) && !addedRichTextContents.Contains(richContent))
                             {
+                                addedRichTextContents.Add(richContent);
+                                var previewText = item.TryGetProperty("PreviewText", out var previewProp) && previewProp.ValueKind != System.Text.Json.JsonValueKind.Null 
+                                    ? previewProp.GetString() : null;
                                 itemsToImport.Add(new ClipboardItem
                                 {
                                     Type = ClipboardType.RichText,
                                     Content = content ?? "",
                                     RichContent = richContent,
                                     RichFormat = richFormat,
-                                    CreatedAt = createdAtStr,
-                                    PreviewText = !string.IsNullOrWhiteSpace(content) && content.Length > 100 
-                                        ? content.Substring(0, 100) 
-                                        : content ?? ""
+                                    CreatedAt = createdAt,
+                                    PreviewText = !string.IsNullOrWhiteSpace(previewText) ? previewText : (!string.IsNullOrWhiteSpace(content) && content.Length > 100 ? content.Substring(0, 100) : content ?? ""),
+                                    GroupId = groupId
                                 });
                             }
                         }
-                        else if (type == "FileList")
+                        else if (typeStr == "FileList")
                         {
-                            var filePaths = item.GetProperty("FilePaths").EnumerateArray()
-                                .Select(p => p.GetString())
-                                .Where(p => p != null)
-                                .ToList()!;
-
-                            if (filePaths.Count > 0)
+                            if (item.TryGetProperty("FilePaths", out var filePathsProp) && filePathsProp.ValueKind == System.Text.Json.JsonValueKind.Array)
                             {
+                                var filePaths = filePathsProp.EnumerateArray()
+                                    .Where(p => p.ValueKind != System.Text.Json.JsonValueKind.Null)
+                                    .Select(p => p.GetString())
+                                    .Where(p => p != null)
+                                    .ToList()!;
+
+                                if (filePaths.Count > 0)
+                                {
+                                    var signature = string.Join("|", filePaths.OrderBy(p => p));
+                                    if (!groupedFileListSignatures.Contains(signature) && !addedFileListSignatures.Contains(signature))
+                                    {
+                                        addedFileListSignatures.Add(signature);
+                                        var previewText = item.TryGetProperty("PreviewText", out var previewProp) && previewProp.ValueKind != System.Text.Json.JsonValueKind.Null 
+                                            ? previewProp.GetString() : null;
+                                        itemsToImport.Add(new ClipboardItem
+                                        {
+                                            Type = ClipboardType.FileList,
+                                            FilePaths = filePaths,
+                                            CreatedAt = createdAt,
+                                            PreviewText = !string.IsNullOrWhiteSpace(previewText) ? previewText : (string.Join("\n", filePaths.Take(3)) + (filePaths.Count > 3 ? $"\n...共{filePaths.Count}个文件" : "")),
+                                            GroupId = groupId
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                        else if (typeStr == "Image")
+                        {
+                            var imagePath = item.TryGetProperty("ImagePath", out var imagePathProp) && imagePathProp.ValueKind != System.Text.Json.JsonValueKind.Null 
+                                ? imagePathProp.GetString() : null;
+                            var imageHash = item.TryGetProperty("ImageHash", out var hashProp) && hashProp.ValueKind != System.Text.Json.JsonValueKind.Null 
+                                ? hashProp.GetString() : null;
+                            var content = item.TryGetProperty("Content", out var contentProp) && contentProp.ValueKind != System.Text.Json.JsonValueKind.Null 
+                                ? contentProp.GetString() : "";
+
+                            if (!string.IsNullOrWhiteSpace(imageHash) && !groupedImageHashes.Contains(imageHash) && !addedImageHashes.Contains(imageHash))
+                            {
+                                addedImageHashes.Add(imageHash);
+                                var previewText = item.TryGetProperty("PreviewText", out var previewProp) && previewProp.ValueKind != System.Text.Json.JsonValueKind.Null 
+                                    ? previewProp.GetString() : null;
                                 itemsToImport.Add(new ClipboardItem
                                 {
-                                    Type = ClipboardType.FileList,
-                                    FilePaths = filePaths,
-                                    CreatedAt = createdAtStr,
-                                    PreviewText = string.Join("\n", filePaths.Take(3)) + (filePaths.Count > 3 ? $"\n...共{filePaths.Count}个文件" : "")
+                                    Type = ClipboardType.Image,
+                                    Content = content ?? "",
+                                    ImagePath = imagePath,
+                                    ImageHash = imageHash,
+                                    CreatedAt = createdAt,
+                                    PreviewText = !string.IsNullOrWhiteSpace(previewText) ? previewText : (content ?? ""),
+                                    GroupId = groupId
                                 });
                             }
                         }
                     }
 
                     var importCount = App.DatabaseService.InsertItemsBatch(itemsToImport);
-                    MessageBox.Show(string.Format(Loc.Get("Settings.Storage.ImportJsonSuccess", "导入成功！共导入 {0} 条记录。"), importCount), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
+                    var message = string.Format(Loc.Get("Settings.Storage.ImportJsonSuccess", "导入成功！共导入 {0} 条记录。"), importCount);
+                    if (deletedCount > 0)
+                        message += string.Format(Loc.Get("Settings.Storage.ImportCleaned", "\n已清理 {0} 条未分组重复数据。"), deletedCount);
+                    if (skippedCount > 0)
+                        message += string.Format(Loc.Get("Settings.Storage.ImportSkipped", "\n已跳过 {0} 条已分组重复数据（保留）。"), skippedCount);
+                    MessageBox.Show(message, Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {

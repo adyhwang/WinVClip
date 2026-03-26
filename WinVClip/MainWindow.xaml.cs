@@ -1,4 +1,4 @@
-#nullable disable
+﻿#nullable disable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -629,12 +629,11 @@ namespace WinVClip
         {
             Groups.Clear();
             var groups = _databaseService.GetAllGroups();
+            Groups.Add(new Group { Id = 0, Name = Loc.Get("Common.All", "全部") });
             foreach (var group in groups)
             {
                 Groups.Add(group);
             }
-            Groups.Add(new Group { Id = 0, Name = "☑︎ " + Loc.Get("Common.All", "全部") });
-            Groups.Add(new Group { Id = -1L, Name = "⚙️ " + Loc.Get("Settings.System.GroupManagement.Open", "管理分组") });
         }
 
         public bool HasItems => ClipboardItems.Count > 0;
@@ -1222,6 +1221,8 @@ namespace WinVClip
         private LowLevelMouseProc _mouseProc;
         private IntPtr _mouseHookId = IntPtr.Zero;
         private bool _isMouseHookSet = false;
+        private bool _isContextMenuOpen = false;
+        private readonly List<ContextMenu> _openMenus = new List<ContextMenu>();
 
         [StructLayout(LayoutKind.Sequential)]
         private struct RECT
@@ -1400,6 +1401,11 @@ namespace WinVClip
         {
             if (nCode >= 0 && (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN))
             {
+                if (_isContextMenuOpen)
+                {
+                    return CallNextHookEx(_mouseHookId, nCode, wParam, lParam);
+                }
+
                 // 获取鼠标点击位置
                 var mouseHookStruct = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
                 var clickPoint = new System.Drawing.Point(mouseHookStruct.pt.x, mouseHookStruct.pt.y);
@@ -1407,18 +1413,46 @@ namespace WinVClip
                 // 检查点击是否在窗口外部
                 if (!IsPointInWindow(clickPoint))
                 {
-                    // 点击在窗口外部，隐藏窗口
-                    Dispatcher.Invoke(() =>
+                    // 检查点击是否在任何打开的菜单范围内
+                    if (!IsPointInAnyMenu(clickPoint))
                     {
-                        if (_isVisible && !_viewModel.IsPinned)
+                        // 点击在窗口外部且不在菜单范围内，隐藏窗口
+                        Dispatcher.Invoke(() =>
                         {
-                            HideWindow();
-                        }
-                    });
+                            if (_isVisible && !_viewModel.IsPinned)
+                            {
+                                HideWindow();
+                            }
+                        });
+                    }
                 }
             }
             
             return CallNextHookEx(_mouseHookId, nCode, wParam, lParam);
+        }
+
+        private bool IsPointInAnyMenu(System.Drawing.Point screenPoint)
+        {
+            foreach (var menu in _openMenus)
+            {
+                var hwndSource = PresentationSource.FromVisual(menu) as HwndSource;
+                if (hwndSource != null)
+                {
+                    var hwnd = hwndSource.Handle;
+                    var menuRect = new RECT();
+                    if (GetWindowRect(hwnd, ref menuRect))
+                    {
+                        if (screenPoint.X >= menuRect.left && 
+                            screenPoint.X <= menuRect.right && 
+                            screenPoint.Y >= menuRect.top && 
+                            screenPoint.Y <= menuRect.bottom)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
         }
 
         private bool IsPointInWindow(System.Drawing.Point screenPoint)
@@ -1533,22 +1567,18 @@ namespace WinVClip
         {
             if (GroupComboBox.SelectedItem is Group group)
             {
-                if (group.Id == -1L)
-                {
-                    // 打开分组管理窗口
-                    var groupWindow = new GroupManageWindow(_databaseService);
-                    groupWindow.Owner = this;
-                    groupWindow.ShowDialog();
-                    // 重新加载分组
-                    _viewModel.LoadGroups();
-                    // 重置选择为"全部"
-                    GroupComboBox.SelectedIndex = 0;
-                }
-                else
-                {
-                    _viewModel.SelectedGroup = group;
-                }
+                _viewModel.SelectedGroup = group;
             }
+        }
+
+        private void GroupManageButton_Click(object sender, RoutedEventArgs e)
+        {
+            RemoveGlobalMouseHook();
+            var groupWindow = new GroupManageWindow(_databaseService);
+            groupWindow.Owner = this;
+            groupWindow.ShowDialog();
+            SetGlobalMouseHook();
+            _viewModel.LoadGroups();
         }
 
         private void WindowDrag_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -1569,27 +1599,15 @@ namespace WinVClip
             menu.Opened += ContextMenu_Opened;
             menu.Loaded += (s, args) => SetContextMenuTopmost(menu);
             
-            // 添加分组菜单项
-            AddGroupMenuItem(menu, "全部", null, currentGroupId, onSelect);
             
+            // 添加分组菜单项
+            AddGroupMenuItem(menu, Loc.Get("Common.All", "全部"), null, currentGroupId, onSelect);
             foreach (var group in _databaseService.GetAllGroups())
             {
                 AddGroupMenuItem(menu, group.Name, group.Id, currentGroupId, onSelect);
             }
             
-            menu.Items.Add(new Separator { Style = TryFindResource("SeparatorStyle") as Style });
-            
-            // 管理选项
-            var manageItem = new MenuItem { Header = "⚙️ 管理", Style = TryFindResource("MenuItemStyle") as Style };
-            manageItem.Click += (s, args) => 
-            {
-                var manageWindow = new GroupManageWindow(_databaseService) { Owner = this };
-                if (manageWindow.ShowDialog() == true)
-                {
-                    _viewModel.LoadItems();
-                }
-            };
-            menu.Items.Add(manageItem);
+            menu.Items.Add(new Separator { Style = TryFindResource("SeparatorStyle") as Style });   
             
             menu.IsOpen = true;
             return menu;
@@ -1943,6 +1961,8 @@ namespace WinVClip
         {
             if (sender is ContextMenu contextMenu)
             {
+                _isContextMenuOpen = true;
+                _openMenus.Add(contextMenu);
                 contextMenu.Closed += ContextMenu_Closed;
                 
                 if (_viewModel.IsPinned)
@@ -1956,6 +1976,16 @@ namespace WinVClip
         
         private void ContextMenu_Closed(object sender, RoutedEventArgs e)
         {
+            if (sender is ContextMenu contextMenu)
+            {
+                _openMenus.Remove(contextMenu);
+                
+                if (_openMenus.Count == 0)
+                {
+                    _isContextMenuOpen = false;
+                }
+            }
+            
             if (_viewModel.IsPinned)
             {
                 Topmost = true;

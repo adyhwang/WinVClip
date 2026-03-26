@@ -136,7 +136,7 @@ namespace WinVClip.Services
             var monitoringItem = new System.Windows.Controls.MenuItem 
             { 
                 Header = _settingsService.Settings.MonitorEnabled ? "⛔︎ " + Loc.Get("Tray.MonitoringDisabled", "禁用监听") : "👁︎ " + Loc.Get("Tray.MonitoringEnabled", "启用监听"),
-                ToolTip = "切换剪贴板监控状态"
+                ToolTip = Loc.Get("Tray.ToggleMonitoring", "切换剪贴板监控状态")
             };
             monitoringItem.Style = Application.Current.TryFindResource("MenuItemStyle") as Style;
             monitoringItem.Click += (s, e) => ToggleMonitoring();

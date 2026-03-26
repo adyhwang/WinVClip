@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.10-blue.svg)
+![Version](https://img.shields.io/badge/version-1.11-blue.svg)
 ![.NET Framework](https://img.shields.io/badge/.NET%20Framework-4.8-purple.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)

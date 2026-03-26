@@ -148,11 +148,6 @@ namespace WinVClip.Services
             return _isPasteOperation;
         }
 
-        public void ClearPasteOperation()
-        {
-            _isPasteOperation = false;
-        }
-
         public bool CheckAndClearPasteOperation()
         {
             if (_isPasteOperation)

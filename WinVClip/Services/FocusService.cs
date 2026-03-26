@@ -77,14 +77,6 @@ namespace WinVClip.Services
             }
         }
 
-        public void RemoveExcludedHwnd(IntPtr hwnd)
-        {
-            lock (_excludedHwnds)
-            {
-                _excludedHwnds.Remove(hwnd);
-            }
-        }
-
         public void ClearExcludedHwnds()
         {
             lock (_excludedHwnds)

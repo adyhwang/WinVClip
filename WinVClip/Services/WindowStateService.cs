@@ -133,16 +133,6 @@ namespace WinVClip.Services
             StateChanged?.Invoke(WindowState.Hidden);
         }
 
-        public void SetMinimized()
-        {
-            lock (_lock)
-            {
-                if (_state == WindowState.Minimized) return;
-                _state = WindowState.Minimized;
-            }
-            StateChanged?.Invoke(WindowState.Minimized);
-        }
-
         public void SetPinned(bool pinned)
         {
             bool changed;
@@ -212,22 +202,6 @@ namespace WinVClip.Services
             lock (_lock)
             {
                 _isDragging = dragging;
-            }
-        }
-
-        public bool ShouldShow()
-        {
-            lock (_lock)
-            {
-                return (_isSnapped && _isHidden) || _state != WindowState.Visible;
-            }
-        }
-
-        public bool ShouldHide()
-        {
-            lock (_lock)
-            {
-                return _state == WindowState.Visible && !_isHidden && !_isPinned;
             }
         }
 
