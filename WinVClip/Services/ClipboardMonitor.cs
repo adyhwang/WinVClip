@@ -134,13 +134,21 @@ namespace WinVClip.Services
 
         public void SetLastPasteHashText(string text)
         {
-            _lastPasteHash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(text));
+            _lastPasteHash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(text ?? ""));
         }
 
         public void SetLastPasteHashFiles(List<string> filePaths)
         {
             var sortedPaths = filePaths.OrderBy(p => p.ToLowerInvariant()).ToList();
             _lastPasteHash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", sortedPaths)));
+        }
+
+        private bool IsRecentlyPastedContent(string content)
+        {
+            if (string.IsNullOrEmpty(_lastPasteHash) || string.IsNullOrEmpty(content))
+                return false;
+            var contentHash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(content));
+            return contentHash == _lastPasteHash;
         }
 
         public bool IsPasteOperation()
@@ -358,7 +366,11 @@ namespace WinVClip.Services
 
             if (_settingsService.Settings.RemoveDuplicates && _databaseService.TextExistsInDatabase(text))
             {
-                _databaseService.UpdateDuplicateItemTimestamp(text, (int)ClipboardType.Text);
+                // 如果是刚刚粘贴的内容，不更新时间戳（避免粘贴后移动位置）
+                if (!IsRecentlyPastedContent(text))
+                {
+                    _databaseService.UpdateDuplicateItemTimestamp(text, (int)ClipboardType.Text);
+                }
                 _lastContentSignatures[ClipboardType.Text] = signature;
                 OnDuplicateUpdated?.Invoke();
                 return false;
@@ -380,7 +392,11 @@ namespace WinVClip.Services
 
             if (_settingsService.Settings.RemoveDuplicates && _databaseService.RichTextExistsInDatabase(text, richContent))
             {
-                _databaseService.UpdateDuplicateRichTextTimestamp(text, richContent);
+                // 如果是刚刚粘贴的内容，不更新时间戳（避免粘贴后移动位置）
+                if (!IsRecentlyPastedContent(text))
+                {
+                    _databaseService.UpdateDuplicateRichTextTimestamp(text, richContent);
+                }
                 _lastContentSignatures[ClipboardType.RichText] = signature;
                 OnDuplicateUpdated?.Invoke();
                 return false;
@@ -402,7 +418,11 @@ namespace WinVClip.Services
 
             if (_settingsService.Settings.RemoveDuplicates && _databaseService.ImageExistsInDatabase(imageHash))
             {
-                _databaseService.UpdateDuplicateImageTimestamp(imageHash);
+                // 如果是刚刚粘贴的内容，不更新时间戳（避免粘贴后移动位置）
+                if (!IsRecentlyPastedContent(imageHash))
+                {
+                    _databaseService.UpdateDuplicateImageTimestamp(imageHash);
+                }
                 _lastContentSignatures[ClipboardType.Image] = signature;
                 OnDuplicateUpdated?.Invoke();
                 return false;
@@ -429,7 +449,11 @@ namespace WinVClip.Services
             {
                 if (!string.IsNullOrEmpty(matchingContent))
                 {
-                    _databaseService.UpdateDuplicateItemTimestamp(matchingContent, (int)ClipboardType.FileList);
+                    // 如果是刚刚粘贴的内容，不更新时间戳（避免粘贴后移动位置）
+                    if (!IsRecentlyPastedContent(hash))
+                    {
+                        _databaseService.UpdateDuplicateItemTimestamp(matchingContent, (int)ClipboardType.FileList);
+                    }
                 }
                 _lastContentSignatures[ClipboardType.FileList] = signature;
                 OnDuplicateUpdated?.Invoke();
