@@ -130,6 +130,14 @@ namespace WinVClip
                 : Visibility.Collapsed;
     }
 
+    public class IsImageConverter : BaseConverter
+    {
+        public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            => value is ClipboardItem item && item.Type == ClipboardType.Image
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+    }
+
     public class ItemTypeToVisibilityConverter : BaseConverter
     {
         public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -930,6 +938,8 @@ namespace WinVClip
             MenuPasteWithFormat.Header = Loc.Get("MainWindow.ContextMenu.PasteWithFormat", "带格式粘贴");
             MenuPasteAsText.Header = Loc.Get("MainWindow.ContextMenu.PasteAsText", "纯文本粘贴");
             MenuPasteAsImage.Header = Loc.Get("MainWindow.ContextMenu.PasteAsImage", "图片粘贴");
+            MenuImagePaste.Header = Loc.Get("MainWindow.ContextMenu.ImagePaste", "图片粘贴");
+            MenuImageFilePaste.Header = Loc.Get("MainWindow.ContextMenu.ImageFilePaste", "图片文件粘贴");
             MenuOpenInBrowser.Header = Loc.Get("MainWindow.ContextMenu.OpenInBrowser", "在浏览器打开");
             MenuOpenFolder.Header = Loc.Get("MainWindow.ContextMenu.OpenFolder", "打开文件夹");
             MenuEdit.Header = Loc.Get("MainWindow.ContextMenu.Edit", "编辑");
@@ -1942,6 +1952,75 @@ namespace WinVClip
             }
         }
 
+        private void ImagePaste_Click(object sender, RoutedEventArgs e)
+        {
+            if (ClipboardListBox.SelectedItem is not ClipboardItem item)
+                return;
+
+            if (item.Type != ClipboardType.Image)
+                return;
+
+            PasteItem(item);
+        }
+
+        private void ImageFilePaste_Click(object sender, RoutedEventArgs e)
+        {
+            if (ClipboardListBox.SelectedItem is not ClipboardItem item)
+                return;
+
+            if (item.Type != ClipboardType.Image)
+                return;
+
+            if (_isPasting)
+                return;
+
+            try
+            {
+                _isPasting = true;
+
+                if (string.IsNullOrEmpty(item.ImagePath))
+                    return;
+
+                string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, item.ImagePath);
+                if (!System.IO.File.Exists(fullPath))
+                    return;
+
+                var fileList = new System.Collections.Specialized.StringCollection();
+                fileList.Add(fullPath);
+                Clipboard.SetFileDropList(fileList);
+
+                var clipboardMonitor = App.GetClipboardMonitor();
+                clipboardMonitor?.MarkPasteOperation();
+                clipboardMonitor?.IgnoreNextChange(1000);
+
+                if (App.SettingsService.Settings.MoveToTopAfterPaste && !item.GroupId.HasValue)
+                {
+                    _databaseService.UpdateItemTimestampById(item.Id);
+                    _viewModel.LoadItems();
+                }
+
+                var focusService = App.GetFocusService();
+                var targetHwnd = focusService?.LastFocusHwnd ?? IntPtr.Zero;
+
+                var windowStateService = App.GetWindowStateService();
+                if (windowStateService != null && !windowStateService.IsPinned)
+                {
+                    HideWindow();
+                    Thread.Sleep(50);
+                }
+                else
+                {
+                    Thread.Sleep(30);
+                }
+
+                ActivateAndPaste(targetHwnd);
+            }
+            finally
+            {
+                _isPasting = false;
+            }
+        }
+
         private void GroupMenuItem_Click(object sender, RoutedEventArgs e)
         {
             if (ClipboardListBox.SelectedItem is not ClipboardItem item)
@@ -2257,9 +2336,34 @@ namespace WinVClip
             {
                 SetForegroundWindow(windowHandle);
                 Thread.Sleep(20);
+                var pasteMode = App.SettingsService?.GetPasteShortcutMode() ?? Services.PasteShortcutMode.Auto;
+                KeyboardService.SimulatePaste(pasteMode);
             }
-            var pasteMode = App.SettingsService?.GetPasteShortcutMode() ?? Services.PasteShortcutMode.Auto;
-            KeyboardService.SimulatePaste(pasteMode);
+            else
+            {
+                // 如果没有焦点窗口（如桌面），尝试找到桌面窗口
+                var desktopHwnd = GetDesktopWindow();
+                if (desktopHwnd != IntPtr.Zero)
+                {
+                    SetForegroundWindow(desktopHwnd);
+                    Thread.Sleep(20);
+                    KeyboardService.SimulatePaste(PasteShortcutMode.CtrlV);
+                }
+            }
+        }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+        private static IntPtr GetDesktopWindow()
+        {
+            // 尝试找到桌面窗口（Progman 或 WorkerW）
+            var hwnd = FindWindow("Progman", null);
+            if (hwnd == IntPtr.Zero)
+            {
+                hwnd = FindWindow("WorkerW", null);
+            }
+            return hwnd;
         }
 
         [DllImport("user32.dll")]

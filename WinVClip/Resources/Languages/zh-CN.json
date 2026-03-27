@@ -40,6 +40,8 @@
     "MainWindow.ContextMenu.PasteWithFormat": "带格式粘贴",
     "MainWindow.ContextMenu.PasteAsText": "纯文本粘贴",
     "MainWindow.ContextMenu.PasteAsImage": "图片粘贴",
+    "MainWindow.ContextMenu.ImagePaste": "图片粘贴",
+    "MainWindow.ContextMenu.ImageFilePaste": "图片文件粘贴",
     "MainWindow.ContextMenu.OpenInBrowser": "在浏览器打开",
     "MainWindow.ContextMenu.OpenFolder": "打开文件夹",
     "MainWindow.ContextMenu.Edit": "编辑",

@@ -40,6 +40,8 @@
     "MainWindow.ContextMenu.PasteWithFormat": "Paste with Format",
     "MainWindow.ContextMenu.PasteAsText": "Paste as Text",
     "MainWindow.ContextMenu.PasteAsImage": "Paste as Image",
+    "MainWindow.ContextMenu.ImagePaste": "Paste Image",
+    "MainWindow.ContextMenu.ImageFilePaste": "Paste Image File",
     "MainWindow.ContextMenu.OpenInBrowser": "Open in Browser",
     "MainWindow.ContextMenu.OpenFolder": "Open Folder",
     "MainWindow.ContextMenu.Edit": "Edit",

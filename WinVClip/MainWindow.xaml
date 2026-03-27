@@ -240,6 +240,14 @@
                                           Style="{DynamicResource MenuItemStyle}"
                                           Visibility="{Binding ., Converter={local:RichTextHasImageConverter}}"
                                           DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <MenuItem x:Name="MenuImagePaste" Header="图片粘贴" Icon="🖼️" Click="ImagePaste_Click"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding ., Converter={local:IsImageConverter}}"
+                                          DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <MenuItem x:Name="MenuImageFilePaste" Header="图片文件粘贴" Icon="📂" Click="ImageFilePaste_Click"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding ., Converter={local:IsImageConverter}}"
+                                          DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                 <Separator Style="{DynamicResource SeparatorStyle}"
                                           Visibility="{Binding ., Converter={local:IsRichTextConverter}}"
                                           DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
