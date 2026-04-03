@@ -390,7 +390,8 @@ namespace WinVClip.Services
         public void DeleteItem(long id)
         {
             var item = GetItem(id);
-            if (item != null && item.Type == Models.ClipboardType.Image && !string.IsNullOrEmpty(item.ImagePath))
+            // 删除图片文件（图片类型或含图片的富文本类型）
+            if (item != null && !string.IsNullOrEmpty(item.ImagePath))
             {
                 DeleteImageFile(item.ImagePath);
             }
@@ -416,9 +417,9 @@ namespace WinVClip.Services
         public void DeleteOldItems(DateTime cutoffDate)
         {
             using var selectCommand = _connection.CreateCommand();
-            selectCommand.CommandText = "SELECT Id, ImagePath FROM ClipboardItems WHERE CreatedAt < @Cutoff AND Type = @Type AND GroupId IS NULL";
+            // 查询所有含图片路径的旧记录（图片类型或富文本类型）
+            selectCommand.CommandText = "SELECT Id, ImagePath FROM ClipboardItems WHERE CreatedAt < @Cutoff AND ImagePath IS NOT NULL AND ImagePath != '' AND GroupId IS NULL";
             selectCommand.Parameters.AddWithValue("@Cutoff", cutoffDate);
-            selectCommand.Parameters.AddWithValue("@Type", (int)Models.ClipboardType.Image);
             
             using var reader = selectCommand.ExecuteReader();
             var imagePaths = new List<string>();
@@ -469,15 +470,15 @@ namespace WinVClip.Services
             var imagePaths = new List<string>();
             using var selectCommand = _connection.CreateCommand();
             
+            // 查询所有含图片路径的记录（图片类型或富文本类型）
             if (ungroupedOnly)
             {
-                selectCommand.CommandText = "SELECT Id, ImagePath FROM ClipboardItems WHERE Type = @Type AND GroupId IS NULL";
+                selectCommand.CommandText = "SELECT Id, ImagePath FROM ClipboardItems WHERE ImagePath IS NOT NULL AND ImagePath != '' AND GroupId IS NULL";
             }
             else
             {
-                selectCommand.CommandText = "SELECT Id, ImagePath FROM ClipboardItems WHERE Type = @Type";
+                selectCommand.CommandText = "SELECT Id, ImagePath FROM ClipboardItems WHERE ImagePath IS NOT NULL AND ImagePath != ''";
             }
-            selectCommand.Parameters.AddWithValue("@Type", (int)Models.ClipboardType.Image);
 
             using var reader = selectCommand.ExecuteReader();
             while (reader.Read())
