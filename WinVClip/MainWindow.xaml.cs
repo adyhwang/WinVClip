@@ -19,6 +19,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Markup;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Interop;
 using WinVClip.Models;
@@ -26,11 +27,40 @@ using WinVClip.Services;
 
 namespace WinVClip
 {
+    // ScrollViewer 动画滚动辅助类
+    public static class ScrollViewerBehavior
+    {
+        public static readonly DependencyProperty VerticalOffsetProperty =
+            DependencyProperty.RegisterAttached(
+                "VerticalOffset",
+                typeof(double),
+                typeof(ScrollViewerBehavior),
+                new PropertyMetadata(0.0, OnVerticalOffsetChanged));
+
+        public static double GetVerticalOffset(DependencyObject obj)
+        {
+            return (double)obj.GetValue(VerticalOffsetProperty);
+        }
+
+        public static void SetVerticalOffset(DependencyObject obj, double value)
+        {
+            obj.SetValue(VerticalOffsetProperty, value);
+        }
+
+        private static void OnVerticalOffsetChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (d is ScrollViewer scrollViewer)
+            {
+                scrollViewer.ScrollToVerticalOffset((double)e.NewValue);
+            }
+        }
+    }
+
     // 转换器基类，提供通用的 ProvideValue 和 ConvertBack 实现
     public abstract class BaseConverter : MarkupExtension, IValueConverter
     {
         public override object ProvideValue(IServiceProvider serviceProvider) => this;
-        public virtual object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) 
+        public virtual object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
             => Binding.DoNothing;
         public abstract object Convert(object value, Type targetType, object parameter, CultureInfo culture);
     }
@@ -1671,9 +1701,47 @@ namespace WinVClip
         {
             if (MainScrollViewer != null)
             {
-                MainScrollViewer.ScrollToVerticalOffset(MainScrollViewer.VerticalOffset - e.Delta);
+                // 平滑滚动动画
+                double targetOffset = MainScrollViewer.VerticalOffset - e.Delta;
+                AnimateScrollTo(targetOffset);
                 e.Handled = true;
             }
+        }
+
+        private void AnimateScrollTo(double targetOffset)
+        {
+            // 限制滚动范围
+            targetOffset = Math.Max(0, Math.Min(targetOffset, MainScrollViewer.ScrollableHeight));
+
+            // 创建动画
+            var animation = new DoubleAnimation
+            {
+                From = MainScrollViewer.VerticalOffset,
+                To = targetOffset,
+                Duration = TimeSpan.FromMilliseconds(200),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+
+            // 使用动画滚动
+            var scrollAnimation = new DoubleAnimation
+            {
+                From = MainScrollViewer.VerticalOffset,
+                To = targetOffset,
+                Duration = TimeSpan.FromMilliseconds(200),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+
+            scrollAnimation.Completed += (s, e) =>
+            {
+                // 动画完成后检查是否需要加载更多
+                var distanceToBottom = MainScrollViewer.ScrollableHeight - MainScrollViewer.VerticalOffset;
+                if (distanceToBottom <= 50 && _viewModel.HasMoreItems && !_viewModel.IsLoadingMore)
+                {
+                    _ = _viewModel.LoadMoreItemsAsync();
+                }
+            };
+
+            MainScrollViewer.BeginAnimation(ScrollViewerBehavior.VerticalOffsetProperty, scrollAnimation);
         }
 
         private void ClipboardListBox_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
