@@ -23,6 +23,7 @@ WinVClip 是一款使用 AI 辅助开发的 Windows 剪贴板管理工具，旨�
 <img width="350" height="600" alt="主界面" src="https://github.com/user-attachments/assets/2765372b-064d-4c72-8169-239d3b979ae3" />
 <img width="197" height="164" alt="托盘菜单" src="https://github.com/user-attachments/assets/ef7bd558-4887-4497-a8f3-503d843ea7db" />
 <img width="750" height="620" alt="设置窗口" src="https://github.com/user-attachments/assets/ccbc0794-56ea-4308-ba49-69b3a396300b" />
+<img width="600" height="500" alt="5" src="https://github.com/user-attachments/assets/562efe07-c768-463d-9085-95fa47f96ecb" />
 
 ---
 
