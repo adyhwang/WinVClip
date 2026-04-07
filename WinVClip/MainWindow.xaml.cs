@@ -176,6 +176,14 @@ namespace WinVClip
                 : Visibility.Collapsed;
     }
 
+    public class IsTextOrRichTextConverter : BaseConverter
+    {
+        public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            => value is ClipboardItem item && (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+    }
+
     public class ItemTypeToUrlVisibilityConverter : BaseConverter
     {
         public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -1918,6 +1926,40 @@ namespace WinVClip
                 CopyToClipboard(item);
         }
 
+        private void CharPicker_Click(object sender, RoutedEventArgs e)
+        {
+            if (ClipboardListBox.SelectedItem is not ClipboardItem item)
+                return;
+
+            string text = item.Type == ClipboardType.RichText && !string.IsNullOrEmpty(item.Content)
+                ? item.Content
+                : item.Content ?? "";
+
+            if (string.IsNullOrEmpty(text))
+                return;
+
+            // 保存当前目标窗口句柄（在打开CharPickerWindow之前，避免焦点变化影响）
+            var focusService = App.GetFocusService();
+            var targetHwnd = focusService?.LastFocusHwnd ?? IntPtr.Zero;
+
+            var charPickerWindow = new CharPickerWindow(text);
+            charPickerWindow.OnInsert += (sender, selectedText) =>
+            {
+                if (!string.IsNullOrEmpty(selectedText))
+                {
+                    // 使用主窗口的粘贴逻辑，传入保存的目标窗口句柄
+                    PasteTextWithHwnd(selectedText, targetHwnd);
+                }
+            };
+            charPickerWindow.Show();
+        }
+
+        private void MenuCharPicker_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.MenuItem menuItem)
+                menuItem.Header = Loc.Get("MainWindow.ContextMenu.CharPicker", "拆分选字");
+        }
+
         private void PasteWithFormat_Click(object sender, RoutedEventArgs e)
         {
             if (ClipboardListBox.SelectedItem is ClipboardItem item)
@@ -2469,6 +2511,52 @@ namespace WinVClip
         {
             _databaseService.DeleteItem(item.Id);
             _viewModel.RemoveItem(item);
+        }
+
+        private void PasteText(string text)
+        {
+            var focusService = App.GetFocusService();
+            var targetHwnd = focusService?.LastFocusHwnd ?? IntPtr.Zero;
+            PasteTextWithHwnd(text, targetHwnd);
+        }
+
+        private void PasteTextWithHwnd(string text, IntPtr targetHwnd)
+        {
+            if (_isPasting)
+                return;
+
+            try
+            {
+                _isPasting = true;
+
+                Clipboard.SetText(text);
+
+                var clipboardMonitor = App.GetClipboardMonitor();
+                clipboardMonitor?.MarkPasteOperation();
+                clipboardMonitor?.IgnoreNextChange(1000);
+                clipboardMonitor?.SetLastPasteHashText(text);
+
+                var windowStateService = App.GetWindowStateService();
+                if (windowStateService != null && !windowStateService.IsPinned)
+                {
+                    HideWindow();
+                    Thread.Sleep(50);
+                }
+                else
+                {
+                    Thread.Sleep(30);
+                }
+
+                ActivateAndPaste(targetHwnd);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isPasting = false;
+            }
         }
 
         private void EnterMultiSelectMode_Click(object sender, RoutedEventArgs e) 

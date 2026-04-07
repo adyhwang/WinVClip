@@ -240,6 +240,10 @@
                                           Style="{DynamicResource MenuItemStyle}"
                                           Visibility="{Binding ., Converter={local:RichTextHasImageConverter}}"
                                           DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <MenuItem x:Name="MenuCharPicker" Header="拆分选字" Icon="🔤" Click="CharPicker_Click" Loaded="MenuCharPicker_Loaded"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding ., Converter={local:IsTextOrRichTextConverter}}"
+                                          DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                 <MenuItem x:Name="MenuImagePaste" Header="图片粘贴" Icon="🖼️" Click="ImagePaste_Click"
                                           Style="{DynamicResource MenuItemStyle}"
                                           Visibility="{Binding ., Converter={local:IsImageConverter}}"

@@ -40,6 +40,7 @@
     "MainWindow.ContextMenu.PasteWithFormat": "带格式粘贴",
     "MainWindow.ContextMenu.PasteAsText": "纯文本粘贴",
     "MainWindow.ContextMenu.PasteAsImage": "图片粘贴",
+    "MainWindow.ContextMenu.CharPicker": "拆分选字",
     "MainWindow.ContextMenu.ImagePaste": "图片粘贴",
     "MainWindow.ContextMenu.ImageFilePaste": "图片文件粘贴",
     "MainWindow.ContextMenu.OpenInBrowser": "在浏览器打开",
@@ -202,6 +203,10 @@
 
     "EditItem.Title": "编辑内容",
     "EditItem.EditClipboard": "编辑剪贴板内容",
+
+    "CharPicker.Title": "拆分选字",
+    "CharPicker.SelectedTextLabel": "待插入文字:",
+    "CharPicker.Insert": "插入",
 
     "ClipboardType.Text": "文本",
     "ClipboardType.Image": "图片",

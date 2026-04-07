@@ -54,6 +54,7 @@ WinVClip is a Windows clipboard manager developed with AI assistance, designed t
 | 📌 **Window Pin** | Supports window always-on-top for convenient comparison operations |
 | 🏷️ **Type Filter** | Filter history records by content type (text/image/file/rich text) |
 | 🔗 **Quick Actions** | Right-click menu supports quick search, open files, visit links, and more |
+| 🔤 **Split Characters** | Split text into individual characters/words for selective insertion |
 
 ---
 
@@ -118,6 +119,13 @@ Build with Visual Studio:
 #### Search & Filter
 - Enter keywords in the search box for quick search
 - Click filter button to filter by type or group
+
+#### Split Characters
+- Right-click on a text or rich text item and select "Split Characters"
+- The text will be split into individual characters (Chinese) or words (English)
+- Click or drag to select characters you want to insert
+- Selected characters will be concatenated in the text area
+- Click "Insert" to paste the selected content
 
 ### Group Management
 
@@ -198,7 +206,8 @@ WinVClip/
 │   ├── MainWindow.xaml         # Main window
 │   ├── SettingsWindow.xaml     # Settings window
 │   ├── EditItemWindow.xaml     # Edit window
-│   └── GroupManageWindow.xaml  # Group management window
+│   ├── GroupManageWindow.xaml  # Group management window
+│   └── CharPickerWindow.xaml   # Split characters window
 │
 ├── Themes/                      # Theme resources
 │   ├── LightTheme.xaml         # Light theme

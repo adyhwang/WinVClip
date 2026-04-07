@@ -40,6 +40,7 @@
     "MainWindow.ContextMenu.PasteWithFormat": "Paste with Format",
     "MainWindow.ContextMenu.PasteAsText": "Paste as Text",
     "MainWindow.ContextMenu.PasteAsImage": "Paste as Image",
+    "MainWindow.ContextMenu.CharPicker": "Split Characters",
     "MainWindow.ContextMenu.ImagePaste": "Paste Image",
     "MainWindow.ContextMenu.ImageFilePaste": "Paste Image File",
     "MainWindow.ContextMenu.OpenInBrowser": "Open in Browser",
@@ -202,6 +203,10 @@
 
     "EditItem.Title": "Edit Content",
     "EditItem.EditClipboard": "Edit Clipboard Content",
+
+    "CharPicker.Title": "Split Characters",
+    "CharPicker.SelectedTextLabel": "Text to insert:",
+    "CharPicker.Insert": "Insert",
 
     "ClipboardType.Text": "Text",
     "ClipboardType.Image": "Image",
