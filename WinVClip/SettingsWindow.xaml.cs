@@ -1050,9 +1050,9 @@ namespace WinVClip
 
                         await Dispatcher.InvokeAsync(() =>
                         {
-                            statusText.Text = string.Format(Loc.Get("Import.Importing", "正在导入数据...")) + " " + string.Format(Loc.Get("Import.Progress", "{0} 条记录"), itemsToImport.Count);
+                            statusText.Text = Loc.Get("Import.Importing", "正在导入数据...") + " " + string.Format(Loc.Get("Import.Progress", "{0}/{1}"), 0, itemsToImport.Count);
                             progressBar.Value = 0;
-                            progressBar.Maximum = 1;
+                            progressBar.Maximum = itemsToImport.Count;
                         });
 
                         if (itemsToImport.Count > 0)

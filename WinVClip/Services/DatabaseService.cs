@@ -463,6 +463,7 @@ namespace WinVClip.Services
             var imagePaths = GetImagePathsToDelete(ungroupedOnly);
             DeleteImageFiles(imagePaths);
             DeleteItemsFromDatabase(ungroupedOnly);
+            VacuumDatabase();
         }
 
         private List<string> GetImagePathsToDelete(bool ungroupedOnly)
@@ -592,22 +593,26 @@ namespace WinVClip.Services
             if (contents == null || contents.Count == 0)
                 return result;
 
-            using var command = _connection.CreateCommand();
-            command.CommandText = @"
-                SELECT Content, GroupId IS NOT NULL as IsGrouped 
-                FROM ClipboardItems 
-                WHERE Type = @Type AND Content IN ({0})";
-            command.Parameters.AddWithValue("@Type", (int)ClipboardType.Text);
+            // 过滤掉空内容，避免 SQL 问题
+            var validContents = contents.Where(c => !string.IsNullOrWhiteSpace(c)).ToList();
+            if (validContents.Count == 0)
+                return result;
 
+            using var command = _connection.CreateCommand();
             var placeholders = new List<string>();
             var paramIndex = 0;
-            foreach (var content in contents)
+            foreach (var content in validContents)
             {
                 var paramName = $"@C{paramIndex++}";
                 placeholders.Add(paramName);
                 command.Parameters.AddWithValue(paramName, content);
             }
-            command.CommandText = string.Format(command.CommandText, string.Join(",", placeholders));
+
+            command.CommandText = $@"
+                SELECT Content, GroupId IS NOT NULL as IsGrouped 
+                FROM ClipboardItems 
+                WHERE Type = @Type AND Content IN ({string.Join(",", placeholders)})";
+            command.Parameters.AddWithValue("@Type", (int)ClipboardType.Text);
 
             using var reader = command.ExecuteReader();
             while (reader.Read())
@@ -624,22 +629,26 @@ namespace WinVClip.Services
             if (contents == null || contents.Count == 0)
                 return 0;
 
-            using var command = _connection.CreateCommand();
-            command.CommandText = @"
-                DELETE FROM ClipboardItems 
-                WHERE Type = @Type AND GroupId IS NULL AND Content IN ({0});
-                SELECT changes();";
-            command.Parameters.AddWithValue("@Type", (int)ClipboardType.Text);
+            // 过滤掉空内容，避免 SQL 问题
+            var validContents = contents.Where(c => !string.IsNullOrWhiteSpace(c)).ToList();
+            if (validContents.Count == 0)
+                return 0;
 
+            using var command = _connection.CreateCommand();
             var placeholders = new List<string>();
             var paramIndex = 0;
-            foreach (var content in contents)
+            foreach (var content in validContents)
             {
                 var paramName = $"@C{paramIndex++}";
                 placeholders.Add(paramName);
                 command.Parameters.AddWithValue(paramName, content);
             }
-            command.CommandText = string.Format(command.CommandText, string.Join(",", placeholders));
+
+            command.CommandText = $@"
+                DELETE FROM ClipboardItems 
+                WHERE Type = @Type AND GroupId IS NULL AND Content IN ({string.Join(",", placeholders)});
+                SELECT changes();";
+            command.Parameters.AddWithValue("@Type", (int)ClipboardType.Text);
 
             return Convert.ToInt32(command.ExecuteScalar());
         }

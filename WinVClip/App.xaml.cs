@@ -140,6 +140,9 @@ namespace WinVClip
 
             _mainWindow.Hide();
 
+            // 检查是否需要执行每周一次的 Vacuum
+            CheckAndPerformWeeklyVacuum();
+
             Current.Exit += (s, args) => CleanupResources();
         }
 
@@ -279,6 +282,47 @@ namespace WinVClip
         {
             CleanupResources();
             base.OnExit(e);
+        }
+
+        private void CheckAndPerformWeeklyVacuum()
+        {
+            try
+            {
+                var lastVacuumFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "last_vacuum.txt");
+                var today = DateTime.Now.Date;
+                var isMonday = today.DayOfWeek == DayOfWeek.Monday;
+
+                // 检查上次执行时间
+                DateTime lastVacuumDate = DateTime.MinValue;
+                if (File.Exists(lastVacuumFile))
+                {
+                    if (DateTime.TryParse(File.ReadAllText(lastVacuumFile), out var lastDate))
+                    {
+                        lastVacuumDate = lastDate.Date;
+                    }
+                }
+
+                // 如果是周一且本周尚未执行过 Vacuum
+                if (isMonday && lastVacuumDate < today)
+                {
+                    System.Threading.Tasks.Task.Run(() =>
+                    {
+                        try
+                        {
+                            _databaseService?.VacuumDatabase();
+                            File.WriteAllText(lastVacuumFile, today.ToString("yyyy-MM-dd"));
+                        }
+                        catch
+                        {
+                            // 静默处理异常
+                        }
+                    });
+                }
+            }
+            catch
+            {
+                // 静默处理异常
+            }
         }
     }
 }

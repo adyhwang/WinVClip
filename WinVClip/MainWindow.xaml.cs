@@ -932,6 +932,9 @@ namespace WinVClip
         private Border _currentTooltipBorder;
         private bool _isPasting = false; // 防止快速点击时的并发执行
 
+        private DoubleAnimation _currentScrollAnimation; // 当前滚动动画
+        private bool _isAnimatingScroll = false; // 是否正在动画滚动
+
         public MainViewModel ViewModel => _viewModel;
 
         public MainWindow(DatabaseService databaseService, SettingsService settingsService)
@@ -1681,6 +1684,10 @@ namespace WinVClip
             if (e.VerticalChange == 0)
                 return;
 
+            // 动画滚动期间不触发加载，避免重复加载
+            if (_isAnimatingScroll)
+                return;
+
             var scrollViewer = sender as ScrollViewer;
             if (scrollViewer == null)
                 return;
@@ -1690,7 +1697,7 @@ namespace WinVClip
 
             var threshold = 50;
             var distanceToBottom = scrollViewer.ScrollableHeight - scrollViewer.VerticalOffset;
-            
+
             if (distanceToBottom <= threshold)
             {
                 _ = _viewModel.LoadMoreItemsAsync();
@@ -1713,26 +1720,28 @@ namespace WinVClip
             // 限制滚动范围
             targetOffset = Math.Max(0, Math.Min(targetOffset, MainScrollViewer.ScrollableHeight));
 
+            // 取消之前的动画
+            if (_currentScrollAnimation != null)
+            {
+                MainScrollViewer.BeginAnimation(ScrollViewerBehavior.VerticalOffsetProperty, null);
+            }
+
+            _isAnimatingScroll = true;
+
             // 创建动画
-            var animation = new DoubleAnimation
+            _currentScrollAnimation = new DoubleAnimation
             {
                 From = MainScrollViewer.VerticalOffset,
                 To = targetOffset,
-                Duration = TimeSpan.FromMilliseconds(200),
+                Duration = TimeSpan.FromMilliseconds(150),
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
             };
 
-            // 使用动画滚动
-            var scrollAnimation = new DoubleAnimation
+            _currentScrollAnimation.Completed += (s, e) =>
             {
-                From = MainScrollViewer.VerticalOffset,
-                To = targetOffset,
-                Duration = TimeSpan.FromMilliseconds(200),
-                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-            };
+                _isAnimatingScroll = false;
+                _currentScrollAnimation = null;
 
-            scrollAnimation.Completed += (s, e) =>
-            {
                 // 动画完成后检查是否需要加载更多
                 var distanceToBottom = MainScrollViewer.ScrollableHeight - MainScrollViewer.VerticalOffset;
                 if (distanceToBottom <= 50 && _viewModel.HasMoreItems && !_viewModel.IsLoadingMore)
@@ -1741,7 +1750,7 @@ namespace WinVClip
                 }
             };
 
-            MainScrollViewer.BeginAnimation(ScrollViewerBehavior.VerticalOffsetProperty, scrollAnimation);
+            MainScrollViewer.BeginAnimation(ScrollViewerBehavior.VerticalOffsetProperty, _currentScrollAnimation);
         }
 
         private void ClipboardListBox_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
