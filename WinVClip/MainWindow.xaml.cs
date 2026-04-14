@@ -1,4 +1,4 @@
-﻿#nullable disable
+#nullable disable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -335,6 +335,48 @@ namespace WinVClip
         }
     }
 
+    public class TypeFilterToForegroundConverter : BaseConverter
+    {
+        public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (int.TryParse(parameter?.ToString(), out int targetTypeValue))
+            {
+                int? currentFilter = value as int?;
+                bool isActive = targetTypeValue switch
+                {
+                    -1 => !currentFilter.HasValue,
+                    0 => currentFilter == (int)ClipboardType.Text,
+                    1 => currentFilter == (int)ClipboardType.Image,
+                    2 => currentFilter == (int)ClipboardType.FileList,
+                    _ => false
+                };
+                
+                return isActive ? "#FFFFFF" : "{DynamicResource IconForeground}";
+            }
+            return "{DynamicResource IconForeground}";
+        }
+    }
+
+    public class GroupTab
+    {
+        public long GroupId { get; set; }
+        public string DisplayName { get; set; } = "";
+        public string ToolTip { get; set; } = "";
+
+        public static string GetAbbreviation(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "?";
+            var firstChar = name[0];
+            if (firstChar > 0x1F000 || (firstChar >= 0x2600 && firstChar <= 0x27BF) || (firstChar >= 0x2702 && firstChar <= 0x27B0))
+                return firstChar.ToString();
+            if (firstChar > 0x4E00)
+                return firstChar.ToString();
+            if (char.IsLetter(firstChar) && name.Length >= 2 && char.IsLetter(name[1]))
+                return name.Substring(0, 2).ToUpper();
+            return firstChar.ToString();
+        }
+    }
+
     public class GroupFilterToBackgroundConverter : BaseConverter
     {
         public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -650,6 +692,19 @@ namespace WinVClip
 
         public ObservableCollection<Group> Groups { get; } = new ObservableCollection<Group>();
 
+        public ObservableCollection<GroupTab> GroupTabs { get; } = new ObservableCollection<GroupTab>();
+
+        private int _selectedGroupTabIndex = 0;
+        public int SelectedGroupTabIndex
+        {
+            get => _selectedGroupTabIndex;
+            set
+            {
+                _selectedGroupTabIndex = value;
+                OnPropertyChanged();
+            }
+        }
+
         private Group _selectedGroup;
         public Group SelectedGroup
         {
@@ -674,12 +729,19 @@ namespace WinVClip
         public void LoadGroups()
         {
             Groups.Clear();
+            GroupTabs.Clear();
             var groups = _databaseService.GetAllGroups();
-            Groups.Add(new Group { Id = 0, Name = Loc.Get("Common.All", "全部") });
+            var allName = Loc.Get("Common.All", "全部");
+            Groups.Add(new Group { Id = 0, Name = allName });
+            GroupTabs.Add(new GroupTab { GroupId = 0, DisplayName = "📑", ToolTip = allName });
             foreach (var group in groups)
             {
                 Groups.Add(group);
+                var displayName = !string.IsNullOrEmpty(group.Icon) ? group.Icon : GroupTab.GetAbbreviation(group.Name);
+                GroupTabs.Add(new GroupTab { GroupId = group.Id, DisplayName = displayName, ToolTip = group.Name });
             }
+            GroupTabs.Add(new GroupTab { GroupId = -1, DisplayName = "➕", ToolTip = Loc.Get("MainWindow.GroupManage", "分组管理") });
+            SelectedGroupTabIndex = 0;
         }
 
         public bool HasItems => ClipboardItems.Count > 0;
@@ -955,6 +1017,7 @@ namespace WinVClip
             InitializeComponent();
             
             ApplyLocalization();
+            _viewModel.LoadGroups();
 
             _savedLeft = Left;
             _savedTop = Top;
@@ -1395,22 +1458,6 @@ namespace WinVClip
             }
         }
 
-        private void ComboBox_PreviewMouseDown(object sender, MouseButtonEventArgs e)
-        {
-            SetWindowActivateStyle(true);
-            e.Handled = false;
-        }
-
-        private void ComboBox_DropDownOpened(object sender, EventArgs e)
-        {
-            SetWindowActivateStyle(true);
-        }
-
-        private void ComboBox_DropDownClosed(object sender, EventArgs e)
-        {
-            DeactivateWindowDeferred();
-        }
-
         private void ItemBorder_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
             SetWindowActivateStyle(true);
@@ -1590,7 +1637,6 @@ namespace WinVClip
             else
             {
                 _viewModel.TypeFilter = null;
-                _viewModel.GroupFilter = null;
             }
         }
 
@@ -1614,22 +1660,25 @@ namespace WinVClip
             _viewModel.TypeFilter = (int)ClipboardType.FileList;
         }
 
-        private void GroupComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void GroupTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (GroupComboBox.SelectedItem is Group group)
+            if (sender is TabControl tabControl && tabControl.SelectedItem is GroupTab tab)
             {
-                _viewModel.SelectedGroup = group;
-            }
-        }
+                if (tab.GroupId == -1)
+                {
+                    _viewModel.SelectedGroupTabIndex = 0;
+                    var addGroupWindow = new GroupManageWindow(_databaseService);
+                    addGroupWindow.Owner = this;
+                    addGroupWindow.ShowDialog();
+                    _viewModel.LoadGroups();
+                    return;
+                }
 
-        private void GroupManageButton_Click(object sender, RoutedEventArgs e)
-        {
-            RemoveGlobalMouseHook();
-            var groupWindow = new GroupManageWindow(_databaseService);
-            groupWindow.Owner = this;
-            groupWindow.ShowDialog();
-            SetGlobalMouseHook();
-            _viewModel.LoadGroups();
+                if (tab.GroupId == 0)
+                    _viewModel.GroupFilter = null;
+                else
+                    _viewModel.GroupFilter = tab.GroupId;
+            }
         }
 
         private void WindowDrag_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

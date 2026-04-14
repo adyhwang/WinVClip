@@ -100,6 +100,11 @@ namespace WinVClip
             NavSearch.Content = Loc.Get("Settings.Nav.Search", "搜索引擎");
             NavSystem.Content = Loc.Get("Settings.Nav.System", "系统设置");
             
+            ResetButton.Content = Loc.Get("Settings.Button.Reset", "重置");
+            ApplyButton.Content = Loc.Get("Settings.Button.Apply", "应用");
+            OKButton.Content = Loc.Get("Settings.Button.OK", "确定");
+            CancelButton.ToolTip = Loc.Get("Settings.Button.Cancel", "取消");
+            
             ApplyPanelGeneralLocalization();
             ApplyPanelCaptureLocalization();
             ApplyPanelHistoryLocalization();
@@ -1208,7 +1213,10 @@ namespace WinVClip
                                     var createdAt = group.TryGetProperty("CreatedAt", out var createdProp) && createdProp.ValueKind != System.Text.Json.JsonValueKind.Null
                                         ? createdProp.GetDateTime() 
                                         : DateTime.Now;
-                                    var newId = App.DatabaseService.InsertGroup(groupName, createdAt);
+                                    var groupIcon = group.TryGetProperty("Icon", out var iconProp) && iconProp.ValueKind != System.Text.Json.JsonValueKind.Null
+                                        ? iconProp.GetString() ?? "⭐"
+                                        : "⭐";
+                                    var newId = App.DatabaseService.InsertGroup(groupName, groupIcon, createdAt);
                                     groupNameToId[groupName] = newId;
                                     if (originalId > 0)
                                         importedGroupIdMap[originalId] = newId;

@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WinVClip"
         mc:Ignorable="d"
-        Title="WinVClip" MinHeight="600" Height="600" MinWidth="350" Width="350"
+        Title="WinVClip" MinHeight="600" Height="600" MinWidth="380" Width="380"
     WindowStyle="None" AllowsTransparency="True" Background="Transparent"
     ShowInTaskbar="False" Topmost="True" 
     PreviewKeyDown="Window_PreviewKeyDown"
@@ -70,7 +70,7 @@
             BorderBrush="{DynamicResource BorderBrush}" 
             BorderThickness="1" 
             CornerRadius="8">
-        <Grid Margin="8" MouseLeftButtonDown="WindowDrag_MouseLeftButtonDown" Background="Transparent">
+        <Grid Margin="4,8,4,8" MouseLeftButtonDown="WindowDrag_MouseLeftButtonDown" Background="Transparent">
             <Grid.RowDefinitions>
                 <RowDefinition Height="50"/>
                 <RowDefinition Height="Auto"/>
@@ -148,58 +148,60 @@
 
             <!-- 筛选面板 -->
             <Grid Grid.Row="1" Visibility="{Binding IsFilterPanelVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                
                 <!-- 格式筛选 -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,4" HorizontalAlignment="Left">
-                    <Button x:Name="FilterAllButton" Width="28" Height="28" Margin="2,0" Content="☑︎"
+                <StackPanel Orientation="Horizontal" Margin="0,4" HorizontalAlignment="Left">
+                    <Button x:Name="FilterAllButton" Width="28" Height="28" Margin="2,0" Content="📑"
                             Click="FilterAll_Click"
                             PreviewMouseDown="Button_PreviewMouseDown"
                             Style="{StaticResource IconButtonStyle}"
-                            Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=-1}"/>
+                            Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=-1}"
+                            Foreground="{Binding TypeFilter, Converter={local:TypeFilterToForegroundConverter}, ConverterParameter=-1}"/>
                     <Button x:Name="FilterTextButton" Width="28" Height="28" Margin="2,0" Content="Aa"
                             Click="FilterText_Click"
                             PreviewMouseDown="Button_PreviewMouseDown"
                             Style="{StaticResource IconButtonStyle}"
-                            Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=0}"/>
+                            Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=0}"
+                            Foreground="{Binding TypeFilter, Converter={local:TypeFilterToForegroundConverter}, ConverterParameter=0}"/>
                     <Button x:Name="FilterImageButton" Width="28" Height="28" Margin="2,0" Content="🖼️"
                             Click="FilterImage_Click"
                             PreviewMouseDown="Button_PreviewMouseDown"
                             Style="{StaticResource IconButtonStyle}"
-                            Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=1}"/>
+                            Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=1}"
+                            Foreground="{Binding TypeFilter, Converter={local:TypeFilterToForegroundConverter}, ConverterParameter=1}"/>
                     <Button x:Name="FilterFileButton" Width="28" Height="28" Margin="2,0" Content="📂"
                             Click="FilterFile_Click"
                             PreviewMouseDown="Button_PreviewMouseDown"
                             Style="{StaticResource IconButtonStyle}"
-                            Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=2}"/>
-                </StackPanel>
-                
-                    
-                <!-- 分组筛选 -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,4" HorizontalAlignment="Right">
-                    <!-- <TextBlock Text="|" Foreground="{DynamicResource SecondaryTextForeground}" FontSize="11" 
-                               VerticalAlignment="Center" Margin="0,0,0,0" Width="10"/>                     -->
-                    <ComboBox x:Name="GroupComboBox" Width="100" Height="28" Margin="2,0"
-                              Style="{DynamicResource ComboBoxStyle}"
-                              ItemsSource="{Binding Groups}"
-                              SelectedItem="{Binding SelectedGroup}"
-                              DisplayMemberPath="Name"
-                              PreviewMouseDown="ComboBox_PreviewMouseDown"
-                              DropDownOpened="ComboBox_DropDownOpened"
-                              DropDownClosed="ComboBox_DropDownClosed"
-                              SelectionChanged="GroupComboBox_SelectionChanged"/>
-                    <Button x:Name="GroupManageButton" Width="28" Height="28" Margin="2,0" Content="➕️"
-                            Click="GroupManageButton_Click"
-                            PreviewMouseDown="Button_PreviewMouseDown"
-                            Style="{StaticResource IconButtonStyle}"/>
+                            Background="{Binding TypeFilter, Converter={local:TypeFilterToBackgroundConverter}, ConverterParameter=2}"
+                            Foreground="{Binding TypeFilter, Converter={local:TypeFilterToForegroundConverter}, ConverterParameter=2}"/>
                 </StackPanel>
             </Grid>
 
             <Grid Grid.Row="2">
-                <ScrollViewer x:Name="MainScrollViewer"
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="40"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 分组 TabControl -->
+                <TabControl x:Name="GroupTabControl"
+                            Grid.Column="0"
+                            Style="{DynamicResource GroupTabControlStyle}"
+                            ItemsSource="{Binding GroupTabs}"
+                            SelectedIndex="{Binding SelectedGroupTabIndex, Mode=TwoWay}"
+                            SelectionChanged="GroupTabControl_SelectionChanged">
+                    <TabControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding DisplayName}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       FontSize="13"
+                                       ToolTip="{Binding ToolTip}"/>
+                        </DataTemplate>
+                    </TabControl.ItemTemplate>
+                </TabControl>
+
+                <ScrollViewer x:Name="MainScrollViewer" Grid.Column="1"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
                               Margin="0,0,-8,0"
@@ -431,7 +433,7 @@
                 </ScrollViewer>
 
                 <!-- 空状态提示 -->
-                <Grid HorizontalAlignment="Center" VerticalAlignment="Center"
+                <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
                       Visibility="{Binding IsEmpty, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -446,7 +448,7 @@
                 </Grid>
 
                 <!-- 加载动画 -->
-                <Grid HorizontalAlignment="Center" VerticalAlignment="Center"
+                <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
                       Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <Border Background="{DynamicResource WindowBackground}"
                             CornerRadius="8" Padding="20"

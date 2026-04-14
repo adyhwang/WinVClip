@@ -141,7 +141,7 @@ namespace WinVClip
             _mainWindow.Hide();
 
             // 检查是否需要执行每周一次的 Vacuum
-            CheckAndPerformWeeklyVacuum();
+            CheckAndPerformPeriodicVacuum();
 
             Current.Exit += (s, args) => CleanupResources();
         }
@@ -284,33 +284,27 @@ namespace WinVClip
             base.OnExit(e);
         }
 
-        private void CheckAndPerformWeeklyVacuum()
+        private void CheckAndPerformPeriodicVacuum()
         {
             try
             {
-                var lastVacuumFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "last_vacuum.txt");
                 var today = DateTime.Now.Date;
-                var isMonday = today.DayOfWeek == DayOfWeek.Monday;
+                var lastVacuumDate = _settingsService?.Settings?.LastVacuumDate?.Date ?? DateTime.MinValue;
+                var daysSinceLastVacuum = (today - lastVacuumDate).TotalDays;
 
-                // 检查上次执行时间
-                DateTime lastVacuumDate = DateTime.MinValue;
-                if (File.Exists(lastVacuumFile))
-                {
-                    if (DateTime.TryParse(File.ReadAllText(lastVacuumFile), out var lastDate))
-                    {
-                        lastVacuumDate = lastDate.Date;
-                    }
-                }
-
-                // 如果是周一且本周尚未执行过 Vacuum
-                if (isMonday && lastVacuumDate < today)
+                // 每两天执行一次 Vacuum
+                if (daysSinceLastVacuum >= 2)
                 {
                     System.Threading.Tasks.Task.Run(() =>
                     {
                         try
                         {
                             _databaseService?.VacuumDatabase();
-                            File.WriteAllText(lastVacuumFile, today.ToString("yyyy-MM-dd"));
+                            if (_settingsService?.Settings != null)
+                            {
+                                _settingsService.Settings.LastVacuumDate = today;
+                                _settingsService.SaveSettings();
+                            }
                         }
                         catch
                         {

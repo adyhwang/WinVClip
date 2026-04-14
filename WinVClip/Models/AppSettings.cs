@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
@@ -21,6 +22,7 @@ namespace WinVClip.Models
         public string PasteShortcutMode { get; set; } = "Auto";
         public bool IsAdministratorRun { get; set; } = false;
         public string Language { get; set; } = "";
+        public DateTime? LastVacuumDate { get; set; } = null;
 
         [JsonIgnore]
         public List<SearchEngine> SearchEngines { get; set; } = new List<SearchEngine>();

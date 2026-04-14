@@ -35,7 +35,7 @@
                         <TextBlock x:Name="TitleText" Text="设置" FontSize="20" FontWeight="SemiBold" 
                                    Foreground="{DynamicResource TextForeground}" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <Button Grid.Column="1" Content="&#xE711;" FontFamily="Segoe MDL2 Assets" 
+                    <Button x:Name="CancelButton" Grid.Column="1" Content="&#xE711;" FontFamily="Segoe MDL2 Assets" 
                             Style="{DynamicResource IconButtonStyle}" FontSize="16"
                             Click="CancelButton_Click" ToolTip="关闭"/>
                 </Grid>
@@ -574,13 +574,13 @@
                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                     CornerRadius="0,0,8,8" Padding="20,16">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="重置" Width="90" Height="36" 
+                    <Button x:Name="ResetButton" Content="重置" Width="90" Height="36" 
                             Style="{DynamicResource SecondaryButtonStyle}"
                             Click="ResetButton_Click"/>
-                    <Button Content="应用" Width="90" Height="36" Margin="12,0,0,0"
+                    <Button x:Name="ApplyButton" Content="应用" Width="90" Height="36" Margin="12,0,0,0"
                             Style="{DynamicResource SecondaryButtonStyle}"
                             Click="ApplyButton_Click"/>
-                    <Button Content="确定" Width="90" Height="36" Margin="12,0,0,0"
+                    <Button x:Name="OKButton" Content="确定" Width="90" Height="36" Margin="12,0,0,0"
                             Style="{DynamicResource PrimaryButtonStyle}"
                             Click="OKButton_Click"/>
                 </StackPanel>

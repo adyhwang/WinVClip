@@ -55,6 +55,7 @@ namespace WinVClip.Services
             EnsureGroupIdColumn();
             EnsureRichTextColumns();
             EnsureCsvContentColumn();
+            EnsureGroupIconColumn();
             EnsureDefaultGroup();
         }
 
@@ -62,10 +63,36 @@ namespace WinVClip.Services
         {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
-                INSERT OR IGNORE INTO Groups (Name, CreatedAt)
-                VALUES ('Favorite', datetime('now'));
+                INSERT OR IGNORE INTO Groups (Name, Icon, CreatedAt)
+                VALUES ('Favorite', '🌟', datetime('now'));
             ";
             command.ExecuteNonQuery();
+        }
+
+        private void EnsureGroupIconColumn()
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = @"PRAGMA table_info(Groups);";
+
+            bool hasIconColumn = false;
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                if (reader["name"]?.ToString() == "Icon")
+                {
+                    hasIconColumn = true;
+                    break;
+                }
+            }
+
+            if (!hasIconColumn)
+            {
+                using var alterCommand = _connection.CreateCommand();
+                alterCommand.CommandText = @"
+                    ALTER TABLE Groups ADD COLUMN Icon TEXT NOT NULL DEFAULT '⭐';
+                ";
+                alterCommand.ExecuteNonQuery();
+            }
         }
 
         private void EnsureGroupIdColumn()
@@ -400,6 +427,8 @@ namespace WinVClip.Services
             command.CommandText = "DELETE FROM ClipboardItems WHERE Id = @Id";
             command.Parameters.AddWithValue("@Id", id);
             command.ExecuteNonQuery();
+            
+            VacuumDatabase();
         }
 
         private void DeleteImageFile(string? imagePath)
@@ -848,7 +877,7 @@ namespace WinVClip.Services
             var groups = new List<Models.Group>();
             using var command = _connection.CreateCommand();
             command.CommandText = @"
-                SELECT Id, Name, CreatedAt
+                SELECT Id, Name, Icon, CreatedAt
                 FROM Groups
                 ORDER BY CreatedAt ASC
             ";
@@ -860,47 +889,51 @@ namespace WinVClip.Services
                 {
                     Id = reader.GetInt64(0),
                     Name = reader.GetString(1),
-                    CreatedAt = reader.GetDateTime(2)
+                    Icon = reader.IsDBNull(2) ? "⭐" : reader.GetString(2),
+                    CreatedAt = reader.GetDateTime(3)
                 });
             }
 
             return groups;
         }
 
-        public long CreateGroup(string name)
+        public long CreateGroup(string name, string icon = "⭐")
         {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
-                INSERT INTO Groups (Name, CreatedAt)
-                VALUES (@Name, @CreatedAt);
+                INSERT INTO Groups (Name, Icon, CreatedAt)
+                VALUES (@Name, @Icon, @CreatedAt);
                 SELECT last_insert_rowid();
             ";
             command.Parameters.AddWithValue("@Name", name);
+            command.Parameters.AddWithValue("@Icon", icon);
             command.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
 
             return Convert.ToInt64(command.ExecuteScalar());
         }
 
-        public long InsertGroup(string name, DateTime createdAt)
+        public long InsertGroup(string name, string icon, DateTime createdAt)
         {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
-                INSERT INTO Groups (Name, CreatedAt)
-                VALUES (@Name, @CreatedAt);
+                INSERT INTO Groups (Name, Icon, CreatedAt)
+                VALUES (@Name, @Icon, @CreatedAt);
                 SELECT last_insert_rowid();
             ";
             command.Parameters.AddWithValue("@Name", name);
+            command.Parameters.AddWithValue("@Icon", icon);
             command.Parameters.AddWithValue("@CreatedAt", createdAt);
 
             return Convert.ToInt64(command.ExecuteScalar());
         }
 
-        public void UpdateGroup(long id, string name)
+        public void UpdateGroup(long id, string name, string icon)
         {
             using var command = _connection.CreateCommand();
-            command.CommandText = "UPDATE Groups SET Name = @Name WHERE Id = @Id";
+            command.CommandText = "UPDATE Groups SET Name = @Name, Icon = @Icon WHERE Id = @Id";
             command.Parameters.AddWithValue("@Id", id);
             command.Parameters.AddWithValue("@Name", name);
+            command.Parameters.AddWithValue("@Icon", icon);
             command.ExecuteNonQuery();
         }
 
@@ -910,6 +943,8 @@ namespace WinVClip.Services
             command.CommandText = "DELETE FROM Groups WHERE Id = @Id";
             command.Parameters.AddWithValue("@Id", id);
             command.ExecuteNonQuery();
+            
+            VacuumDatabase();
         }
 
         public void UpdateItemGroup(long itemId, long? groupId)

@@ -21,6 +21,7 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <local:DefaultGroupVisibilityConverter x:Key="DefaultGroupVisibilityConverter"/>
     </Window.Resources>
     
     <Border Background="{DynamicResource WindowBackground}" 
@@ -63,19 +64,21 @@
                                 </Grid.ColumnDefinitions>
 
                                 <TextBlock Grid.Column="0" 
-                                           Text="{Binding Name}" 
                                            Foreground="{DynamicResource TextForeground}"
                                            FontSize="15"
-                                           VerticalAlignment="Center"/>
+                                           VerticalAlignment="Center">
+                                    <Run Text="{Binding Icon, Mode=OneWay}"/><Run Text=" "/><Run Text="{Binding Name, Mode=OneWay}"/>
+                                </TextBlock>
 
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0">
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0"
+                                            Visibility="{Binding Name, Converter={StaticResource DefaultGroupVisibilityConverter}}">
                                     <Button Content="✏️" Width="32" Height="32" Margin="0"
                                             Style="{DynamicResource ToolButtonStyle}"
-                                            ToolTip="编辑"
+                                            ToolTip="{Binding DataContext.EditButtonTooltip, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Click="EditButton_Click"/>
                                     <Button Content="🗑️" Width="32" Height="32" Margin="8,0,0,0"
                                             Style="{DynamicResource ToolButtonStyle}"
-                                            ToolTip="删除"
+                                            ToolTip="{Binding DataContext.DeleteButtonTooltip, RelativeSource={RelativeSource AncestorType=Window}}"
                                             Click="DeleteButton_Click"/>
                                 </StackPanel>
                             </Grid>
@@ -110,27 +113,45 @@
                 </ListBox.ItemTemplate>
             </ListBox>
 
-            <Grid Grid.Row="2" Margin="0,20,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+            <Border Grid.Row="2" Margin="0,20,0,0"
+                    Background="{DynamicResource ItemBackground}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                <TextBox Grid.Column="0" x:Name="NewGroupNameTextBox"
-                         Height="40"
-                         Style="{DynamicResource InputTextBoxStyle}"
-                         VerticalAlignment="Center"
-                         HorizontalAlignment="Stretch"
-                         Margin="0,0,12,0"
-                         KeyDown="NewGroupNameTextBox_KeyDown"/>
+                    <TextBox Grid.Column="0" x:Name="NewGroupIconTextBox"
+                             Height="40"
+                             Style="{DynamicResource InputTextBoxStyle}"
+                             VerticalAlignment="Center"
+                             HorizontalAlignment="Stretch"
+                             Text="🌟"
+                             MaxLength="2"
+                             TextAlignment="Center"
+                             FontSize="16"/>
 
-                <Button Grid.Column="1" 
-                        x:Name="AddButton"
-                        Content="添加分组" 
-                        Width="120" Height="40"
-                        Style="{DynamicResource PrimaryButtonStyle}"
-                        Click="AddButton_Click"/>
-            </Grid>
+                    <TextBox Grid.Column="1" x:Name="NewGroupNameTextBox"
+                             Height="40"
+                             Style="{DynamicResource InputTextBoxStyle}"
+                             VerticalAlignment="Center"
+                             HorizontalAlignment="Stretch"
+                             Margin="8,0,12,0"
+                             KeyDown="NewGroupNameTextBox_KeyDown"/>
+
+                    <Button Grid.Column="2" 
+                            x:Name="AddButton"
+                            Content="添加分组" 
+                            Width="120" Height="40"
+                            Style="{DynamicResource PrimaryButtonStyle}"
+                            Click="AddButton_Click"/>
+                </Grid>
+            </Border>
         </Grid>
     </Border>
 </Window>
