@@ -1996,10 +1996,19 @@ namespace WinVClip
             {
                 if (!string.IsNullOrEmpty(selectedText))
                 {
-                    // 使用主窗口的粘贴逻辑，传入保存的目标窗口句柄
+                    if (_viewModel.IsPinned)
+                        this.Show();
                     PasteTextWithHwnd(selectedText, targetHwnd);
                 }
             };
+            charPickerWindow.Closed += (_, _) =>
+            {
+                if (_viewModel.IsPinned)
+                    this.Show();
+                else
+                    this.Hide();
+            };
+            this.Hide();
             charPickerWindow.Show();
         }
 
