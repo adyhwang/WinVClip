@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using WinVClip.Services;
@@ -14,7 +15,8 @@ namespace WinVClip
     public partial class CharPickerWindow : Window
     {
         private readonly string _sourceText;
-        private readonly List<Button> _charButtons = new();
+        private readonly List<string> _charTokens = new();
+        private readonly List<Border> _charElements = new();
         private readonly HashSet<int> _selectedIndices = new();
         private bool _isDragging;
         private int _dragStartIndex = -1;
@@ -22,6 +24,8 @@ namespace WinVClip
         private bool _isUpdatingUI;
         private bool _dragSelectMode;
         private int _lastClickedIndex = -1;
+        private const int BatchSize = 100;
+        private int _renderedCount;
 
         public event EventHandler<string> OnInsert;
 
@@ -33,8 +37,21 @@ namespace WinVClip
             Loaded += (_, _) =>
             {
                 ApplyLocalization();
-                InitializeCharButtons();
+                InitializeCharElements();
             };
+            Unloaded += (_, _) => ThemeService.Instance.ThemeChanged -= OnThemeChanged;
+        }
+
+        private void OnThemeChanged(object? sender, string theme)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                foreach (var element in _charElements)
+                {
+                    var index = (int)element.DataContext;
+                    UpdateElementStyle(element, _selectedIndices.Contains(index));
+                }
+            });
         }
 
         private void ApplyLocalization()
@@ -54,16 +71,37 @@ namespace WinVClip
             base.OnSourceInitialized(e);
             var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
             Win32.SetWindowExStyle(hwnd, Win32.WS_EX_NOACTIVATE);
+            ThemeService.Instance.ThemeChanged += OnThemeChanged;
         }
 
-        private void InitializeCharButtons()
+        private void InitializeCharElements()
         {
-            var tokens = SplitText(_sourceText);
-            for (int i = 0; i < tokens.Count; i++)
+            _charTokens.Clear();
+            _charElements.Clear();
+            _selectedIndices.Clear();
+            _renderedCount = 0;
+            CharWrapPanel.Children.Clear();
+
+            _charTokens.AddRange(SplitText(_sourceText));
+            RenderBatch();
+        }
+
+        private void RenderBatch()
+        {
+            if (_renderedCount >= _charTokens.Count) return;
+
+            var end = Math.Min(_renderedCount + BatchSize, _charTokens.Count);
+            for (int i = _renderedCount; i < end; i++)
             {
-                var button = CreateCharButton(tokens[i], i);
-                _charButtons.Add(button);
-                CharWrapPanel.Children.Add(button);
+                var element = CreateCharElement(_charTokens[i], i);
+                _charElements.Add(element);
+                CharWrapPanel.Children.Add(element);
+            }
+            _renderedCount = end;
+
+            if (_renderedCount < _charTokens.Count)
+            {
+                Dispatcher.BeginInvoke(new Action(RenderBatch), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
             }
         }
 
@@ -72,7 +110,7 @@ namespace WinVClip
             var result = new List<string>();
             if (string.IsNullOrEmpty(text)) return result;
 
-            var normalizedText = Regex.Replace(text, @"[\s　]+", " ");
+            var normalizedText = Regex.Replace(text, @"[\s\u3000]+", " ");
             int i = 0;
             while (i < normalizedText.Length)
             {
@@ -112,17 +150,33 @@ namespace WinVClip
 
         private static bool IsAsciiLetter(char c) => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 
-        private Button CreateCharButton(string text, int index)
+        private Border CreateCharElement(string text, int index)
         {
-            var button = new Button
+            var border = new Border
             {
-                Content = text,
-                Style = (Style)FindResource("CharButtonStyle"),
-                DataContext = index
+                DataContext = index,
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(8, 4, 8, 4),
+                Margin = new Thickness(2),
+                Cursor = Cursors.Hand,
+                Child = new TextBlock
+                {
+                    Text = text,
+                    FontSize = 14,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                }
             };
-            button.PreviewMouseDown += (_, e) =>
+            UpdateElementStyle(border, false);
+
+            border.MouseDown += (_, e) =>
             {
-                if (e.ChangedButton == MouseButton.Right) return;
+                if (e.ChangedButton == MouseButton.Right)
+                {
+                    ShowCharContextMenu(text, index, e.GetPosition(this));
+                    e.Handled = true;
+                    return;
+                }
                 if (Keyboard.Modifiers == ModifierKeys.Shift && _lastClickedIndex >= 0)
                 {
                     SelectRange(_lastClickedIndex, index);
@@ -138,33 +192,51 @@ namespace WinVClip
                 }
                 e.Handled = true;
             };
-            button.PreviewMouseMove += (_, _) =>
+            border.MouseMove += (_, _) =>
             {
                 if (!_isDragging || _dragStartIndex < 0) return;
                 var hit = VisualTreeHelper.HitTest(CharWrapPanel, Mouse.GetPosition(CharWrapPanel));
-                if (hit?.VisualHit != null && FindParent<Button>(hit.VisualHit) is { DataContext: int i } && i != _lastDragIndex)
+                if (hit?.VisualHit != null && FindParent<Border>(hit.VisualHit) is { DataContext: int i } && i != _lastDragIndex)
                 {
                     _lastDragIndex = i;
                     SetSelection(i, _dragSelectMode);
                 }
             };
-            button.PreviewMouseUp += (_, _) => { _isDragging = false; _dragStartIndex = -1; _lastDragIndex = -1; };
-            button.ContextMenu = CreateCharContextMenu(text, index);
-            return button;
+            border.MouseUp += (_, _) => { _isDragging = false; _dragStartIndex = -1; _lastDragIndex = -1; };
+
+            return border;
         }
 
-        private ContextMenu CreateCharContextMenu(string text, int index)
+        private void UpdateElementStyle(Border element, bool isSelected)
+        {
+            if (isSelected)
+            {
+                element.Background = (Brush)FindResource("AccentColor");
+                element.BorderBrush = (Brush)FindResource("AccentColor");
+                element.BorderThickness = new Thickness(1);
+                ((TextBlock)element.Child).Foreground = Brushes.White;
+            }
+            else
+            {
+                element.Background = (Brush)FindResource("ItemBackground");
+                element.BorderBrush = (Brush)FindResource("BorderBrush");
+                element.BorderThickness = new Thickness(1);
+                ((TextBlock)element.Child).Foreground = (Brush)FindResource("TextForeground");
+            }
+        }
+
+        private void ShowCharContextMenu(string text, int index, Point position)
         {
             var menu = new ContextMenu { Style = (Style)FindResource("ContextMenuStyle") };
-            
-            var copyItem = new MenuItem { Header = Loc.Get("CharPicker.CopyChar", "复制该字"), Icon = "📋" };
+
+            var copyItem = new MenuItem { Header = Loc.Get("CharPicker.CopyChar", "复制该字") };
             copyItem.Click += (_, _) =>
             {
                 try { Clipboard.SetText(text); } catch { }
             };
             menu.Items.Add(copyItem);
 
-            var searchItem = new MenuItem { Header = Loc.Get("CharPicker.SearchChar", "搜索该字"), Icon = "🔍" };
+            var searchItem = new MenuItem { Header = Loc.Get("CharPicker.SearchChar", "搜索该字") };
             searchItem.Click += (_, _) =>
             {
                 string url = App.SettingsService.GetSearchUrl(text);
@@ -194,7 +266,10 @@ namespace WinVClip
             };
             menu.Items.Add(toggleItem);
 
-            return menu;
+            menu.Placement = PlacementMode.AbsolutePoint;
+            menu.HorizontalOffset = position.X;
+            menu.VerticalOffset = position.Y;
+            menu.IsOpen = true;
         }
 
         private void SetSelection(int index, bool select)
@@ -215,14 +290,17 @@ namespace WinVClip
 
         private void UpdateUI()
         {
-            for (int i = 0; i < _charButtons.Count; i++)
-                _charButtons[i].Tag = _selectedIndices.Contains(i) ? "Selected" : null;
-            SelectedTextBlock.Text = string.Join("", _selectedIndices.OrderBy(i => i).Select(i => _charButtons[i].Content));
-            
+            for (int i = 0; i < _charElements.Count; i++)
+            {
+                var isSelected = _selectedIndices.Contains(i);
+                UpdateElementStyle(_charElements[i], isSelected);
+            }
+            SelectedTextBlock.Text = string.Join("", _selectedIndices.OrderBy(i => i).Select(i => _charTokens[i]));
+
             if (SelectAllCheckBox != null)
             {
                 _isUpdatingUI = true;
-                SelectAllCheckBox.IsChecked = _selectedIndices.Count == _charButtons.Count && _charButtons.Count > 0;
+                SelectAllCheckBox.IsChecked = _selectedIndices.Count == _charTokens.Count && _charTokens.Count > 0;
                 _isUpdatingUI = false;
             }
             if (SearchButton != null)
@@ -250,7 +328,7 @@ namespace WinVClip
         {
             if (_isUpdatingUI) return;
             _selectedIndices.Clear();
-            for (int i = 0; i < _charButtons.Count; i++)
+            for (int i = 0; i < _charTokens.Count; i++)
                 _selectedIndices.Add(i);
             UpdateUI();
         }
@@ -265,7 +343,7 @@ namespace WinVClip
         private void InvertButton_Click(object sender, RoutedEventArgs e)
         {
             var newSelected = new HashSet<int>();
-            for (int i = 0; i < _charButtons.Count; i++)
+            for (int i = 0; i < _charTokens.Count; i++)
             {
                 if (!_selectedIndices.Contains(i))
                     newSelected.Add(i);
@@ -285,10 +363,10 @@ namespace WinVClip
         {
             if (string.IsNullOrEmpty(SelectedTextBlock.Text))
                 return;
-            
+
             string searchText = SelectedTextBlock.Text.Trim();
             string url = App.SettingsService.GetSearchUrl(searchText);
-            
+
             try
             {
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
@@ -303,7 +381,6 @@ namespace WinVClip
         private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) => DragMove();
 
-  
         private void DoCopy()
         {
             if (string.IsNullOrEmpty(SelectedTextBlock.Text)) return;

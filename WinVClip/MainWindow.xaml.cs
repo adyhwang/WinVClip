@@ -329,9 +329,10 @@ namespace WinVClip
                     _ => false
                 };
                 
-                return isActive ? "#007ACC" : "{DynamicResource IconButtonBackground}";
+                if (isActive)
+                    return new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204));
             }
-            return "{DynamicResource IconButtonBackground}";
+            return Application.Current.FindResource("ItemBackground");
         }
     }
 
@@ -351,9 +352,10 @@ namespace WinVClip
                     _ => false
                 };
                 
-                return isActive ? "#FFFFFF" : "{DynamicResource IconForeground}";
+                if (isActive)
+                    return System.Windows.Media.Brushes.White;
             }
-            return "{DynamicResource IconForeground}";
+            return Application.Current.FindResource("TextForeground");
         }
     }
 

@@ -40,6 +40,9 @@
     <SolidColorBrush x:Key="SelectedMultiSelectBackground" Color="#E3F2FD"/>
     <SolidColorBrush x:Key="ButtonBackground" Color="#F5F5F5"/>
     <SolidColorBrush x:Key="ButtonHoverBackground" Color="#E8E8E8"/>
+    <SolidColorBrush x:Key="PrimaryButtonBackground" Color="#007ACC"/>
+    <SolidColorBrush x:Key="PrimaryButtonForeground" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="PrimaryButtonHoverBackground" Color="#005A9E"/>
     <SolidColorBrush x:Key="InputBackground" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="InputBorderBrush" Color="#E0E0E0"/>
     
@@ -65,14 +68,6 @@
             </Trigger>
             <Trigger Property="IsDragging" Value="True">
                 <Setter Property="Background" Value="#808080"/>
-            </Trigger>
-        </Style.Triggers>
-    </Style>
-    
-    <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
-        <Style.Triggers>
-            <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="#005A9E"/>
             </Trigger>
         </Style.Triggers>
     </Style>

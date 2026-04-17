@@ -7,7 +7,11 @@
         mc:Ignorable="d"
         Title="管理分组" Height="450" Width="450"
         WindowStartupLocation="CenterOwner"
-        ResizeMode="CanResize">
+        ResizeMode="CanResize"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        MouseDown="Window_MouseDown">
     
     <Window.Resources>
         <Style x:Key="GroupItemContainerStyle" TargetType="ListBoxItem">
@@ -35,13 +39,35 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0" 
-                       x:Name="TitleText"
-                       Text="管理分组" 
-                       FontSize="20" 
-                       FontWeight="SemiBold"
-                       Foreground="{DynamicResource TextForeground}"
-                       Margin="0,0,0,20"/>
+            <Border Grid.Row="0" 
+                    Background="{DynamicResource HeaderBackground}" 
+                    BorderBrush="{DynamicResource BorderBrush}" 
+                    BorderThickness="0,0,0,1"
+                    CornerRadius="12,12,0,0" 
+                    Padding="20,16"
+                    Margin="-20,0,-20,20">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" 
+                               x:Name="TitleText"
+                               Text="管理分组" 
+                               FontSize="20" 
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextForeground}"
+                               VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" 
+                            x:Name="CloseButton" 
+                            Content="&#xE711;" 
+                            FontFamily="Segoe MDL2 Assets"
+                            Style="{DynamicResource IconButtonStyle}" 
+                            FontSize="16"
+                            Click="CloseButton_Click" 
+                            ToolTip="关闭"/>
+                </Grid>
+            </Border>
 
             <ListBox Grid.Row="1" x:Name="GroupsListBox"
                      Background="Transparent" BorderThickness="0"
