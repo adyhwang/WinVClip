@@ -20,6 +20,7 @@ namespace WinVClip
         private static Mutex? _mutex;
         private static FocusService? _focusService;
         private static WindowStateService? _windowStateService;
+        private static System.Threading.Timer? _vacuumTimer;
 
         public static DatabaseService DatabaseService => _databaseService ??= new DatabaseService(GetDatabasePath());
         public static SettingsService SettingsService => _settingsService ??= new SettingsService();
@@ -140,14 +141,22 @@ namespace WinVClip
 
             _mainWindow.Hide();
 
-            // 检查是否需要执行每周一次的 Vacuum
+            // 检查是否需要执行 Vacuum
             CheckAndPerformPeriodicVacuum();
+
+            // 设置定时器，每天检查一次是否需要执行 Vacuum
+            _vacuumTimer = new System.Threading.Timer(
+                callback: _ => CheckAndPerformPeriodicVacuum(),
+                state: null,
+                dueTime: TimeSpan.FromDays(1),
+                period: TimeSpan.FromDays(1));
 
             Current.Exit += (s, args) => CleanupResources();
         }
 
         private static void CleanupResources()
         {
+            _vacuumTimer?.Dispose();
             _clipboardMonitor?.Stop();
             _clipboardMonitor?.Dispose();
             _hotkeyService?.Dispose();
@@ -295,6 +304,8 @@ namespace WinVClip
                 // 每两天执行一次 Vacuum
                 if (daysSinceLastVacuum >= 2)
                 {
+                    System.Diagnostics.Debug.WriteLine($"[Vacuum] 开始执行数据库压缩，上次执行: {lastVacuumDate:yyyy-MM-dd}");
+                    
                     System.Threading.Tasks.Task.Run(() =>
                     {
                         try
@@ -304,18 +315,23 @@ namespace WinVClip
                             {
                                 _settingsService.Settings.LastVacuumDate = today;
                                 _settingsService.SaveSettings();
+                                System.Diagnostics.Debug.WriteLine($"[Vacuum] 数据库压缩成功，已更新日期: {today:yyyy-MM-dd}");
                             }
                         }
-                        catch
+                        catch (Exception ex)
                         {
-                            // 静默处理异常
+                            System.Diagnostics.Debug.WriteLine($"[Vacuum] 数据库压缩失败: {ex.Message}");
                         }
                     });
                 }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Vacuum] 距离上次压缩 {daysSinceLastVacuum:F1} 天，无需执行");
+                }
             }
-            catch
+            catch (Exception ex)
             {
-                // 静默处理异常
+                System.Diagnostics.Debug.WriteLine($"[Vacuum] 检查压缩状态失败: {ex.Message}");
             }
         }
     }
