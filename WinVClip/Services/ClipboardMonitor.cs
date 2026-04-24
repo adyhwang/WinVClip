@@ -346,7 +346,7 @@ namespace WinVClip.Services
                     {
                         Type = ClipboardType.Text,
                         Content = text,
-                        PreviewText = text,
+                        PreviewText = text.Length > 100 ? text.Substring(0, 100) : text,
                         CreatedAt = DateTime.Now
                     };
                     SaveItem(item);

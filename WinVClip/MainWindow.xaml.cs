@@ -476,11 +476,27 @@ namespace WinVClip
             if (value is not string content || content.Length == 0)
                 return value;
 
+            const int maxCharsPerLine = 200;
+            const int maxLines = 10;
+
             var lines = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-            var previewLines = lines.Take(10).ToList();
-            var result = string.Join("\n", previewLines);
-            var suffix = lines.Length > 10 ? "……" : "";
             
+            bool isTruncated = false;
+            string result;
+            
+            if (lines.Length == 1 && content.Length > maxCharsPerLine)
+            {
+                result = content.Substring(0, maxCharsPerLine);
+                isTruncated = true;
+            }
+            else
+            {
+                var previewLines = lines.Take(maxLines).ToList();
+                result = string.Join("\n", previewLines);
+                isTruncated = lines.Length > maxLines;
+            }
+            
+            var suffix = isTruncated ? "……" : "";
             return $"{result}\n{suffix}{string.Format(Loc.Get("Preview.CharCount", "(共{0}个字符)"), content.Length)}";
         }
     }
@@ -784,8 +800,8 @@ namespace WinVClip
         }
 
         private int _currentOffset = 0;
-        private const int PageSize = 30;
-        private const int CacheSize = 30;
+        private const int PageSize = 20;
+        private const int CacheSize = 20;
 
         public string GroupFilterName => GetGroupName(GroupFilter, string.Empty);
 
@@ -2550,7 +2566,7 @@ namespace WinVClip
 
         private const byte VK_CONTROL = 0x11;
         private const byte VK_V = 0x56;
-        private const uint KEYEVENTF_KEYUP = 0x0002;
+        private const uint KEYEVENTF_KP = 0x0002;
 
         private void CopyToClipboard(ClipboardItem item)
         {
