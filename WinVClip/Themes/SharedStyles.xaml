@@ -623,6 +623,45 @@
         </Style.Triggers>
     </Style>
     
+    <Style x:Key="MultiSelectCheckBoxStyle" TargetType="CheckBox">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextForeground}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Border x:Name="CheckBorder"
+                            Width="22" Height="22"
+                            Background="{DynamicResource InputBackground}"
+                            BorderBrush="{DynamicResource InputBorderBrush}"
+                            BorderThickness="1.5"
+                            CornerRadius="4"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Center">
+                        <Path x:Name="CheckMark"
+                              Stroke="{DynamicResource PrimaryButtonForeground}"
+                              StrokeThickness="2.5"
+                              Data="M 4 10 L 8 14 L 14 5"
+                              Visibility="Collapsed"
+                              Stretch="Uniform"
+                              Margin="3"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="CheckBorder" Property="Background" Value="{DynamicResource PrimaryButtonBackground}"/>
+                            <Setter TargetName="CheckBorder" Property="BorderBrush" Value="{DynamicResource PrimaryButtonBackground}"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="CheckBorder" Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="ScrollBarStyle" TargetType="ScrollBar">
         <Setter Property="Width" Value="8"/>
         <Setter Property="Background" Value="Transparent"/>

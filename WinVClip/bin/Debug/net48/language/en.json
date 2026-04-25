@@ -51,6 +51,7 @@
     "MainWindow.ContextMenu.Delete": "Delete",
     "MainWindow.ContextMenu.MultiSelectMode": "Multi-Select Mode",
     "MainWindow.ContextMenu.BatchDelete": "Batch Delete",
+    "MainWindow.ContextMenu.BatchPaste": "Batch Paste",
     "MainWindow.ContextMenu.BatchGroup": "Batch Group",
     "MainWindow.ContextMenu.ExitMultiSelectMode": "Exit Multi-Select Mode",
     "MainWindow.ContextMenu.ClearAllHistory": "Clear All History",
@@ -75,6 +76,7 @@
     "ContextMenu.Group": "Group",
     "ContextMenu.MultiSelectMode": "Multi-Select Mode",
     "ContextMenu.BatchDelete": "Batch Delete",
+    "ContextMenu.BatchPaste": "Batch Paste",
     "ContextMenu.BatchGroup": "Batch Group",
     "ContextMenu.ExitMultiSelectMode": "Exit Multi-Select Mode",
 
@@ -268,6 +270,7 @@
     "MainWindow.Message.SelectItemsToDelete": "Please select items to delete first",
     "MainWindow.Message.ConfirmDeleteSelected": "Are you sure you want to delete {0} selected items?",
     "MainWindow.Message.SelectItemsToGroup": "Please select items to group first",
+    "MainWindow.Message.SelectItemsToPaste": "Please select items to paste first",
 
     "Preview.CharCount": "({0} characters total)",
     "Preview.FilesAndFolders": "......({0} files, {1} folders)",

@@ -51,6 +51,7 @@
     "MainWindow.ContextMenu.Delete": "删除",
     "MainWindow.ContextMenu.MultiSelectMode": "多选模式",
     "MainWindow.ContextMenu.BatchDelete": "批量删除",
+    "MainWindow.ContextMenu.BatchPaste": "批量粘贴",
     "MainWindow.ContextMenu.BatchGroup": "批量分组",
     "MainWindow.ContextMenu.ExitMultiSelectMode": "返回常规模式",
     "MainWindow.ContextMenu.ClearAllHistory": "清空所有历史记录",
@@ -75,6 +76,7 @@
     "ContextMenu.Group": "分组",
     "ContextMenu.MultiSelectMode": "多选模式",
     "ContextMenu.BatchDelete": "批量删除",
+    "ContextMenu.BatchPaste": "批量粘贴",
     "ContextMenu.BatchGroup": "批量分组",
     "ContextMenu.ExitMultiSelectMode": "返回常规模式",
 
@@ -268,6 +270,7 @@
     "MainWindow.Message.SelectItemsToDelete": "请先选择要删除的项",
     "MainWindow.Message.ConfirmDeleteSelected": "确定要删除选中的 {0} 项吗？",
     "MainWindow.Message.SelectItemsToGroup": "请先选择要分组的项",
+    "MainWindow.Message.SelectItemsToPaste": "请先选择要粘贴的项",
 
     "Preview.CharCount": "(共{0}个字符)",
     "Preview.FilesAndFolders": "……(共{0}个文件、{1}个目录)",

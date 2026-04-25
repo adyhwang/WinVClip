@@ -288,6 +288,9 @@
                                 <MenuItem x:Name="MenuMultiSelectMode" Header="多选模式" Icon="📋" Click="EnterMultiSelectMode_Click"
                                           Style="{DynamicResource MenuItemStyle}"
                                           Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}, ConverterParameter=Invert}"/>
+                                <MenuItem x:Name="MenuBatchPaste" Header="批量粘贴" Icon="📋" Click="BatchPaste_Click"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}}"/>
                                 <MenuItem x:Name="MenuBatchDelete" Header="批量删除" Icon="🗑️" Click="BatchDelete_Click"
                                           Style="{DynamicResource MenuItemStyle}"
                                           Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}}"/>
@@ -319,10 +322,19 @@
                                     <Grid x:Name="ItemGrid" Margin="9,7">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
 
-                                        <Border Grid.Column="0" Width="56" Height="52"
+                                        <CheckBox x:Name="MultiSelectCheckBox" Grid.Column="0"
+                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                  VerticalAlignment="Center"
+                                                  Margin="0,0,8,0"
+                                                  Style="{DynamicResource MultiSelectCheckBoxStyle}"
+                                                  Visibility="{Binding DataContext.IsMultiSelectMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                  Click="MultiSelectCheckBox_Click"/>
+
+                                        <Border Grid.Column="1" Width="56" Height="52"
                                                 Margin="0,0,10,0"
                                                 VerticalAlignment="Center"
                                                 Background="{DynamicResource ItemBackground}"
@@ -334,7 +346,7 @@
                                                    Stretch="UniformToFill"/>
                                         </Border>
 
-                                        <Grid Grid.Column="1">
+                                        <Grid Grid.Column="2">
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="*"/>
                                                 <RowDefinition Height="Auto"/>

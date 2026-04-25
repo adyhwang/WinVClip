@@ -858,6 +858,7 @@ namespace WinVClip
                     {
                         foreach (var item in newItems)
                         {
+                            item.IsSelected = SelectedItemIds.Contains(item.Id);
                             ClipboardItems.Add(item);
                         }
                     }
@@ -871,6 +872,7 @@ namespace WinVClip
                         {
                             if (i < newItems.Count)
                             {
+                                newItems[i].IsSelected = SelectedItemIds.Contains(newItems[i].Id);
                                 if (i < ClipboardItems.Count)
                                     ClipboardItems[i] = newItems[i];
                                 else
@@ -925,6 +927,7 @@ namespace WinVClip
                 {
                     foreach (var item in newItems)
                     {
+                        item.IsSelected = SelectedItemIds.Contains(item.Id);
                         ClipboardItems.Add(item);
                     }
                 });
@@ -1070,6 +1073,7 @@ namespace WinVClip
             MenuDelete.Header = Loc.Get("MainWindow.ContextMenu.Delete", "删除");
             MenuMultiSelectMode.Header = Loc.Get("MainWindow.ContextMenu.MultiSelectMode", "多选模式");
             MenuBatchDelete.Header = Loc.Get("MainWindow.ContextMenu.BatchDelete", "批量删除");
+            MenuBatchPaste.Header = Loc.Get("MainWindow.ContextMenu.BatchPaste", "批量粘贴");
             MenuBatchGroup.Header = Loc.Get("MainWindow.ContextMenu.BatchGroup", "批量分组");
             MenuExitMultiSelectMode.Header = Loc.Get("MainWindow.ContextMenu.ExitMultiSelectMode", "返回常规模式");
             
@@ -2641,10 +2645,225 @@ namespace WinVClip
         private void ExitMultiSelectMode_Click(object sender, RoutedEventArgs e) 
             => SetMultiSelectMode(false);
 
+        private bool _wasPinnedBeforeMultiSelect = false;
+
         private void SetMultiSelectMode(bool enabled)
         {
             _viewModel.IsMultiSelectMode = enabled;
             _viewModel.ClearSelection();
+
+            if (enabled)
+            {
+                _wasPinnedBeforeMultiSelect = _viewModel.IsPinned;
+                if (!_viewModel.IsPinned)
+                {
+                    _viewModel.IsPinned = true;
+                    Topmost = true;
+                }
+            }
+            else
+            {
+                if (!_wasPinnedBeforeMultiSelect)
+                {
+                    _viewModel.IsPinned = false;
+                    Topmost = false;
+                }
+            }
+        }
+
+        private void MultiSelectCheckBox_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.CheckBox checkBox && checkBox.DataContext is ClipboardItem item)
+            {
+                _viewModel.ToggleSelection(item);
+                e.Handled = true;
+            }
+        }
+
+        private void BatchPaste_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedItems = GetSelectedItemsOrShowMessage(Loc.Get("MainWindow.Message.SelectItemsToPaste", "请先选择要粘贴的项"));
+            if (selectedItems == null) return;
+
+            if (_isPasting)
+                return;
+
+            var textItems = selectedItems.Where(i => i.Type == ClipboardType.Text || i.Type == ClipboardType.RichText).ToList();
+            var imageItems = selectedItems.Where(i => i.Type == ClipboardType.Image).ToList();
+            var fileItems = selectedItems.Where(i => i.Type == ClipboardType.FileList).ToList();
+
+            if (textItems.Count > 0)
+            {
+                BatchPasteTextItems(textItems);
+            }
+            else if (imageItems.Count > 0)
+            {
+                BatchPasteItemsSequentially(imageItems);
+            }
+            else if (fileItems.Count > 0)
+            {
+                BatchPasteFileItems(fileItems);
+            }
+        }
+
+        private void BatchPasteTextItems(List<ClipboardItem> textItems)
+        {
+            try
+            {
+                _isPasting = true;
+
+                var contents = textItems.Select(i => i.Content ?? "").ToList();
+                var combinedText = string.Join("\n", contents);
+
+                Clipboard.SetText(combinedText);
+
+                var clipboardMonitor = App.GetClipboardMonitor();
+                clipboardMonitor?.MarkPasteOperation();
+                clipboardMonitor?.IgnoreNextChange(1000);
+
+                var firstItem = textItems.First();
+                clipboardMonitor?.SetLastPasteHashText(combinedText);
+
+                if (App.SettingsService.Settings.MoveToTopAfterPaste)
+                {
+                    foreach (var item in textItems)
+                    {
+                        if (!item.GroupId.HasValue)
+                            _databaseService.UpdateItemTimestampById(item.Id);
+                    }
+                }
+
+                var focusService = App.GetFocusService();
+                var targetHwnd = focusService?.LastFocusHwnd ?? IntPtr.Zero;
+                var windowStateService = App.GetWindowStateService();
+                if (windowStateService != null && !windowStateService.IsPinned)
+                {
+                    HideWindow();
+                    Thread.Sleep(50);
+                }
+                else
+                {
+                    Thread.Sleep(30);
+                }
+
+                ActivateAndPaste(targetHwnd);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isPasting = false;
+            }
+        }
+
+        private void BatchPasteFileItems(List<ClipboardItem> fileItems)
+        {
+            try
+            {
+                _isPasting = true;
+
+                var allFilePaths = new List<string>();
+                foreach (var item in fileItems)
+                {
+                    if (item.FilePaths != null)
+                        allFilePaths.AddRange(item.FilePaths);
+                }
+
+                if (allFilePaths.Count == 0)
+                {
+                    _isPasting = false;
+                    return;
+                }
+
+                var fileCollection = new System.Collections.Specialized.StringCollection();
+                fileCollection.AddRange(allFilePaths.ToArray());
+                Clipboard.SetFileDropList(fileCollection);
+
+                var clipboardMonitor = App.GetClipboardMonitor();
+                clipboardMonitor?.MarkPasteOperation();
+                clipboardMonitor?.IgnoreNextChange(1000);
+                clipboardMonitor?.SetLastPasteHashFiles(allFilePaths);
+
+                if (App.SettingsService.Settings.MoveToTopAfterPaste)
+                {
+                    foreach (var item in fileItems)
+                    {
+                        if (!item.GroupId.HasValue)
+                            _databaseService.UpdateItemTimestampById(item.Id);
+                    }
+                }
+
+                var focusService = App.GetFocusService();
+                var targetHwnd = focusService?.LastFocusHwnd ?? IntPtr.Zero;
+                var windowStateService = App.GetWindowStateService();
+                if (windowStateService != null && !windowStateService.IsPinned)
+                {
+                    HideWindow();
+                    Thread.Sleep(50);
+                }
+                else
+                {
+                    Thread.Sleep(30);
+                }
+
+                ActivateAndPaste(targetHwnd);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isPasting = false;
+            }
+        }
+
+        private async void BatchPasteItemsSequentially(List<ClipboardItem> items)
+        {
+            if (_isPasting) return;
+
+            var focusService = App.GetFocusService();
+            var targetHwnd = focusService?.LastFocusHwnd ?? IntPtr.Zero;
+
+            var windowStateService = App.GetWindowStateService();
+            if (windowStateService != null && !windowStateService.IsPinned)
+            {
+                HideWindow();
+                await System.Threading.Tasks.Task.Delay(50);
+            }
+
+            _isPasting = true;
+            try
+            {
+                for (int i = 0; i < items.Count; i++)
+                {
+                    var item = items[i];
+
+                    SetClipboardContent(item);
+
+                    var clipboardMonitor = App.GetClipboardMonitor();
+                    clipboardMonitor?.MarkPasteOperation();
+                    clipboardMonitor?.IgnoreNextChange(1000);
+
+                    if (App.SettingsService.Settings.MoveToTopAfterPaste && !item.GroupId.HasValue)
+                        _databaseService.UpdateItemTimestampById(item.Id);
+
+                    ActivateAndPaste(targetHwnd);
+
+                    if (i < items.Count - 1)
+                        await System.Threading.Tasks.Task.Delay(500);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isPasting = false;
+            }
         }
 
         private void BatchDelete_Click(object sender, RoutedEventArgs e)
