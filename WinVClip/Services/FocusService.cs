@@ -77,14 +77,6 @@ namespace WinVClip.Services
             }
         }
 
-        public void ClearExcludedHwnds()
-        {
-            lock (_excludedHwnds)
-            {
-                _excludedHwnds.Clear();
-            }
-        }
-
         private void WinEventProc(IntPtr hWinEventHook, uint eventType, IntPtr hwnd,
             int idObject, int idChild, uint idEventThread, uint dwmsEventTime)
         {
@@ -129,14 +121,6 @@ namespace WinVClip.Services
             }
 
             return false;
-        }
-
-        public void RestoreLastFocus()
-        {
-            if (_lastFocusHwnd != IntPtr.Zero)
-            {
-                SetForegroundWindow(_lastFocusHwnd);
-            }
         }
 
         public ForegroundAppInfo? GetForegroundAppInfo()

@@ -269,42 +269,10 @@ namespace WinVClip
                 : Visibility.Collapsed;
     }
 
-    public class IsEditableTypeConverter : BaseConverter
-    {
-        public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-            => value is ClipboardItem item && (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText)
-                ? Visibility.Visible
-                : Visibility.Collapsed;
-    }
-
     public class TypeToVisibilityConverter : BaseConverter
     {
         public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
             => value is ClipboardType.Image ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    public class ByteArrayToImageConverter : BaseConverter
-    {
-        public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            try
-            {
-                if (value is not byte[] imageData || imageData.Length == 0)
-                    return null;
-
-                using var stream = new MemoryStream(imageData);
-                var image = new BitmapImage();
-                image.BeginInit();
-                image.StreamSource = stream;
-                image.CacheOption = BitmapCacheOption.OnLoad;
-                image.EndInit();
-                return image;
-            }
-            catch
-            {
-                return null;
-            }
-        }
     }
 
     public class StringToVisibilityConverter : BaseConverter
@@ -376,26 +344,6 @@ namespace WinVClip
             if (char.IsLetter(firstChar) && name.Length >= 2 && char.IsLetter(name[1]))
                 return name.Substring(0, 2).ToUpper();
             return firstChar.ToString();
-        }
-    }
-
-    public class GroupFilterToBackgroundConverter : BaseConverter
-    {
-        public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (int.TryParse(parameter?.ToString(), out int targetValue))
-            {
-                long? currentFilter = value as long?;
-                bool isActive = targetValue switch
-                {
-                    0 => !currentFilter.HasValue, // 全部
-                    1 => currentFilter.HasValue,  // 当前分组
-                    _ => false
-                };
-                
-                return isActive ? "#007ACC" : "{DynamicResource IconButtonBackground}";
-            }
-            return "{DynamicResource IconButtonBackground}";
         }
     }
 
@@ -672,7 +620,6 @@ namespace WinVClip
             {
                 _typeFilter = value;
                 OnPropertyChanged();
-                OnPropertyChanged(nameof(IsFormatFilterActive));
                 LoadItems();
             }
         }
@@ -685,15 +632,10 @@ namespace WinVClip
             {
                 _groupFilter = value;
                 OnPropertyChanged();
-                OnPropertyChanged(nameof(IsGroupFilterActive));
                 OnPropertyChanged(nameof(GroupFilterName));
                 LoadItems();
             }
         }
-
-        public bool IsFormatFilterActive => TypeFilter.HasValue;
-
-        public bool IsGroupFilterActive => GroupFilter.HasValue;
 
         public bool IsAnyFilterActive => TypeFilter.HasValue || GroupFilter.HasValue;
 
@@ -741,8 +683,6 @@ namespace WinVClip
                 }
             }
         }
-
-        public string CurrentGroupName => GetGroupName(GroupFilter, Loc.Get("Common.All", "全部"));
 
         public void LoadGroups()
         {
@@ -854,36 +794,11 @@ namespace WinVClip
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    if (ClipboardItems.Count == 0)
+                    ClipboardItems.Clear();
+                    foreach (var item in newItems)
                     {
-                        foreach (var item in newItems)
-                        {
-                            item.IsSelected = SelectedItemIds.Contains(item.Id);
-                            ClipboardItems.Add(item);
-                        }
-                    }
-                    else if (newItems.Count == 0)
-                    {
-                        ClipboardItems.Clear();
-                    }
-                    else
-                    {
-                        for (int i = 0; i < Math.Max(ClipboardItems.Count, newItems.Count); i++)
-                        {
-                            if (i < newItems.Count)
-                            {
-                                newItems[i].IsSelected = SelectedItemIds.Contains(newItems[i].Id);
-                                if (i < ClipboardItems.Count)
-                                    ClipboardItems[i] = newItems[i];
-                                else
-                                    ClipboardItems.Add(newItems[i]);
-                            }
-                            else
-                            {
-                                ClipboardItems.RemoveAt(ClipboardItems.Count - 1);
-                                i--;
-                            }
-                        }
+                        item.IsSelected = SelectedItemIds.Contains(item.Id);
+                        ClipboardItems.Add(item);
                     }
                     OnPropertyChanged(nameof(HasItems));
                     OnPropertyChanged(nameof(IsEmpty));
@@ -1114,9 +1029,19 @@ namespace WinVClip
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
             const int WM_HOTKEY = 0x0312;
+            const int WM_SHOWMAINWINDOW = 0x0401;
             if (msg == WM_HOTKEY)
             {
                 App.ToggleMainWindow();
+                handled = true;
+                return (IntPtr)1;
+            }
+            if (msg == WM_SHOWMAINWINDOW)
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    ShowAtCursor();
+                }));
                 handled = true;
                 return (IntPtr)1;
             }
@@ -1304,9 +1229,6 @@ namespace WinVClip
 
         // 焦点管理相关的系统API
         [DllImport("user32.dll")]
-        private static extern IntPtr GetForegroundWindow();
-
-        [DllImport("user32.dll")]
         private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
 
         [DllImport("user32.dll")]
@@ -1326,12 +1248,6 @@ namespace WinVClip
 
         [DllImport("user32.dll")]
         private static extern bool GetWindowRect(IntPtr hWnd, ref RECT lpRect);
-
-        [DllImport("user32.dll")]
-        private static extern bool ScreenToClient(IntPtr hWnd, ref System.Drawing.Point lpPoint);
-
-        [DllImport("user32.dll")]
-        private static extern bool PtInRect(ref RECT lprc, System.Drawing.Point pt);
 
         [DllImport("user32.dll")]
         private static extern bool SetForegroundWindow(IntPtr hWnd);
@@ -1400,12 +1316,6 @@ namespace WinVClip
         {
             _savedLeft = Left;
             _savedTop = Top;
-        }
-
-        private void RestorePosition()
-        {
-            Left = _savedLeft;
-            Top = _savedTop;
         }
 
         private void HideAndSave()
@@ -1606,15 +1516,6 @@ namespace WinVClip
             public uint flags;
             public uint time;
             public IntPtr dwExtraInfo;
-        }
-
-        private void ShowAndRestore()
-        {
-            RestorePosition();
-            Show();
-            Activate();
-            Focus();
-            _isVisible = true;
         }
 
         public void HideWindow()
@@ -2287,18 +2188,13 @@ namespace WinVClip
                 if (hwndSource != null)
                 {
                     var hwnd = hwndSource.Handle;
-                    SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                    SetWindowPos(hwnd, (IntPtr)(-1), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
                 }
             }
             catch
             {
             }
         }
-
-        private const int HWND_TOPMOST = -1;
-
-        [DllImport("user32.dll")]
-        private static extern bool SetWindowPos(IntPtr hWnd, int hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
         private void DeleteMenuItem_Click(object sender, RoutedEventArgs e)
         {
@@ -2564,13 +2460,6 @@ namespace WinVClip
             }
             return hwnd;
         }
-
-        [DllImport("user32.dll")]
-        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, uint dwExtraInfo);
-
-        private const byte VK_CONTROL = 0x11;
-        private const byte VK_V = 0x56;
-        private const uint KEYEVENTF_KP = 0x0002;
 
         private void CopyToClipboard(ClipboardItem item)
         {

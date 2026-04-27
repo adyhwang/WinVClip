@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using WinVClip.Models;
@@ -46,12 +47,31 @@ namespace WinVClip
             return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "clipboard_history.db");
         }
 
+        private const int WM_SHOWMAINWINDOW = 0x0400 + 0x0001;
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
         protected override void OnStartup(StartupEventArgs e)
         {
             _mutex = new Mutex(true, "WinVClip_Mutex", out var createdNew);
             if (!createdNew)
             {
                 _mutex.Dispose();
+
+                var existingHwnd = FindWindow(null, "WinVClip");
+                if (existingHwnd != IntPtr.Zero)
+                {
+                    PostMessage(existingHwnd, WM_SHOWMAINWINDOW, IntPtr.Zero, IntPtr.Zero);
+                    SetForegroundWindow(existingHwnd);
+                }
+
                 Current.Shutdown();
                 return;
             }

@@ -9,18 +9,4 @@ namespace WinVClip.Models
         public string Url { get; set; } = "";
         public bool IsCustom { get; set; } = false;
     }
-
-    public static class SearchEngineDefaults
-    {
-        public static readonly List<SearchEngine> Defaults = new List<SearchEngine>
-        {
-            new SearchEngine { Id = "bingCN", Name = "BingCN", Url = "https://cn.bing.com/search?q=%s", IsCustom = false },
-            new SearchEngine { Id = "bing", Name = "Bing", Url = "https://www.bing.com/search?q=%s", IsCustom = false },
-            new SearchEngine { Id = "baidu", Name = "baidu", Url = "https://www.baidu.com/s?wd=%s&ie=UTF-8", IsCustom = false },
-            new SearchEngine { Id = "duckduckgo", Name = "DuckDuckGo", Url = "https://duckduckgo.com/?q=%s", IsCustom = false },
-            new SearchEngine { Id = "google", Name = "Google", Url = "https://www.google.com/search?q=%s", IsCustom = false },
-            new SearchEngine { Id = "so", Name = "so", Url = "https://www.so.com/s?q=%s", IsCustom = false },
-            new SearchEngine { Id = "custom", Name = "custom", Url = "https://www.bing.com/search?q=%s", IsCustom = true }
-        };
-    }
 }

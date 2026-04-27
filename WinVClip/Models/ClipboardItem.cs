@@ -57,8 +57,6 @@ namespace WinVClip.Models
                 }
             }
         }
-        public string FormattedDate => CreatedAt.ToString("MM-dd");
-
         public bool HasImage => !string.IsNullOrEmpty(ImagePath);
         public bool ShowImageBadge => HasImage && Type != ClipboardType.Image;
 

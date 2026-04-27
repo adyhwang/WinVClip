@@ -21,7 +21,6 @@
                 <local:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
                 <local:ClipboardTypeToBackgroundConverter x:Key="ClipboardTypeToBackgroundConverter"/>
                 <local:TypeFilterToBackgroundConverter x:Key="TypeFilterToBackgroundConverter"/>
-                <local:GroupFilterToBackgroundConverter x:Key="GroupFilterToBackgroundConverter"/>
             <local:TextPreviewConverter x:Key="TextPreviewConverter"/>
             <local:FileListPreviewConverter x:Key="FileListPreviewConverter"/>
             <local:ImagePathToImageConverter x:Key="ImagePathToImageConverter"/>

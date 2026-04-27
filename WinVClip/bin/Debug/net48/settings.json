@@ -1,0 +1,19 @@
+{
+  "Hotkey": "Ctrl+Shift+V",
+  "MonitorEnabled": true,
+  "CaptureImages": true,
+  "CaptureFiles": true,
+  "RemoveDuplicates": true,
+  "DatabasePath": "D:\\AdyHwang\\project\\WinVClip\\WinVClip\\bin\\Debug\\net48\\clipboard_history.db",
+  "EnableAutoCleanup": false,
+  "RetentionDays": 30,
+  "MaxHistoryItems": 200,
+  "Theme": "Auto",
+  "SelectedSearchEngineId": "bing",
+  "CustomSearchEngineUrl": "https://www.bing.com/search?q=%s",
+  "MoveToTopAfterPaste": false,
+  "PasteShortcutMode": "Auto",
+  "IsAdministratorRun": false,
+  "Language": "zh-CN",
+  "LastVacuumDate": "2026-04-26T00:00:00+08:00"
+}

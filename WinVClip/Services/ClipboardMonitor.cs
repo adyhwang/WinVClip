@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 using WinVClip.Models;
 using WinVClip.Services;
@@ -21,8 +23,17 @@ namespace WinVClip.Services
         private bool _isMonitoring = true;
         private readonly Dictionary<ClipboardType, string> _lastContentSignatures = new Dictionary<ClipboardType, string>();
         private readonly System.Windows.Threading.Dispatcher _dispatcher;
-        private Timer? _timer;
-        private readonly object _syncLock = new object();
+
+        private HwndSource? _hwndSource;
+        private IntPtr _hwnd;
+        private bool _isListenerRegistered;
+
+        private int _debounceTimerId;
+        private readonly object _debounceLock = new object();
+        private bool _debouncePending;
+        private const int DebounceIntervalMs = 80;
+
+        private const int WM_CLIPBOARDUPDATE = 0x031D;
 
         public event Action<ClipboardItem>? OnClipboardChanged;
         public event Action? OnDuplicateUpdated;
@@ -37,51 +48,176 @@ namespace WinVClip.Services
         public void Start()
         {
             _isMonitoring = _settingsService.Settings.MonitorEnabled;
-            _timer?.Dispose();
-            
-            // 初始化重复检测变量，避免程序重启后重复添加剪贴板内容
+
+            EnsureMessageWindow();
+
             if (_isMonitoring && _settingsService.Settings.MonitorEnabled)
             {
                 _dispatcher.Invoke(UpdateLastClipboardState);
             }
-            
-            _timer = new Timer(CheckClipboard, null, 500, 500);
+
+            RegisterListener();
+        }
+
+        private void EnsureMessageWindow()
+        {
+            if (_hwndSource != null)
+                return;
+
+            var parameters = new HwndSourceParameters("WinVClipClipboardMonitor")
+            {
+                WindowStyle = 0,
+                PositionX = 0,
+                PositionY = 0,
+                Width = 0,
+                Height = 0,
+            };
+
+            _hwndSource = new HwndSource(parameters);
+            _hwnd = _hwndSource.Handle;
+            _hwndSource.AddHook(WndProc);
+        }
+
+        private void RegisterListener()
+        {
+            if (_isListenerRegistered || _hwnd == IntPtr.Zero)
+                return;
+
+            _isListenerRegistered = AddClipboardFormatListener(_hwnd);
+        }
+
+        private void UnregisterListener()
+        {
+            if (!_isListenerRegistered || _hwnd == IntPtr.Zero)
+                return;
+
+            RemoveClipboardFormatListener(_hwnd);
+            _isListenerRegistered = false;
+        }
+
+        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg == WM_CLIPBOARDUPDATE)
+            {
+                OnClipboardUpdateMessage();
+                handled = true;
+            }
+            return IntPtr.Zero;
+        }
+
+        private void OnClipboardUpdateMessage()
+        {
+            if (!_isMonitoring || !_settingsService.Settings.MonitorEnabled)
+                return;
+
+            if (CheckAndClearPasteOperation())
+                return;
+
+            if (_isIgnoringChange)
+                return;
+
+            ScheduleDebouncedProcess();
+        }
+
+        private void ScheduleDebouncedProcess()
+        {
+            lock (_debounceLock)
+            {
+                if (_debouncePending)
+                    return;
+
+                _debouncePending = true;
+            }
+
+            _debounceTimerId++;
+            var currentId = _debounceTimerId;
+
+            Task.Delay(DebounceIntervalMs).ContinueWith(_ =>
+            {
+                lock (_debounceLock)
+                {
+                    if (currentId != _debounceTimerId)
+                        return;
+
+                    _debouncePending = false;
+                }
+
+                _dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (!_isMonitoring || !_settingsService.Settings.MonitorEnabled)
+                        return;
+
+                    try
+                    {
+                        ProcessClipboard();
+                    }
+                    catch
+                    {
+                    }
+                }));
+            });
         }
 
         private void UpdateLastClipboardState()
         {
             _lastContentSignatures.Clear();
 
-            if (System.Windows.Clipboard.ContainsText())
-            {
-                var text = System.Windows.Clipboard.GetText();
-                _lastContentSignatures[ClipboardType.Text] = ComputeSignature(ClipboardType.Text, text);
-            }
-
-            if (System.Windows.Clipboard.ContainsImage())
-            {
-                var image = System.Windows.Clipboard.GetImage();
-                if (image != null)
-                {
-                    var imageData = ImageToBytes(image);
-                    var hash = ComputeHash(imageData);
-                    _lastContentSignatures[ClipboardType.Image] = ComputeSignature(ClipboardType.Image, hash);
-                }
-            }
-
-            if (System.Windows.Clipboard.ContainsFileDropList())
+            try
             {
                 var dataObject = System.Windows.Clipboard.GetDataObject();
-                if (dataObject.GetDataPresent(System.Windows.DataFormats.FileDrop))
+                bool hasText = System.Windows.Clipboard.ContainsText();
+                bool hasImage = System.Windows.Clipboard.ContainsImage();
+                bool hasFileDrop = System.Windows.Clipboard.ContainsFileDropList();
+                bool hasRichText = dataObject?.GetDataPresent(System.Windows.DataFormats.Html) == true ||
+                                   dataObject?.GetDataPresent(System.Windows.DataFormats.Rtf) == true;
+
+                if (hasRichText && hasText)
                 {
-                    var fileList = dataObject.GetData(System.Windows.DataFormats.FileDrop) as string[];
-                    if (fileList != null && fileList.Length > 0)
+                    string richContent = null;
+                    if (dataObject.GetDataPresent(System.Windows.DataFormats.Html))
+                        richContent = dataObject.GetData(System.Windows.DataFormats.Html) as string;
+                    else if (dataObject.GetDataPresent(System.Windows.DataFormats.Rtf))
+                        richContent = dataObject.GetData(System.Windows.DataFormats.Rtf) as string;
+
+                    var text = System.Windows.Clipboard.GetText();
+                    if (!string.IsNullOrWhiteSpace(text) && !string.IsNullOrWhiteSpace(richContent))
                     {
-                        var sortedPaths = fileList.OrderBy(p => p.ToLowerInvariant()).ToList();
-                        var hash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", sortedPaths)));
-                        _lastContentSignatures[ClipboardType.FileList] = ComputeSignature(ClipboardType.FileList, hash);
+                        _lastContentSignatures[ClipboardType.RichText] = ComputeSignature(ClipboardType.RichText, text + richContent);
                     }
                 }
+                else if (hasText)
+                {
+                    var text = System.Windows.Clipboard.GetText();
+                    _lastContentSignatures[ClipboardType.Text] = ComputeSignature(ClipboardType.Text, text);
+                }
+
+                if (hasImage)
+                {
+                    var image = System.Windows.Clipboard.GetImage();
+                    if (image != null)
+                    {
+                        var imageData = ImageToBytes(image);
+                        var hash = ComputeHash(imageData);
+                        _lastContentSignatures[ClipboardType.Image] = ComputeSignature(ClipboardType.Image, hash);
+                    }
+                }
+
+                if (hasFileDrop)
+                {
+                    if (dataObject.GetDataPresent(System.Windows.DataFormats.FileDrop))
+                    {
+                        var fileList = dataObject.GetData(System.Windows.DataFormats.FileDrop) as string[];
+                        if (fileList != null && fileList.Length > 0)
+                        {
+                            var sortedPaths = fileList.OrderBy(p => p.ToLowerInvariant()).ToList();
+                            var hash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", sortedPaths)));
+                            _lastContentSignatures[ClipboardType.FileList] = ComputeSignature(ClipboardType.FileList, hash);
+                        }
+                    }
+                }
+            }
+            catch
+            {
             }
         }
 
@@ -93,8 +229,7 @@ namespace WinVClip.Services
         public void Stop()
         {
             _isMonitoring = false;
-            _timer?.Dispose();
-            _timer = null;
+            UnregisterListener();
         }
 
         private bool _isIgnoringChange = false;
@@ -151,11 +286,6 @@ namespace WinVClip.Services
             return contentHash == _lastPasteHash;
         }
 
-        public bool IsPasteOperation()
-        {
-            return _isPasteOperation;
-        }
-
         public bool CheckAndClearPasteOperation()
         {
             if (_isPasteOperation)
@@ -164,29 +294,6 @@ namespace WinVClip.Services
                 return true;
             }
             return false;
-        }
-
-        private void CheckClipboard(object? state)
-        {
-            if (!_isMonitoring || !_settingsService.Settings.MonitorEnabled)
-                return;
-
-            if (CheckAndClearPasteOperation())
-                return;
-
-            _dispatcher.BeginInvoke(new Action(() =>
-            {
-                if (!_isMonitoring || !_settingsService.Settings.MonitorEnabled)
-                    return;
-
-                try
-                {
-                    ProcessClipboard();
-                }
-                catch
-                {
-                }
-            }));
         }
 
         private void ProcessClipboard()
@@ -734,8 +841,24 @@ namespace WinVClip.Services
             if (!_disposed)
             {
                 Stop();
+
+                if (_hwndSource != null)
+                {
+                    _hwndSource.RemoveHook(WndProc);
+                    _hwndSource.Dispose();
+                    _hwndSource = null;
+                }
+
                 _disposed = true;
             }
         }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool AddClipboardFormatListener(IntPtr hwnd);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool RemoveClipboardFormatListener(IntPtr hwnd);
     }
 }

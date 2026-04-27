@@ -51,17 +51,6 @@ namespace WinVClip.Services
             keybd_event((byte)vk, 0, up ? KEYEVENTF_KEYUP : 0, 0);
         }
 
-        public static void ReleaseModifierKeys()
-        {
-            bool ctrl = IsKeyPressed(VK_CONTROL);
-            bool alt = IsKeyPressed(VK_MENU);
-            bool shift = IsKeyPressed(VK_SHIFT);
-
-            if (alt) SendKey(VK_MENU, true);
-            if (ctrl) SendKey(VK_CONTROL, true);
-            if (shift) SendKey(VK_SHIFT, true);
-        }
-
         public static (bool Ctrl, bool Alt, bool Shift, bool Win) GetModifierKeysState()
         {
             bool ctrl = IsKeyPressed(VK_CONTROL);
@@ -216,80 +205,10 @@ namespace WinVClip.Services
             }
         }
 
-        public static void SimulateCopy()
-        {
-            SimulateKeyCombination(VK_CONTROL, 0x43);
-        }
-
-        public static void SimulateCut()
-        {
-            SimulateKeyCombination(VK_CONTROL, 0x58);
-        }
-
-        public static void SimulateSelectAll()
-        {
-            SimulateKeyCombination(VK_CONTROL, 0x41);
-        }
-
-        public static void SimulateEnter()
-        {
-            SimulateKeyPress(0x0D);
-        }
-
-        public static void SimulateEscape()
-        {
-            SimulateKeyPress(0x1B);
-        }
-
-        public static void SimulateTab()
-        {
-            SimulateKeyPress(0x09);
-        }
-
-        public static void SimulateBackspace()
-        {
-            SimulateKeyPress(0x08);
-        }
-
-        public static void SimulateDelete()
-        {
-            SimulateKeyPress(0x2E);
-        }
-
         [DllImport("user32.dll")]
         private static extern short GetAsyncKeyState(int vKey);
 
         [DllImport("user32.dll")]
         private static extern void keybd_event(byte bVk, byte bScan, int dwFlags, int dwExtraInfo);
-    }
-
-    public class KeyGuard : IDisposable
-    {
-        private readonly int _vk;
-        private readonly bool _shouldRelease;
-        private bool _disposed;
-
-        public KeyGuard(int vk, bool press)
-        {
-            _vk = vk;
-            _shouldRelease = press;
-
-            if (press)
-            {
-                KeyboardService.SendKey(vk, false);
-            }
-        }
-
-        public void Dispose()
-        {
-            if (!_disposed)
-            {
-                if (_shouldRelease)
-                {
-                    KeyboardService.SendKey(_vk, true);
-                }
-                _disposed = true;
-            }
-        }
     }
 }
