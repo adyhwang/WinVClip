@@ -133,15 +133,22 @@
                                 ToolTip="搜索"
                                 Click="SearchButton_Click"/>
                     </StackPanel>
-                    <Button x:Name="CloseButton"
-                            Content="✕"
-                            Width="30"
-                            Height="30"
-                            HorizontalAlignment="Right"
-                            VerticalAlignment="Center"
-                            Margin="0,0,5,0"
-                            Style="{StaticResource TitleBarButtonStyle}"
-                            Click="CloseButton_Click"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,5,0">
+                        <Button x:Name="PinButton"
+                                Content="📌"
+                                Width="30"
+                                Height="30"
+                                Margin="0,0,4,0"
+                                Style="{StaticResource TitleBarButtonStyle}"
+                                ToolTip="置顶"
+                                Click="PinButton_Click"/>
+                        <Button x:Name="CloseButton"
+                                Content="✕"
+                                Width="30"
+                                Height="30"
+                                Style="{StaticResource TitleBarButtonStyle}"
+                                Click="CloseButton_Click"/>
+                    </StackPanel>
                 </Grid>
             </Border>
 

@@ -347,28 +347,6 @@ namespace WinVClip
         }
     }
 
-    public class IsSelectedConverter : MarkupExtension, IMultiValueConverter
-    {
-        public override object ProvideValue(IServiceProvider serviceProvider)
-        {
-            return this;
-        }
-
-        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (values.Length >= 2 && values[0] is ClipboardItem item && values[1] is MainViewModel viewModel)
-            {
-                return viewModel.IsMultiSelectMode && viewModel.SelectedItemIds.Contains(item.Id);
-            }
-            return false;
-        }
-
-        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
-        {
-            return null;
-        }
-    }
-
     public class EditMenuVisibilityConverter : MarkupExtension, IMultiValueConverter
     {
         public override object ProvideValue(IServiceProvider serviceProvider)
@@ -632,7 +610,6 @@ namespace WinVClip
             {
                 _groupFilter = value;
                 OnPropertyChanged();
-                OnPropertyChanged(nameof(GroupFilterName));
                 LoadItems();
             }
         }
@@ -662,25 +639,6 @@ namespace WinVClip
             {
                 _selectedGroupTabIndex = value;
                 OnPropertyChanged();
-            }
-        }
-
-        private Group _selectedGroup;
-        public Group SelectedGroup
-        {
-            get => _selectedGroup;
-            set
-            {
-                _selectedGroup = value;
-                OnPropertyChanged();
-                if (value != null && value.Id > 0)
-                {
-                    GroupFilter = value.Id;
-                }
-                else
-                {
-                    GroupFilter = null;
-                }
             }
         }
 
@@ -742,17 +700,6 @@ namespace WinVClip
         private int _currentOffset = 0;
         private const int PageSize = 20;
         private const int CacheSize = 20;
-
-        public string GroupFilterName => GetGroupName(GroupFilter, string.Empty);
-
-        private string GetGroupName(long? groupId, string defaultValue)
-        {
-            if (!groupId.HasValue)
-                return defaultValue;
-            
-            var group = _databaseService.GetAllGroups().FirstOrDefault(g => g.Id == groupId.Value);
-            return group?.Name ?? defaultValue;
-        }
 
         public event PropertyChangedEventHandler PropertyChanged;
         public event EventHandler ItemAdded;
@@ -922,7 +869,7 @@ namespace WinVClip
         }
     }
 
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, INotifyPropertyChanged
     {
         private readonly MainViewModel _viewModel;
         private readonly DatabaseService _databaseService;
@@ -938,10 +885,27 @@ namespace WinVClip
         private Border _currentTooltipBorder;
         private bool _isPasting = false; // 防止快速点击时的并发执行
 
-        private DoubleAnimation _currentScrollAnimation; // 当前滚动动画
-        private bool _isAnimatingScroll = false; // 是否正在动画滚动
+        private DoubleAnimation _currentScrollAnimation;
+        private bool _isAnimatingScroll = false;
+
+        private int _panelState = 0;
+        private List<CharGroupData> _charGroups = new List<CharGroupData>();
+        private Dictionary<string, FrameworkElement> _charGroupAnchors = new Dictionary<string, FrameworkElement>();
+        private List<CharGroupData> _emojiGroups = new List<CharGroupData>();
+        private Dictionary<string, FrameworkElement> _emojiGroupAnchors = new Dictionary<string, FrameworkElement>();
+
+        public bool IsPanelActive
+        {
+            get => _panelState != 0;
+        }
 
         public MainViewModel ViewModel => _viewModel;
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
 
         public MainWindow(DatabaseService databaseService, SettingsService settingsService)
         {
@@ -953,6 +917,8 @@ namespace WinVClip
             InitializeComponent();
             
             ApplyLocalization();
+            LoadCharacterData();
+            LoadEmojiData();
             _viewModel.LoadGroups();
 
             _savedLeft = Left;
@@ -996,10 +962,14 @@ namespace WinVClip
             EmptyStateText.Text = Loc.Get("MainWindow.Status.Empty", "暂无剪贴板记录");
             LoadingText.Text = Loc.Get("MainWindow.Status.Loading", "加载中...");
             
-            ClearHistoryButton.Content = Loc.Get("MainWindow.Button.ClearHistory", "清空历史");
+            // ClearHistoryButton.Content = Loc.Get("MainWindow.Button.ClearHistory", "清空历史");
             ClearHistoryButton.ToolTip = Loc.Get("MainWindow.ToolTip.ClearHistory", "清除记录");
             MenuClearAllHistory.Header = Loc.Get("MainWindow.ContextMenu.ClearAllHistory", "清空所有历史记录");
             MenuClearUngroupedHistory.Header = Loc.Get("MainWindow.ContextMenu.ClearUngroupedHistory", "清空所有未分组记录");
+
+            PanelToggleButton.ToolTip = Loc.Get("Panel.ToolTip.Toggle", "字符/表情面板");
+            RefreshPanelLocalization(_charGroups, CharTabControl, _charGroupAnchors, "CharPanel");
+            RefreshPanelLocalization(_emojiGroups, EmojiTabControl, _emojiGroupAnchors, "EmojiPanel");
         }
 
         private void OnItemAdded(object sender, EventArgs e)
@@ -1552,6 +1522,11 @@ namespace WinVClip
 
         private void FilterToggleButton_Click(object sender, RoutedEventArgs e)
         {
+            if (IsPanelActive)
+            {
+                _panelState = 0;
+                UpdatePanelState();
+            }
             _viewModel.IsFilterPanelVisible = !_viewModel.IsFilterPanelVisible;
             if (_viewModel.IsFilterPanelVisible)
             {
@@ -1836,19 +1811,11 @@ namespace WinVClip
         {
             if (string.IsNullOrWhiteSpace(text))
                 return text;
-
             text = text.Trim();
-            
             if (text.StartsWith("\"") && text.EndsWith("\""))
-            {
                 return text.Substring(1, text.Length - 2);
-            }
-            
             if (text.StartsWith("'") && text.EndsWith("'"))
-            {
                 return text.Substring(1, text.Length - 2);
-            }
-            
             return text;
         }
 
@@ -1949,43 +1916,14 @@ namespace WinVClip
 
         private void PasteAsText_Click(object sender, RoutedEventArgs e)
         {
-            if (ClipboardListBox.SelectedItem is not ClipboardItem item)
-                return;
-
-            if (_isPasting)
-                return;
+            if (ClipboardListBox.SelectedItem is not ClipboardItem item) return;
+            if (_isPasting) return;
 
             try
             {
                 _isPasting = true;
                 Clipboard.SetText(item.Content);
-
-                var clipboardMonitor = App.GetClipboardMonitor();
-                clipboardMonitor?.MarkPasteOperation();
-                clipboardMonitor?.IgnoreNextChange(1000);
-                clipboardMonitor?.SetLastPasteHashText(item.Content ?? "");
-
-                if (App.SettingsService.Settings.MoveToTopAfterPaste && !item.GroupId.HasValue)
-                {
-                    _databaseService.UpdateItemTimestampById(item.Id);
-                    _viewModel.LoadItems();
-                }
-
-                var focusService = App.GetFocusService();
-                var targetHwnd = focusService?.LastFocusHwnd ?? IntPtr.Zero;
-
-                var windowStateService = App.GetWindowStateService();
-                if (windowStateService != null && !windowStateService.IsPinned)
-                {
-                    HideWindow();
-                    Thread.Sleep(50);
-                }
-                else
-                {
-                    Thread.Sleep(30);
-                }
-
-                ActivateAndPaste(targetHwnd);
+                PostPasteFlow(pasteHashText: item.Content ?? "", moveTopItem: item);
             }
             finally
             {
@@ -1995,22 +1933,17 @@ namespace WinVClip
 
         private void PasteAsImage_Click(object sender, RoutedEventArgs e)
         {
-            if (ClipboardListBox.SelectedItem is not ClipboardItem item)
-                return;
-
-            if (_isPasting)
-                return;
+            if (ClipboardListBox.SelectedItem is not ClipboardItem item) return;
+            if (_isPasting) return;
 
             try
             {
                 _isPasting = true;
 
-                if (string.IsNullOrEmpty(item.ImagePath))
-                    return;
+                if (string.IsNullOrEmpty(item.ImagePath)) return;
 
                 string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, item.ImagePath);
-                if (!System.IO.File.Exists(fullPath))
-                    return;
+                if (!System.IO.File.Exists(fullPath)) return;
 
                 var image = new BitmapImage();
                 image.BeginInit();
@@ -2019,32 +1952,7 @@ namespace WinVClip
                 image.EndInit();
 
                 Clipboard.SetImage(image);
-
-                var clipboardMonitor = App.GetClipboardMonitor();
-                clipboardMonitor?.MarkPasteOperation();
-                clipboardMonitor?.IgnoreNextChange(1000);
-
-                if (App.SettingsService.Settings.MoveToTopAfterPaste && !item.GroupId.HasValue)
-                {
-                    _databaseService.UpdateItemTimestampById(item.Id);
-                    _viewModel.LoadItems();
-                }
-
-                var focusService = App.GetFocusService();
-                var targetHwnd = focusService?.LastFocusHwnd ?? IntPtr.Zero;
-
-                var windowStateService = App.GetWindowStateService();
-                if (windowStateService != null && !windowStateService.IsPinned)
-                {
-                    HideWindow();
-                    Thread.Sleep(50);
-                }
-                else
-                {
-                    Thread.Sleep(30);
-                }
-
-                ActivateAndPaste(targetHwnd);
+                PostPasteFlow(moveTopItem: item);
             }
             finally
             {
@@ -2065,55 +1973,23 @@ namespace WinVClip
 
         private void ImageFilePaste_Click(object sender, RoutedEventArgs e)
         {
-            if (ClipboardListBox.SelectedItem is not ClipboardItem item)
-                return;
-
-            if (item.Type != ClipboardType.Image)
-                return;
-
-            if (_isPasting)
-                return;
+            if (ClipboardListBox.SelectedItem is not ClipboardItem item) return;
+            if (item.Type != ClipboardType.Image) return;
+            if (_isPasting) return;
 
             try
             {
                 _isPasting = true;
 
-                if (string.IsNullOrEmpty(item.ImagePath))
-                    return;
+                if (string.IsNullOrEmpty(item.ImagePath)) return;
 
                 string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, item.ImagePath);
-                if (!System.IO.File.Exists(fullPath))
-                    return;
+                if (!System.IO.File.Exists(fullPath)) return;
 
                 var fileList = new System.Collections.Specialized.StringCollection();
                 fileList.Add(fullPath);
                 Clipboard.SetFileDropList(fileList);
-
-                var clipboardMonitor = App.GetClipboardMonitor();
-                clipboardMonitor?.MarkPasteOperation();
-                clipboardMonitor?.IgnoreNextChange(1000);
-
-                if (App.SettingsService.Settings.MoveToTopAfterPaste && !item.GroupId.HasValue)
-                {
-                    _databaseService.UpdateItemTimestampById(item.Id);
-                    _viewModel.LoadItems();
-                }
-
-                var focusService = App.GetFocusService();
-                var targetHwnd = focusService?.LastFocusHwnd ?? IntPtr.Zero;
-
-                var windowStateService = App.GetWindowStateService();
-                if (windowStateService != null && !windowStateService.IsPinned)
-                {
-                    HideWindow();
-                    Thread.Sleep(50);
-                }
-                else
-                {
-                    Thread.Sleep(30);
-                }
-
-                ActivateAndPaste(targetHwnd);
+                PostPasteFlow(moveTopItem: item);
             }
             finally
             {
@@ -2294,81 +2170,40 @@ namespace WinVClip
 
         private static void SetRichTextToClipboard(ClipboardItem item, DataObject dataObject)
         {
-            if (dataObject != null)
+            var target = dataObject ?? new DataObject();
+
+            target.SetText(item.Content, TextDataFormat.Text);
+            target.SetText(item.Content, TextDataFormat.UnicodeText);
+
+            if (item.RichFormat == "HTML" && !string.IsNullOrEmpty(item.RichContent))
+                target.SetText(item.RichContent, TextDataFormat.Html);
+            else if (item.RichFormat == "RTF" && !string.IsNullOrEmpty(item.RichContent))
+                target.SetText(item.RichContent, TextDataFormat.Rtf);
+
+            if (!string.IsNullOrEmpty(item.CsvContent))
+                target.SetText(item.CsvContent, TextDataFormat.CommaSeparatedValue);
+
+            if (!string.IsNullOrEmpty(item.ImagePath))
             {
-                dataObject.SetText(item.Content, TextDataFormat.Text);
-                dataObject.SetText(item.Content, TextDataFormat.UnicodeText);
-                
-                if (item.RichFormat == "HTML" && !string.IsNullOrEmpty(item.RichContent))
+                string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, item.ImagePath);
+                if (System.IO.File.Exists(fullPath))
                 {
-                    dataObject.SetText(item.RichContent, TextDataFormat.Html);
-                }
-                else if (item.RichFormat == "RTF" && !string.IsNullOrEmpty(item.RichContent))
-                {
-                    dataObject.SetText(item.RichContent, TextDataFormat.Rtf);
-                }
-
-                if (!string.IsNullOrEmpty(item.CsvContent))
-                {
-                    dataObject.SetText(item.CsvContent, TextDataFormat.CommaSeparatedValue);
-                }
-
-                if (!string.IsNullOrEmpty(item.ImagePath))
-                {
-                    string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, item.ImagePath);
-                    if (System.IO.File.Exists(fullPath))
-                    {
-                        var image = new BitmapImage();
-                        image.BeginInit();
-                        image.UriSource = new Uri(fullPath);
-                        image.CacheOption = BitmapCacheOption.OnLoad;
-                        image.EndInit();
-                        dataObject.SetImage(image);
-                    }
+                    var image = new BitmapImage();
+                    image.BeginInit();
+                    image.UriSource = new Uri(fullPath);
+                    image.CacheOption = BitmapCacheOption.OnLoad;
+                    image.EndInit();
+                    target.SetImage(image);
                 }
             }
-            else
-            {
-                var richDataObject = new DataObject();
-                richDataObject.SetText(item.Content, TextDataFormat.Text);
-                richDataObject.SetText(item.Content, TextDataFormat.UnicodeText);
-                
-                if (item.RichFormat == "HTML" && !string.IsNullOrEmpty(item.RichContent))
-                {
-                    richDataObject.SetText(item.RichContent, TextDataFormat.Html);
-                }
-                else if (item.RichFormat == "RTF" && !string.IsNullOrEmpty(item.RichContent))
-                {
-                    richDataObject.SetText(item.RichContent, TextDataFormat.Rtf);
-                }
 
-                if (!string.IsNullOrEmpty(item.CsvContent))
-                {
-                    richDataObject.SetText(item.CsvContent, TextDataFormat.CommaSeparatedValue);
-                }
-
-                if (!string.IsNullOrEmpty(item.ImagePath))
-                {
-                    string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, item.ImagePath);
-                    if (System.IO.File.Exists(fullPath))
-                    {
-                        var image = new BitmapImage();
-                        image.BeginInit();
-                        image.UriSource = new Uri(fullPath);
-                        image.CacheOption = BitmapCacheOption.OnLoad;
-                        image.EndInit();
-                        richDataObject.SetImage(image);
-                    }
-                }
-                
-                Clipboard.SetDataObject(richDataObject);
-            }
+            if (dataObject == null)
+                Clipboard.SetDataObject(target);
         }
 
         private void PasteItem(ClipboardItem item)
         {
-            if (_isPasting)
-                return;
+            if (_isPasting) return;
 
             try
             {
@@ -2376,44 +2211,12 @@ namespace WinVClip
 
                 SetClipboardContent(item);
 
-                var clipboardMonitor = App.GetClipboardMonitor();
-                clipboardMonitor?.MarkPasteOperation();
-                clipboardMonitor?.IgnoreNextChange(1000);
+                var hashText = (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText)
+                    ? item.Content ?? "" : null;
+                var hashFiles = item.Type == ClipboardType.FileList && item.FilePaths != null
+                    ? item.FilePaths : null;
 
-                if (item.Type == ClipboardType.Text)
-                {
-                    clipboardMonitor?.SetLastPasteHashText(item.Content ?? "");
-                }
-                else if (item.Type == ClipboardType.RichText)
-                {
-                    clipboardMonitor?.SetLastPasteHashText(item.Content ?? "");
-                }
-                else if (item.Type == ClipboardType.FileList && item.FilePaths != null)
-                {
-                    clipboardMonitor?.SetLastPasteHashFiles(item.FilePaths);
-                }
-
-                if (App.SettingsService.Settings.MoveToTopAfterPaste && !item.GroupId.HasValue)
-                {
-                    _databaseService.UpdateItemTimestampById(item.Id);
-                    _viewModel.LoadItems();
-                }
-
-                var focusService = App.GetFocusService();
-                var targetHwnd = focusService?.LastFocusHwnd ?? IntPtr.Zero;
-
-                var windowStateService = App.GetWindowStateService();
-                if (windowStateService != null && !windowStateService.IsPinned)
-                {
-                    HideWindow();
-                    Thread.Sleep(50);
-                }
-                else
-                {
-                    Thread.Sleep(30);
-                }
-
-                ActivateAndPaste(targetHwnd);
+                PostPasteFlow(pasteHashText: hashText, pasteHashFiles: hashFiles, moveTopItem: item);
             }
             catch (Exception ex)
             {
@@ -2436,7 +2239,6 @@ namespace WinVClip
             }
             else
             {
-                // 如果没有焦点窗口（如桌面），尝试找到桌面窗口
                 var desktopHwnd = GetDesktopWindow();
                 if (desktopHwnd != IntPtr.Zero)
                 {
@@ -2445,6 +2247,50 @@ namespace WinVClip
                     KeyboardService.SimulatePaste(PasteShortcutMode.CtrlV);
                 }
             }
+        }
+
+        private void PostPasteFlow(string pasteHashText = null, List<string> pasteHashFiles = null,
+            ClipboardItem moveTopItem = null, List<ClipboardItem> moveTopItems = null,
+            IntPtr? overrideTargetHwnd = null)
+        {
+            var clipboardMonitor = App.GetClipboardMonitor();
+            clipboardMonitor?.MarkPasteOperation();
+            clipboardMonitor?.IgnoreNextChange(1000);
+
+            if (pasteHashText != null)
+                clipboardMonitor?.SetLastPasteHashText(pasteHashText);
+            if (pasteHashFiles != null)
+                clipboardMonitor?.SetLastPasteHashFiles(pasteHashFiles);
+
+            if (moveTopItem != null && App.SettingsService.Settings.MoveToTopAfterPaste && !moveTopItem.GroupId.HasValue)
+            {
+                _databaseService.UpdateItemTimestampById(moveTopItem.Id);
+                _viewModel.LoadItems();
+            }
+            else if (moveTopItems != null && App.SettingsService.Settings.MoveToTopAfterPaste)
+            {
+                foreach (var item in moveTopItems)
+                {
+                    if (!item.GroupId.HasValue)
+                        _databaseService.UpdateItemTimestampById(item.Id);
+                }
+                _viewModel.LoadItems();
+            }
+
+            var targetHwnd = overrideTargetHwnd ?? (App.GetFocusService()?.LastFocusHwnd ?? IntPtr.Zero);
+
+            var windowStateService = App.GetWindowStateService();
+            if (windowStateService != null && !windowStateService.IsPinned)
+            {
+                HideWindow();
+                Thread.Sleep(50);
+            }
+            else
+            {
+                Thread.Sleep(30);
+            }
+
+            ActivateAndPaste(targetHwnd);
         }
 
         [DllImport("user32.dll")]
@@ -2482,41 +2328,15 @@ namespace WinVClip
             _viewModel.RemoveItem(item);
         }
 
-        private void PasteText(string text)
-        {
-            var focusService = App.GetFocusService();
-            var targetHwnd = focusService?.LastFocusHwnd ?? IntPtr.Zero;
-            PasteTextWithHwnd(text, targetHwnd);
-        }
-
         private void PasteTextWithHwnd(string text, IntPtr targetHwnd)
         {
-            if (_isPasting)
-                return;
+            if (_isPasting) return;
 
             try
             {
                 _isPasting = true;
-
                 Clipboard.SetText(text);
-
-                var clipboardMonitor = App.GetClipboardMonitor();
-                clipboardMonitor?.MarkPasteOperation();
-                clipboardMonitor?.IgnoreNextChange(1000);
-                clipboardMonitor?.SetLastPasteHashText(text);
-
-                var windowStateService = App.GetWindowStateService();
-                if (windowStateService != null && !windowStateService.IsPinned)
-                {
-                    HideWindow();
-                    Thread.Sleep(50);
-                }
-                else
-                {
-                    Thread.Sleep(30);
-                }
-
-                ActivateAndPaste(targetHwnd);
+                PostPasteFlow(pasteHashText: text, overrideTargetHwnd: targetHwnd);
             }
             catch (Exception ex)
             {
@@ -2601,41 +2421,9 @@ namespace WinVClip
             {
                 _isPasting = true;
 
-                var contents = textItems.Select(i => i.Content ?? "").ToList();
-                var combinedText = string.Join("\n", contents);
-
+                var combinedText = string.Join("\n", textItems.Select(i => i.Content ?? ""));
                 Clipboard.SetText(combinedText);
-
-                var clipboardMonitor = App.GetClipboardMonitor();
-                clipboardMonitor?.MarkPasteOperation();
-                clipboardMonitor?.IgnoreNextChange(1000);
-
-                var firstItem = textItems.First();
-                clipboardMonitor?.SetLastPasteHashText(combinedText);
-
-                if (App.SettingsService.Settings.MoveToTopAfterPaste)
-                {
-                    foreach (var item in textItems)
-                    {
-                        if (!item.GroupId.HasValue)
-                            _databaseService.UpdateItemTimestampById(item.Id);
-                    }
-                }
-
-                var focusService = App.GetFocusService();
-                var targetHwnd = focusService?.LastFocusHwnd ?? IntPtr.Zero;
-                var windowStateService = App.GetWindowStateService();
-                if (windowStateService != null && !windowStateService.IsPinned)
-                {
-                    HideWindow();
-                    Thread.Sleep(50);
-                }
-                else
-                {
-                    Thread.Sleep(30);
-                }
-
-                ActivateAndPaste(targetHwnd);
+                PostPasteFlow(pasteHashText: combinedText, moveTopItems: textItems);
             }
             catch (Exception ex)
             {
@@ -2669,35 +2457,7 @@ namespace WinVClip
                 var fileCollection = new System.Collections.Specialized.StringCollection();
                 fileCollection.AddRange(allFilePaths.ToArray());
                 Clipboard.SetFileDropList(fileCollection);
-
-                var clipboardMonitor = App.GetClipboardMonitor();
-                clipboardMonitor?.MarkPasteOperation();
-                clipboardMonitor?.IgnoreNextChange(1000);
-                clipboardMonitor?.SetLastPasteHashFiles(allFilePaths);
-
-                if (App.SettingsService.Settings.MoveToTopAfterPaste)
-                {
-                    foreach (var item in fileItems)
-                    {
-                        if (!item.GroupId.HasValue)
-                            _databaseService.UpdateItemTimestampById(item.Id);
-                    }
-                }
-
-                var focusService = App.GetFocusService();
-                var targetHwnd = focusService?.LastFocusHwnd ?? IntPtr.Zero;
-                var windowStateService = App.GetWindowStateService();
-                if (windowStateService != null && !windowStateService.IsPinned)
-                {
-                    HideWindow();
-                    Thread.Sleep(50);
-                }
-                else
-                {
-                    Thread.Sleep(30);
-                }
-
-                ActivateAndPaste(targetHwnd);
+                PostPasteFlow(pasteHashFiles: allFilePaths, moveTopItems: fileItems);
             }
             catch (Exception ex)
             {
@@ -2887,6 +2647,272 @@ namespace WinVClip
                 _customTooltip.IsOpen = false;
                 _customTooltip = null;
             }
+        }
+
+        private void PanelToggleButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_viewModel.IsFilterPanelVisible)
+            {
+                _viewModel.IsFilterPanelVisible = false;
+                _viewModel.TypeFilter = null;
+            }
+            _panelState = (_panelState + 1) % 3;
+            UpdatePanelState();
+        }
+
+        private void UpdatePanelState()
+        {
+            switch (_panelState)
+            {
+                case 0:
+                    ClipboardPanel.Visibility = Visibility.Visible;
+                    CharPanel.Visibility = Visibility.Collapsed;
+                    EmojiPanel.Visibility = Visibility.Collapsed;
+                    PanelToggleButton.Content = "🔣";
+                    break;
+                case 1:
+                    ClipboardPanel.Visibility = Visibility.Collapsed;
+                    CharPanel.Visibility = Visibility.Visible;
+                    EmojiPanel.Visibility = Visibility.Collapsed;
+                    PanelToggleButton.Content = "🔣";
+                    break;
+                case 2:
+                    ClipboardPanel.Visibility = Visibility.Collapsed;
+                    CharPanel.Visibility = Visibility.Collapsed;
+                    EmojiPanel.Visibility = Visibility.Visible;
+                    PanelToggleButton.Content = "😀";
+                    break;
+            }
+            OnPropertyChanged(nameof(IsPanelActive));
+        }
+
+        private void LoadCharacterData()
+        {
+            var groups = LoadPanelData("Characters", "characters.json", "WinVClip.Resources.Characters.characters.json");
+            if (groups == null) return;
+            _charGroups = groups;
+            BuildPanel(_charGroups, CharTabControl, CharContentPanel, _charGroupAnchors, "CharPanel", false);
+        }
+
+        private void LoadEmojiData()
+        {
+            var groups = LoadPanelData("Emoji", "emoji.json", "WinVClip.Resources.Emoji.emoji.json");
+            if (groups == null) return;
+            _emojiGroups = groups;
+            BuildPanel(_emojiGroups, EmojiTabControl, EmojiContentPanel, _emojiGroupAnchors, "EmojiPanel", true);
+        }
+
+        private List<CharGroupData> LoadPanelData(string subDir, string fileName, string embeddedResourceName)
+        {
+            try
+            {
+                var dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", subDir);
+                var path = Path.Combine(dir, fileName);
+                string json;
+
+                if (File.Exists(path))
+                {
+                    json = File.ReadAllText(path, Encoding.UTF8);
+                }
+                else
+                {
+                    var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+                    using var stream = assembly.GetManifestResourceStream(embeddedResourceName);
+                    if (stream == null) return null;
+                    using var reader = new StreamReader(stream, Encoding.UTF8);
+                    json = reader.ReadToEnd();
+                    Directory.CreateDirectory(dir);
+                    File.WriteAllText(path, json, Encoding.UTF8);
+                }
+
+                var data = System.Text.Json.JsonSerializer.Deserialize<CharDataRoot>(json);
+                return data?.Groups;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private void BuildPanel(List<CharGroupData> groups, TabControl tabControl, StackPanel contentPanel,
+            Dictionary<string, FrameworkElement> anchors, string locPrefix, bool isEmoji)
+        {
+            tabControl.Items.Clear();
+            contentPanel.Children.Clear();
+            anchors.Clear();
+
+            var isZh = Loc.CurrentLanguageCode.StartsWith("zh");
+
+            foreach (var group in groups)
+            {
+                var groupName = isZh ? group.NameZh : group.NameEn;
+                var locKey = $"{locPrefix}.Group.{GroupIdToLocalKey(group.Id)}";
+                var displayName = Loc.Get(locKey, groupName);
+
+                var tabItem = new TabItem
+                {
+                    Header = new TextBlock
+                    {
+                        Text = displayName,
+                        FontSize = 10,
+                        TextWrapping = TextWrapping.NoWrap,
+                        TextAlignment = TextAlignment.Center
+                    },
+                    Tag = group.Id
+                };
+                tabControl.Items.Add(tabItem);
+
+                var groupBorder = new Border
+                {
+                    Tag = group.Id,
+                    Margin = new Thickness(0, 0, 0, 8)
+                };
+                anchors[group.Id] = groupBorder;
+
+                var groupStack = new StackPanel();
+
+                var headerText = new TextBlock
+                {
+                    Text = displayName,
+                    FontSize = 12,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = (System.Windows.Media.Brush)FindResource("SecondaryTextForeground"),
+                    Margin = new Thickness(4, 4, 4, 4)
+                };
+                groupStack.Children.Add(headerText);
+
+                var wrapPanel = new WrapPanel
+                {
+                    Margin = new Thickness(2, 0, 2, 0)
+                };
+
+                foreach (var ch in group.Chars)
+                {
+                    var btn = new Button
+                    {
+                        Tag = ch,
+                        Cursor = Cursors.Hand,
+                        Style = (Style)FindResource("CharButtonStyle"),
+                        Margin = new Thickness(1)
+                    };
+
+                    if (isEmoji)
+                    {
+                        btn.Content = new Emoji.Wpf.TextBlock { Text = ch, FontSize = 18, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                        btn.Width = 36;
+                        btn.Height = 36;
+                        btn.ToolTip = new Emoji.Wpf.TextBlock { Text = ch, FontSize = 54, TextAlignment = TextAlignment.Center };
+                    }
+                    else
+                    {
+                        btn.Content = ch;
+                        btn.Width = 32;
+                        btn.Height = 32;
+                        btn.FontSize = 14;
+                        btn.ToolTip = new TextBlock { Text = ch, FontSize = 42, TextAlignment = TextAlignment.Center };
+                    }
+
+                    btn.Click += CharButton_Click;
+                    wrapPanel.Children.Add(btn);
+                }
+
+                groupStack.Children.Add(wrapPanel);
+                groupBorder.Child = groupStack;
+                contentPanel.Children.Add(groupBorder);
+            }
+        }
+
+        private void RefreshPanelLocalization(List<CharGroupData> groups, TabControl tabControl,
+            Dictionary<string, FrameworkElement> anchors, string locPrefix)
+        {
+            if (groups == null || groups.Count == 0) return;
+
+            var isZh = Loc.CurrentLanguageCode.StartsWith("zh");
+
+            foreach (TabItem tabItem in tabControl.Items)
+            {
+                var groupId = tabItem.Tag as string;
+                var group = groups.FirstOrDefault(g => g.Id == groupId);
+                if (group == null) continue;
+
+                var locKey = $"{locPrefix}.Group.{GroupIdToLocalKey(group.Id)}";
+                var displayName = Loc.Get(locKey, isZh ? group.NameZh : group.NameEn);
+                if (tabItem.Header is TextBlock tb)
+                    tb.Text = displayName;
+            }
+
+            foreach (var kvp in anchors)
+            {
+                var group = groups.FirstOrDefault(g => g.Id == kvp.Key);
+                if (group == null) continue;
+
+                var locKey = $"{locPrefix}.Group.{GroupIdToLocalKey(group.Id)}";
+                var displayName = Loc.Get(locKey, isZh ? group.NameZh : group.NameEn);
+
+                if (kvp.Value is Border border && border.Child is StackPanel sp && sp.Children.Count > 0 && sp.Children[0] is TextBlock header)
+                    header.Text = displayName;
+            }
+        }
+
+        private void PanelTabControl_SelectionChanged(TabControl tabControl, Dictionary<string, FrameworkElement> anchors, ScrollViewer scrollViewer, StackPanel contentPanel)
+        {
+            if (tabControl.SelectedItem is TabItem tabItem && tabItem.Tag is string groupId)
+            {
+                if (anchors.TryGetValue(groupId, out var anchor))
+                {
+                    var transform = anchor.TransformToVisual(contentPanel);
+                    if (transform != null)
+                    {
+                        var offset = transform.Transform(new System.Windows.Point(0, 0));
+                        scrollViewer.ScrollToVerticalOffset(offset.Y);
+                    }
+                }
+            }
+        }
+
+        private static string GroupIdToLocalKey(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return id;
+            var parts = id.Split('_');
+            var result = new System.Text.StringBuilder();
+            foreach (var part in parts)
+            {
+                if (part.Length == 0) continue;
+                result.Append(char.ToUpper(part[0]));
+                result.Append(part.Substring(1));
+            }
+            return result.ToString();
+        }
+
+        private void CharButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string ch)
+            {
+                if (_isPasting) return;
+                try
+                {
+                    _isPasting = true;
+                    Clipboard.SetText(ch);
+                    PostPasteFlow(pasteHashText: ch);
+                }
+                catch
+                {
+                }
+                finally
+                {
+                    _isPasting = false;
+                }
+            }
+        }
+
+        private void CharTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            PanelTabControl_SelectionChanged(CharTabControl, _charGroupAnchors, CharScrollViewer, CharContentPanel);
+        }
+
+        private void EmojiTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            PanelTabControl_SelectionChanged(EmojiTabControl, _emojiGroupAnchors, EmojiScrollViewer, EmojiContentPanel);
         }
     }
 }

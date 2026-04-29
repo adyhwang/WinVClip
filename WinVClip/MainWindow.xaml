@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WinVClip"
         mc:Ignorable="d"
-        Title="WinVClip" MinHeight="600" Height="600" MinWidth="380" Width="380"
+        Title="WinVClip" MinHeight="600" Height="600" MinWidth="388" Width="388"
     WindowStyle="None" AllowsTransparency="True" Background="Transparent"
     ShowInTaskbar="False" Topmost="True" 
     PreviewKeyDown="Window_PreviewKeyDown"
@@ -74,7 +74,7 @@
                 <RowDefinition Height="50"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
-                <RowDefinition Height="20"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <Grid Grid.Row="0">
@@ -113,6 +113,21 @@
                                             <Setter Property="Foreground" Value="#007ACC"/>
                                         </MultiDataTrigger.Setters>
                                     </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <Button x:Name="PanelToggleButton" Width="32" Height="32" Margin="4,0"
+                            Content="🔣"
+                            Click="PanelToggleButton_Click"
+                            PreviewMouseDown="Button_PreviewMouseDown">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPanelActive, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                        <Setter Property="Background" Value="#007ACC"/>
+                                        <Setter Property="Foreground" Value="#FFFFFF"/>
+                                    </DataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </Button.Style>
@@ -182,25 +197,32 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- 分组 TabControl -->
-                <TabControl x:Name="GroupTabControl"
-                            Grid.Column="0"
-                            Style="{DynamicResource GroupTabControlStyle}"
-                            ItemsSource="{Binding GroupTabs}"
-                            SelectedIndex="{Binding SelectedGroupTabIndex, Mode=TwoWay}"
-                            SelectionChanged="GroupTabControl_SelectionChanged">
-                    <TabControl.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding DisplayName}"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       FontSize="13"
-                                       ToolTip="{Binding ToolTip}"/>
-                        </DataTemplate>
-                    </TabControl.ItemTemplate>
-                </TabControl>
+                <!-- 剪贴板面板 -->
+                <Grid x:Name="ClipboardPanel" Grid.ColumnSpan="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
 
-                <ScrollViewer x:Name="MainScrollViewer" Grid.Column="1"
+                    <!-- 分组 TabControl -->
+                    <TabControl x:Name="GroupTabControl"
+                                Grid.Column="0"
+                                Style="{DynamicResource GroupTabControlStyle}"
+                                ItemsSource="{Binding GroupTabs}"
+                                SelectedIndex="{Binding SelectedGroupTabIndex, Mode=TwoWay}"
+                                SelectionChanged="GroupTabControl_SelectionChanged">
+                        <TabControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DisplayName}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontSize="13"
+                                           ToolTip="{Binding ToolTip}"/>
+                            </DataTemplate>
+                        </TabControl.ItemTemplate>
+                    </TabControl>
+
+                    <ScrollViewer x:Name="MainScrollViewer" Grid.Column="1"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
                               Margin="0,0,-8,0"
@@ -443,74 +465,124 @@
                 </StackPanel>
                 </ScrollViewer>
 
-                <!-- 空状态提示 -->
-                <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
-                      Visibility="{Binding IsEmpty, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="📋" FontSize="48"
-                               HorizontalAlignment="Center" Opacity="0.5"/>
-                    <TextBlock x:Name="EmptyStateText" Grid.Row="1" Text="暂无剪贴板记录"
-                               Foreground="{DynamicResource SecondaryTextForeground}"
-                               FontSize="14" Margin="0,10,0,0"
-                               HorizontalAlignment="Center"/>
+                    <!-- 空状态提示 -->
+                    <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                          Visibility="{Binding IsEmpty, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="📋" FontSize="48"
+                                   HorizontalAlignment="Center" Opacity="0.5"/>
+                        <TextBlock x:Name="EmptyStateText" Grid.Row="1" Text="暂无剪贴板记录"
+                                   Foreground="{DynamicResource SecondaryTextForeground}"
+                                   FontSize="14" Margin="0,10,0,0"
+                                   HorizontalAlignment="Center"/>
+                    </Grid>
+
+                    <!-- 加载动画 -->
+                    <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                          Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Border Background="{DynamicResource WindowBackground}"
+                                CornerRadius="8" Padding="20"
+                                Opacity="0.9">
+                            <StackPanel>
+                                <TextBlock Text="⏳" FontSize="32"
+                                           HorizontalAlignment="Center">
+                                    <TextBlock.RenderTransform>
+                                        <RotateTransform CenterX="16" CenterY="16"/>
+                                    </TextBlock.RenderTransform>
+                                    <TextBlock.Triggers>
+                                        <EventTrigger RoutedEvent="Loaded">
+                                            <BeginStoryboard>
+                                                <Storyboard RepeatBehavior="Forever">
+                                                    <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Angle"
+                                                                     From="0" To="360" Duration="0:0:1"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                    </TextBlock.Triggers>
+                                </TextBlock>
+                                <TextBlock x:Name="LoadingText" Text="加载中..."
+                                           Foreground="{DynamicResource SecondaryTextForeground}"
+                                           FontSize="12" Margin="0,8,0,0"
+                                           HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
                 </Grid>
 
-                <!-- 加载动画 -->
-                <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
-                      Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <Border Background="{DynamicResource WindowBackground}"
-                            CornerRadius="8" Padding="20"
-                            Opacity="0.9">
-                        <StackPanel>
-                            <TextBlock Text="⏳" FontSize="32"
-                                       HorizontalAlignment="Center">
-                                <TextBlock.RenderTransform>
-                                    <RotateTransform CenterX="16" CenterY="16"/>
-                                </TextBlock.RenderTransform>
-                                <TextBlock.Triggers>
-                                    <EventTrigger RoutedEvent="Loaded">
-                                        <BeginStoryboard>
-                                            <Storyboard RepeatBehavior="Forever">
-                                                <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Angle"
-                                                                 From="0" To="360" Duration="0:0:1"/>
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </EventTrigger>
-                                </TextBlock.Triggers>
-                            </TextBlock>
-                            <TextBlock x:Name="LoadingText" Text="加载中..."
-                                       Foreground="{DynamicResource SecondaryTextForeground}"
-                                       FontSize="12" Margin="0,8,0,0"
-                                       HorizontalAlignment="Center"/>
-                        </StackPanel>
-                    </Border>
+                <!-- 字符面板 -->
+                <Grid x:Name="CharPanel" Grid.ColumnSpan="2" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TabControl x:Name="CharTabControl"
+                                Grid.Column="0"
+                                Style="{DynamicResource CharTabControlStyle}"
+                                SelectionChanged="CharTabControl_SelectionChanged">
+                    </TabControl>
+
+                    <ScrollViewer x:Name="CharScrollViewer" Grid.Column="1"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Margin="0,0,-8,0">
+                        <ScrollViewer.Resources>
+                            <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBarStyle}"/>
+                        </ScrollViewer.Resources>
+                        <StackPanel x:Name="CharContentPanel"/>
+                    </ScrollViewer>
+                </Grid>
+
+                <!-- Emoji面板 -->
+                <Grid x:Name="EmojiPanel" Grid.ColumnSpan="2" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TabControl x:Name="EmojiTabControl"
+                                Grid.Column="0"
+                                Style="{DynamicResource CharTabControlStyle}"
+                                SelectionChanged="EmojiTabControl_SelectionChanged">
+                    </TabControl>
+
+                    <ScrollViewer x:Name="EmojiScrollViewer" Grid.Column="1"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Margin="0,0,-8,0">
+                        <ScrollViewer.Resources>
+                            <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBarStyle}"/>
+                        </ScrollViewer.Resources>
+                        <StackPanel x:Name="EmojiContentPanel"/>
+                    </ScrollViewer>
                 </Grid>
             </Grid>
 
-            <Grid Grid.Row="3">
-                <Button x:Name="ClearHistoryButton"
-                        HorizontalAlignment="Left" VerticalAlignment="Bottom"
-                        Style="{DynamicResource LinkButtonStyle}"
-                        Content="清空历史"
-                        Click="ClearHistoryButton_Click"
-                        PreviewMouseDown="Button_PreviewMouseDown">
-                    <Button.ContextMenu>
-                        <ContextMenu x:Name="ClearHistoryContextMenu"
-                                     Style="{DynamicResource ContextMenuStyle}"
-                                     Opened="ContextMenu_Opened">
-                            <MenuItem x:Name="MenuClearAllHistory" Header="清空所有历史记录" 
-                                      Style="{DynamicResource MenuItemStyle}"
-                                      Click="ClearAllHistoryMenuItem_Click"/>
-                            <MenuItem x:Name="MenuClearUngroupedHistory" Header="清空所有未分组记录" 
-                                      Style="{DynamicResource MenuItemStyle}"
-                                      Click="ClearUngroupedHistoryMenuItem_Click"/>
-                        </ContextMenu>
-                    </Button.ContextMenu>
-                </Button>
-                <TextBlock HorizontalAlignment="Right" VerticalAlignment="Bottom"
+            <Grid Grid.Row="3" Margin="10,4,0,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <Button x:Name="ClearHistoryButton"
+                            Style="{DynamicResource LinkButtonStyle}"
+                            Content="🗑"
+                            Click="ClearHistoryButton_Click"
+                            PreviewMouseDown="Button_PreviewMouseDown">
+                        <Button.ContextMenu>
+                            <ContextMenu x:Name="ClearHistoryContextMenu"
+                                         Style="{DynamicResource ContextMenuStyle}"
+                                         Opened="ContextMenu_Opened">
+                                <MenuItem x:Name="MenuClearAllHistory" Header="清空所有历史记录" 
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Click="ClearAllHistoryMenuItem_Click"/>
+                                <MenuItem x:Name="MenuClearUngroupedHistory" Header="清空所有未分组记录" 
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Click="ClearUngroupedHistoryMenuItem_Click"/>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+                </StackPanel>
+                <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
                            Text="{Binding Hotkey}"
                            Foreground="{DynamicResource SecondaryTextForeground}"
                            FontSize="10"/>

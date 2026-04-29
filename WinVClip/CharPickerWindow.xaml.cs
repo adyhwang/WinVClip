@@ -26,6 +26,7 @@ namespace WinVClip
         private int _lastClickedIndex = -1;
         private const int BatchSize = 100;
         private int _renderedCount;
+        private bool _isPinned;
 
         public event EventHandler<string> OnInsert;
 
@@ -64,6 +65,7 @@ namespace WinVClip
             InvertButton.ToolTip = Loc.Get("CharPicker.InvertSelection", "反选");
             CopyButton.ToolTip = Loc.Get("CharPicker.Copy", "复制");
             SearchButton.ToolTip = Loc.Get("CharPicker.Search", "搜索");
+            PinButton.ToolTip = Loc.Get("CharPicker.Pin", "置顶");
         }
 
         protected override void OnSourceInitialized(EventArgs e)
@@ -321,7 +323,8 @@ namespace WinVClip
         {
             if (!string.IsNullOrEmpty(SelectedTextBlock.Text))
                 OnInsert?.Invoke(this, SelectedTextBlock.Text);
-            Close();
+            if (!_isPinned)
+                Close();
         }
 
         private void SelectAllCheckBox_Checked(object sender, RoutedEventArgs e)
@@ -376,6 +379,21 @@ namespace WinVClip
                 });
             }
             catch { }
+        }
+
+        private void PinButton_Click(object sender, RoutedEventArgs e)
+        {
+            _isPinned = !_isPinned;
+            if (_isPinned)
+            {
+                PinButton.Background = (Brush)FindResource("AccentColor");
+                PinButton.Foreground = Brushes.White;
+            }
+            else
+            {
+                PinButton.Background = Brushes.Transparent;
+                PinButton.Foreground = (Brush)FindResource("TextForeground");
+            }
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
