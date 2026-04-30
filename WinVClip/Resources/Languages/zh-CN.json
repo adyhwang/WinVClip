@@ -87,6 +87,7 @@
     "Settings.Nav.Storage": "存储与备份",
     "Settings.Nav.Search": "搜索引擎",
     "Settings.Nav.System": "系统设置",
+    "Settings.Nav.About": "关于",
     "Settings.Button.Reset": "重置",
     "Settings.Button.Apply": "应用",
     "Settings.Button.OK": "确定",
@@ -371,6 +372,20 @@
     "EmojiPanel.Group.Activities": "活动和运动",
     "EmojiPanel.Group.Objects": "物品",
     "EmojiPanel.Group.Symbols": "符号",
-    "EmojiPanel.Group.Flags": "旗帜"
+    "EmojiPanel.Group.Flags": "旗帜",
+
+    "Settings.General.FontSize.Title": "字体大小",
+    "Settings.General.FontSize.Description": "调整界面字体大小（需重新打开窗口生效）",
+
+    "Settings.System.ShowHotkeyTip": "启动时显示快捷键提示",
+    "Settings.System.ShowHotkeyTipDescription": "程序启动时在托盘通知中显示快捷键信息",
+
+    "Settings.History.ManualCleanup.Title": "手动清理",
+    "Settings.History.ClearAll": "清空所有历史",
+    "Settings.History.ClearUngrouped": "清空未分组历史",
+    "Settings.History.ClearBeforeDays": "清空指定天数之前的历史记录",
+    "Settings.History.ClearBeforeDaysHint": "仅删除未分组的记录，已分组的记录将被保留",
+    "Settings.History.ClearBeforeDaysConfirm": "确定要清空 {0} 天之前的未分组历史记录吗？\n\n已分组的记录将保留。",
+    "Settings.History.Execute": "执行"
   }
 }

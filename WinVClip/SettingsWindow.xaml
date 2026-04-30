@@ -70,6 +70,9 @@
                         <RadioButton x:Name="NavSystem" Content="系统设置" GroupName="SettingsNav"
                                      Style="{DynamicResource NavRadioButtonStyle}"
                                      Tag="System" Checked="NavRadioButton_Checked"/>
+                        <RadioButton x:Name="NavAbout" Content="关于" GroupName="SettingsNav"
+                                     Style="{DynamicResource NavRadioButtonStyle}"
+                                     Tag="About" Checked="NavRadioButton_Checked"/>
                     </StackPanel>
                 </Border>
 
@@ -101,11 +104,6 @@
                                     <ComboBox x:Name="LanguageComboBox" 
                                               Style="{DynamicResource ModernComboBoxStyle}" Width="200" HorizontalAlignment="Left"
                                               SelectionChanged="LanguageComboBox_SelectionChanged"/>
-                                    <TextBlock x:Name="LanguageRestartHint" 
-                                               Text="Restart required to apply language changes" 
-                                               Foreground="{DynamicResource TertiaryTextForeground}" 
-                                               FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"
-                                               Visibility="Collapsed"/>
                                 </StackPanel>
                             </Border>
 
@@ -222,6 +220,37 @@
                                 </StackPanel>
                             </Border>
 
+                            <!-- 字体大小设置卡片 -->
+                            <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                        <TextBlock Text="&#xE8D2;" FontFamily="Segoe MDL2 Assets" FontSize="18" 
+                                                   Foreground="{DynamicResource AccentColor}" Margin="0,0,10,0"/>
+                                        <TextBlock x:Name="FontSizeCardTitle" Text="字体大小" FontSize="16" FontWeight="SemiBold" 
+                                                   Foreground="{DynamicResource TextForeground}"/>
+                                    </StackPanel>
+                                    
+                                    <TextBlock x:Name="FontSizeDescription" Text="调整界面字体大小（需重新打开窗口生效）" Foreground="{DynamicResource SecondaryTextForeground}" 
+                                               FontSize="13" Margin="0,0,0,8"/>
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Slider x:Name="FontSizeSlider" Grid.Column="0"
+                                                Minimum="10" Maximum="30" Value="{Binding FontSize}"
+                                                IsSnapToTickEnabled="True" TickFrequency="1"
+                                                Style="{DynamicResource SliderStyle}"
+                                                VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                        <TextBlock x:Name="FontSizeValueText" Grid.Column="1"
+                                                   Text="{Binding FontSize}" 
+                                                   FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextForeground}"
+                                                   VerticalAlignment="Center" Width="30" TextAlignment="Center"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
                             <!-- 管理员权限设置卡片 -->
                             <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
                                 <StackPanel>
@@ -294,7 +323,7 @@
                             <TextBlock x:Name="HistoryTitleText" Text="历史记录" FontSize="24" FontWeight="SemiBold" 
                                        Foreground="{DynamicResource TextForeground}" Margin="0,0,0,20"/>
                             
-                            <Border Style="{DynamicResource SettingCardStyle}">
+                            <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
                                         <TextBlock Text="&#xE81C;" FontFamily="Segoe MDL2 Assets" FontSize="18" 
@@ -355,6 +384,63 @@
                                                        FontSize="11" Margin="0,4,0,0"/>
                                         </StackPanel>
                                     </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 手动清理卡片 -->
+                            <Border Style="{DynamicResource SettingCardStyle}">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                        <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="18" 
+                                                   Foreground="{DynamicResource AccentColor}" Margin="0,0,10,0"/>
+                                        <TextBlock x:Name="ManualCleanupCardTitle" Text="手动清理" FontSize="16" FontWeight="SemiBold" 
+                                                   Foreground="{DynamicResource TextForeground}"/>
+                                    </StackPanel>
+                                    
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button x:Name="ClearAllHistoryButton" Grid.Column="0" Content="清空所有历史" 
+                                                Style="{DynamicResource ActionButtonStyle}"
+                                                Margin="0,0,8,0" Padding="16,12"
+                                                Click="ClearAllHistory_Click"/>
+                                        <Button x:Name="ClearUngroupedHistoryButton" Grid.Column="1" Content="清空未分组历史" 
+                                                Style="{DynamicResource ActionButtonStyle}"
+                                                Margin="8,0,0,0" Padding="16,12"
+                                                Click="ClearUngroupedHistory_Click"/>
+                                    </Grid>
+                                    
+                                    <Separator Background="{DynamicResource BorderBrush}" Margin="0,0,0,12"/>
+                                    
+                                    <TextBlock x:Name="ClearBeforeDaysText" Text="清空指定天数之前的历史记录" Foreground="{DynamicResource SecondaryTextForeground}" 
+                                               FontSize="13" Margin="0,0,0,8"/>
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Slider x:Name="ClearBeforeDaysSlider" Grid.Column="0"
+                                                Minimum="1" Maximum="120" Value="7"
+                                                IsSnapToTickEnabled="True" TickFrequency="1"
+                                                Style="{DynamicResource SliderStyle}"
+                                                VerticalAlignment="Center" Margin="0,0,12,0"
+                                                ValueChanged="ClearBeforeDaysSlider_ValueChanged"/>
+                                        <TextBlock x:Name="ClearBeforeDaysValueText" Grid.Column="1"
+                                                   Text="7" 
+                                                   FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextForeground}"
+                                                   VerticalAlignment="Center" Width="40" TextAlignment="Center" Margin="0,0,12,0"/>
+                                        <Button x:Name="ClearBeforeDaysButton" Grid.Column="2" Content="执行" 
+                                                Style="{DynamicResource PrimaryButtonStyle}"
+                                                Padding="16,8"
+                                                Click="ClearBeforeDays_Click"/>
+                                    </Grid>
+                                    <TextBlock x:Name="ClearBeforeDaysHint" Text="仅删除未分组的记录，已分组的记录将被保留" 
+                                               Foreground="{DynamicResource TertiaryTextForeground}" 
+                                               FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -558,10 +644,42 @@
                                     <TextBlock x:Name="StartWithWindowsDescription" Text="系统启动时自动运行 WinVClip" Foreground="{DynamicResource SecondaryTextForeground}" 
                                                FontSize="12" Margin="28,-8,0,16"/>
                                     
+                                    <CheckBox x:Name="ShowHotkeyTipCheckBox" Content="启动时显示快捷键提示" IsChecked="{Binding ShowHotkeyTipOnStartup}" 
+                                              Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"/>
+                                    <TextBlock x:Name="ShowHotkeyTipDescription" Text="程序启动时在托盘通知中显示快捷键信息" Foreground="{DynamicResource SecondaryTextForeground}" 
+                                               FontSize="12" Margin="28,-8,0,16"/>
+                                    
                                     <CheckBox x:Name="EnableMonitorCheckBox" Content="启用剪贴板监控" IsChecked="{Binding MonitorEnabled}" 
                                               Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"/>
                                     <TextBlock x:Name="EnableMonitorDescription" Text="监听并记录剪贴板内容变化" Foreground="{DynamicResource SecondaryTextForeground}" 
                                                FontSize="12" Margin="28,-8,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel x:Name="PanelAbout" Visibility="Collapsed">
+                            <TextBlock x:Name="AboutTitleText" Text="关于" FontSize="24" FontWeight="SemiBold" 
+                                       Foreground="{DynamicResource TextForeground}" Margin="0,0,0,20"/>
+                            
+                            <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
+                                <StackPanel HorizontalAlignment="Center" Margin="20,24">
+                                    <TextBlock Text="WinVClip" FontSize="28" FontWeight="Bold" 
+                                               Foreground="{DynamicResource AccentColor}" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                                    <TextBlock x:Name="AboutVersionText" Text="版本 1.0.0" FontSize="14" 
+                                               Foreground="{DynamicResource SecondaryTextForeground}" HorizontalAlignment="Center" Margin="0,0,0,24"/>
+                                    
+                                    <Separator Background="{DynamicResource BorderBrush}" Margin="0,0,0,24"/>
+                                    
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,12">
+                                        <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="16" 
+                                                   Foreground="{DynamicResource AccentColor}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="AboutGitHubLabel" Text="GitHub" FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextForeground}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="AboutGitHubLink" Text="https://github.com/adyhwang/WinVClip" 
+                                               FontSize="13" Foreground="{DynamicResource AccentColor}" 
+                                               HorizontalAlignment="Center" Cursor="Hand"
+                                               MouseDown="AboutGitHubLink_MouseDown"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>

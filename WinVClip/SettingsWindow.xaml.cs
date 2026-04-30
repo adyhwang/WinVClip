@@ -8,12 +8,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 using WinVClip.Models;
 using WinVClip.Services;
 
@@ -52,7 +48,9 @@ namespace WinVClip
                 IsAdministratorRun = _settingsService.Settings.IsAdministratorRun,
                 MoveToTopAfterPaste = _settingsService.Settings.MoveToTopAfterPaste,
                 PasteShortcutMode = _settingsService.Settings.PasteShortcutMode,
-                Language = _settingsService.Settings.Language
+                Language = _settingsService.Settings.Language,
+                FontSize = _settingsService.Settings.FontSize,
+                ShowHotkeyTipOnStartup = _settingsService.Settings.ShowHotkeyTipOnStartup
             };
 
             _tempHotkey = _originalSettings.Hotkey;
@@ -87,6 +85,14 @@ namespace WinVClip
             {
                 UpdateCustomSearchEngineGridVisibility();
             }
+
+            LoadAboutInfo();
+            LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
+        }
+
+        private void OnLanguageChanged()
+        {
+            Dispatcher.Invoke(() => ApplyLocalization());
         }
 
         private void ApplyLocalization()
@@ -99,6 +105,7 @@ namespace WinVClip
             NavStorage.Content = Loc.Get("Settings.Nav.Storage", "存储与备份");
             NavSearch.Content = Loc.Get("Settings.Nav.Search", "搜索引擎");
             NavSystem.Content = Loc.Get("Settings.Nav.System", "系统设置");
+            NavAbout.Content = Loc.Get("Settings.Nav.About", "关于");
             
             ResetButton.Content = Loc.Get("Settings.Button.Reset", "重置");
             ApplyButton.Content = Loc.Get("Settings.Button.Apply", "应用");
@@ -130,7 +137,6 @@ namespace WinVClip
             
             LanguageCardTitle.Text = Loc.Get("Settings.General.Language.Title", "Language");
             SelectLanguageText.Text = Loc.Get("Settings.General.Language.SelectLanguage", "Select Language");
-            LanguageRestartHint.Text = Loc.Get("Settings.General.Language.RestartRequired", "Restart required to apply language changes");
             
             PasteMethodCardTitle.Text = Loc.Get("Settings.General.PasteMethod.Title", "粘贴方式");
             PasteMethodDescription.Text = Loc.Get("Settings.General.PasteMethod.Description", "选择粘贴内容的快捷键方式");
@@ -143,6 +149,9 @@ namespace WinVClip
             RequestAdminButton.Content = Loc.Get("Settings.General.Admin.Request", "获取管理员权限");
             AdminRunDescription.Text = Loc.Get("Settings.General.Admin.RunDescription", "以管理员权限运行可向所有窗口发送粘贴操作");
             AdminRunHint.Text = Loc.Get("Settings.General.Admin.Hint", "提示：普通权限无法向管理员权限的窗口（如管理员PowerShell、CMD等等）自动粘贴");
+
+            FontSizeCardTitle.Text = Loc.Get("Settings.General.FontSize.Title", "字体大小");
+            FontSizeDescription.Text = Loc.Get("Settings.General.FontSize.Description", "调整界面字体大小（需重新打开窗口生效）");
         }
 
         private void ApplyPanelCaptureLocalization()
@@ -171,6 +180,13 @@ namespace WinVClip
             MaxRecordsHint.Text = Loc.Get("Settings.History.MaxRecordsHint", "超出数量限制时自动删除最早的记录");
             KeepForeverItem.Content = Loc.Get("Settings.History.KeepForever", "永久保留");
             UnlimitedItem.Content = Loc.Get("Settings.History.Unlimited", "无限制");
+
+            ManualCleanupCardTitle.Text = Loc.Get("Settings.History.ManualCleanup.Title", "手动清理");
+            ClearAllHistoryButton.Content = Loc.Get("Settings.History.ClearAll", "清空所有历史");
+            ClearUngroupedHistoryButton.Content = Loc.Get("Settings.History.ClearUngrouped", "清空未分组历史");
+            ClearBeforeDaysText.Text = Loc.Get("Settings.History.ClearBeforeDays", "清空指定天数之前的历史记录");
+            ClearBeforeDaysButton.Content = Loc.Get("Settings.History.Execute", "执行");
+            ClearBeforeDaysHint.Text = Loc.Get("Settings.History.ClearBeforeDaysHint", "仅删除未分组的记录，已分组的记录将被保留");
         }
 
         private void ApplyPanelStorageLocalization()
@@ -208,8 +224,35 @@ namespace WinVClip
             SystemOptionsCardTitle.Text = Loc.Get("Settings.System.Options", "系统选项");
             StartWithWindowsCheckBox.Content = Loc.Get("Settings.System.StartWithWindows", "开机自动启动");
             StartWithWindowsDescription.Text = Loc.Get("Settings.System.StartWithWindowsDescription", "系统启动时自动运行 WinVClip");
+            ShowHotkeyTipCheckBox.Content = Loc.Get("Settings.System.ShowHotkeyTip", "启动时显示快捷键提示");
+            ShowHotkeyTipDescription.Text = Loc.Get("Settings.System.ShowHotkeyTipDescription", "程序启动时在托盘通知中显示快捷键信息");
             EnableMonitorCheckBox.Content = Loc.Get("Settings.System.EnableMonitor", "启用剪贴板监控");
             EnableMonitorDescription.Text = Loc.Get("Settings.System.EnableMonitorDescription", "监听并记录剪贴板内容变化");
+        }
+
+        private void ApplyPanelAboutLocalization()
+        {
+            NavAbout.Content = Loc.Get("Settings.Nav.About", "关于");
+            AboutTitleText.Text = Loc.Get("Settings.System.About.Title", "关于");
+            AboutGitHubLabel.Text = Loc.Get("Settings.System.About.GitHub", "GitHub");
+        }
+
+        private void LoadAboutInfo()
+        {
+            var version = System.Diagnostics.FileVersionInfo.GetVersionInfo(
+                System.Reflection.Assembly.GetExecutingAssembly().Location).FileVersion;
+            var versionLabel = Loc.Get("Settings.System.About.Version", "版本");
+            AboutVersionText.Text = $"{versionLabel} {version}";
+            ApplyPanelAboutLocalization();
+        }
+
+        private void AboutGitHubLink_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo("https://github.com/adyhwang/WinVClip") { UseShellExecute = true });
+            }
+            catch { }
         }
 
         private void UpdateCustomSearchEngineGridVisibility()
@@ -248,20 +291,13 @@ namespace WinVClip
 
         private void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (LanguageComboBox == null || LanguageRestartHint == null)
+            if (LanguageComboBox == null)
                 return;
 
             if (LanguageComboBox.SelectedItem is ComboBoxItem selectedItem)
             {
                 var selectedCode = selectedItem.Tag as string;
-                if (!string.IsNullOrEmpty(selectedCode) && selectedCode != _originalSettings.Language)
-                {
-                    LanguageRestartHint.Visibility = Visibility.Visible;
-                }
-                else
-                {
-                    LanguageRestartHint.Visibility = Visibility.Collapsed;
-                }
+                _settingsService.Settings.Language = selectedCode ?? "";
             }
         }
 
@@ -1533,18 +1569,7 @@ namespace WinVClip
 
             if (languageChanged)
             {
-                var result = MessageBox.Show(
-                    Loc.Get("Message.RestartRequiredText"),
-                    Loc.Get("Message.RestartRequired"),
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
-                
-                if (result == MessageBoxResult.Yes)
-                {
-                    System.Diagnostics.Process.Start(System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName 
-                        ?? System.Reflection.Assembly.GetExecutingAssembly().Location);
-                    Application.Current.Shutdown();
-                }
+                LocalizationService.Instance.LoadLanguage(_settingsService.Settings.Language);
             }
 
             DialogResult = true;
@@ -1573,6 +1598,8 @@ namespace WinVClip
             _settingsService.Settings.MoveToTopAfterPaste = _originalSettings.MoveToTopAfterPaste;
             _settingsService.Settings.PasteShortcutMode = _originalSettings.PasteShortcutMode;
             _settingsService.Settings.Language = _originalSettings.Language;
+            _settingsService.Settings.FontSize = _originalSettings.FontSize;
+            _settingsService.Settings.ShowHotkeyTipOnStartup = _originalSettings.ShowHotkeyTipOnStartup;
 
             if (hotkeyChanged)
             {
@@ -1606,6 +1633,7 @@ namespace WinVClip
             var cleanupChanged = _settingsService.Settings.EnableAutoCleanup != _originalSettings.EnableAutoCleanup ||
                                 _settingsService.Settings.RetentionDays != _originalSettings.RetentionDays;
             var themeChanged = _settingsService.Settings.Theme != _originalSettings.Theme;
+            var languageChanged = _settingsService.Settings.Language != _originalSettings.Language;
             // 从CheckBox获取当前开机启动状态
             var currentStartWithWindows = StartWithWindowsCheckBox?.IsChecked ?? false;
             var startWithWindowsChanged = currentStartWithWindows != _originalStartWithWindows;
@@ -1626,6 +1654,8 @@ namespace WinVClip
             _originalSettings.SelectedSearchEngineId = _settingsService.Settings.SelectedSearchEngineId;
             _originalSettings.CustomSearchEngineUrl = _settingsService.Settings.CustomSearchEngineUrl;
             _originalSettings.MaxHistoryItems = _settingsService.Settings.MaxHistoryItems;
+            _originalSettings.FontSize = _settingsService.Settings.FontSize;
+            _originalSettings.ShowHotkeyTipOnStartup = _settingsService.Settings.ShowHotkeyTipOnStartup;
 
             if (hotkeyChanged)
             {
@@ -1652,6 +1682,12 @@ namespace WinVClip
             {
                 _settingsService.SetStartupRegistry(currentStartWithWindows);
             }
+
+            if (languageChanged)
+            {
+                LocalizationService.Instance.LoadLanguage(_settingsService.Settings.Language);
+                _originalSettings.Language = _settingsService.Settings.Language;
+            }
         }
 
         private void Window_MouseDown(object sender, MouseButtonEventArgs e)
@@ -1673,6 +1709,7 @@ namespace WinVClip
                 PanelStorage.Visibility = Visibility.Collapsed;
                 PanelSearch.Visibility = Visibility.Collapsed;
                 PanelSystem.Visibility = Visibility.Collapsed;
+                PanelAbout.Visibility = Visibility.Collapsed;
 
                 // 显示选中的面板
                 switch (tag)
@@ -1695,7 +1732,72 @@ namespace WinVClip
                     case "System":
                         PanelSystem.Visibility = Visibility.Visible;
                         break;
+                    case "About":
+                        PanelAbout.Visibility = Visibility.Visible;
+                        break;
                 }
+            }
+        }
+
+        private void ClearBeforeDaysSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (ClearBeforeDaysValueText != null)
+            {
+                ClearBeforeDaysValueText.Text = ((int)e.NewValue).ToString();
+            }
+        }
+
+        private void ClearAllHistory_Click(object sender, RoutedEventArgs e)
+        {
+            var result = MessageBox.Show(
+                Loc.Get("MainWindow.Message.ConfirmClearAll", "确定要清空所有剪贴板历史记录吗？\n\n此操作将删除所有记录（包括已分组的记录）。"),
+                Loc.Get("Message.Confirm", "确认"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                App.DatabaseService.ClearHistory();
+                App.GetMainWindow()?.ViewModel?.LoadItems();
+                MessageBox.Show(Loc.Get("Message.ClearSuccess", "清理成功"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+        private void ClearUngroupedHistory_Click(object sender, RoutedEventArgs e)
+        {
+            var result = MessageBox.Show(
+                Loc.Get("MainWindow.Message.ConfirmClearUngrouped", "确定要清空所有未分组的剪贴板历史记录吗？\n\n已分组的记录将保留。"),
+                Loc.Get("Message.Confirm", "确认"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                App.DatabaseService.ClearUngroupedHistory();
+                App.GetMainWindow()?.ViewModel?.LoadItems();
+                MessageBox.Show(Loc.Get("Message.ClearSuccess", "清理成功"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+        private void ClearBeforeDays_Click(object sender, RoutedEventArgs e)
+        {
+            var days = (int)ClearBeforeDaysSlider.Value;
+            var cutoffDate = DateTime.Now.AddDays(-days);
+            var confirmMsg = string.Format(
+                Loc.Get("Settings.History.ClearBeforeDaysConfirm", "确定要清空 {0} 天之前的未分组历史记录吗？\n\n已分组的记录将保留。"),
+                days);
+
+            var result = MessageBox.Show(
+                confirmMsg,
+                Loc.Get("Message.Confirm", "确认"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                App.DatabaseService.DeleteOldItems(cutoffDate);
+                App.GetMainWindow()?.ViewModel?.LoadItems();
+                MessageBox.Show(Loc.Get("Message.ClearSuccess", "清理成功"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
@@ -1717,6 +1819,8 @@ namespace WinVClip
                 _settingsService.Settings.Theme = "Auto";
                 _settingsService.Settings.SelectedSearchEngineId = "bing";
                 _settingsService.Settings.CustomSearchEngineUrl = "";
+                _settingsService.Settings.FontSize = 14;
+                _settingsService.Settings.ShowHotkeyTipOnStartup = true;
                 
                 if (StartWithWindowsCheckBox != null)
                 {

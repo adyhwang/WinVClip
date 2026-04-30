@@ -71,7 +71,7 @@
         </Style>
     </Window.Resources>
 
-    <Border Background="{DynamicResource WindowBackground}"
+    <Border x:Name="ContentContainer" Background="{DynamicResource WindowBackground}"
             BorderBrush="{DynamicResource BorderBrush}"
             BorderThickness="1"
             CornerRadius="8"

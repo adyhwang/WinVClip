@@ -240,7 +240,7 @@ namespace WinVClip
             return false;
         }
 
-        private static string TrimQuotes(string text)
+        public static string TrimQuotes(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
                 return text;
@@ -917,6 +917,7 @@ namespace WinVClip
             InitializeComponent();
             
             ApplyLocalization();
+            ApplyFontSize();
             LoadCharacterData();
             LoadEmojiData();
             _viewModel.LoadGroups();
@@ -927,6 +928,7 @@ namespace WinVClip
             SourceInitialized += MainWindow_SourceInitialized;
             _settingsService.SettingsChanged += OnSettingsChanged;
             _viewModel.ItemAdded += OnItemAdded;
+            LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
         }
 
         private void ApplyLocalization()
@@ -972,6 +974,13 @@ namespace WinVClip
             RefreshPanelLocalization(_emojiGroups, EmojiTabControl, _emojiGroupAnchors, "EmojiPanel");
         }
 
+        private void ApplyFontSize()
+        {
+            var fontSize = _settingsService.Settings.FontSize;
+            var scale = fontSize / 14.0;
+            ContentContainer.LayoutTransform = new ScaleTransform(scale, scale);
+        }
+
         private void OnItemAdded(object sender, EventArgs e)
         {
             // 新记录添加时，滚动到顶部
@@ -987,6 +996,12 @@ namespace WinVClip
         private void OnSettingsChanged()
         {
             _viewModel.OnPropertyChanged(nameof(MainViewModel.Hotkey));
+            ApplyFontSize();
+        }
+
+        private void OnLanguageChanged()
+        {
+            Dispatcher.Invoke(() => ApplyLocalization());
         }
 
         private void MainWindow_SourceInitialized(object sender, EventArgs e)

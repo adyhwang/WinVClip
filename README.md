@@ -48,6 +48,7 @@ WinVClip is a Windows clipboard manager developed with AI assistance, designed t
 | Feature | Description |
 |---------|-------------|
 | 🧹 **Auto Cleanup** | Set automatic cleanup of expired history records, supports custom retention days and item limits |
+| 🗑️ **Manual Cleanup** | Clear all history, clear ungrouped history, or clear records older than N days |
 | 💾 **Data Backup** | Automatic database backup, supports custom backup frequency and retention count |
 | 📍 **System Tray** | Minimizes to system tray, doesn't occupy taskbar space |
 | 🔒 **Data Persistence** | Uses SQLite database for storage, data is safe and reliable |
@@ -56,6 +57,10 @@ WinVClip is a Windows clipboard manager developed with AI assistance, designed t
 | 🏷️ **Type Filter** | Filter history records by content type (text/image/file/rich text) |
 | 🔗 **Quick Actions** | Right-click menu supports quick search, open files, visit links, and more |
 | 🔤 **Split Characters** | Split text into individual characters/words for selective insertion |
+| 😀 **Emoji Panel** | Built-in emoji panel with category browsing and quick insertion |
+| 🔣 **Character Panel** | Built-in special character panel for quick access to symbols and characters |
+| 🔠 **Font Size** | Adjustable interface font size (10-30), applies to main window and character picker instantly |
+| 🌐 **Multi-language** | Supports Chinese and English, language changes apply instantly without restart |
 
 ---
 
@@ -141,6 +146,8 @@ Build with Visual Studio:
 - **Hotkey**: Customize global hotkey
 - **Theme**: Light/Dark/Follow System
 - **Paste Method**: Auto select, Ctrl+V, Shift+Insert
+- **Language**: Chinese/English, changes apply instantly
+- **Font Size**: Adjustable from 10 to 30, applies instantly to main window and character picker
 
 #### Capture Settings
 - **Monitor Switch**: Enable/disable clipboard monitoring
@@ -149,6 +156,7 @@ Build with Visual Studio:
 #### History Records
 - **Deduplication**: Enable/disable duplicate content filtering
 - **Auto Cleanup**: Set retention days and maximum item count
+- **Manual Cleanup**: Clear all history, clear ungrouped history, or clear records older than N days
 
 #### Storage & Backup
 - **Database Location**: View or change database path
@@ -201,7 +209,8 @@ WinVClip/
 │   ├── KeyboardService.cs      # Keyboard simulation service
 │   ├── WindowStateService.cs   # Window state management
 │   ├── BackupService.cs        # Data backup service
-│   └── CleanupService.cs       # Auto cleanup service
+│   ├── CleanupService.cs       # Auto cleanup service
+│   └── LocalizationService.cs  # Multi-language localization service
 │
 ├── Windows/                     # Window layer
 │   ├── MainWindow.xaml         # Main window

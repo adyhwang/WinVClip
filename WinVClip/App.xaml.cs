@@ -135,7 +135,7 @@ namespace WinVClip
                     Loc.Get("App.HotkeyRegisterFailed"),
                     Loc.Get("App.HotkeyRegisterFailedMessage"));
             }
-            else
+            else if (_settingsService.Settings.ShowHotkeyTipOnStartup)
             {
                 _trayService.ShowNotification(
                     Loc.Get("App.Started"),

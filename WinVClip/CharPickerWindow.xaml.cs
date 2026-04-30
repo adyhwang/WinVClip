@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -38,6 +37,7 @@ namespace WinVClip
             Loaded += (_, _) =>
             {
                 ApplyLocalization();
+                ApplyFontSize();
                 InitializeCharElements();
             };
             Unloaded += (_, _) => ThemeService.Instance.ThemeChanged -= OnThemeChanged;
@@ -53,6 +53,17 @@ namespace WinVClip
                     UpdateElementStyle(element, _selectedIndices.Contains(index));
                 }
             });
+        }
+
+        private void ApplyFontSize()
+        {
+            var settingsService = App.SettingsService;
+            if (settingsService != null)
+            {
+                var fontSize = settingsService.Settings.FontSize;
+                var scale = fontSize / 14.0;
+                ContentContainer.LayoutTransform = new ScaleTransform(scale, scale);
+            }
         }
 
         private void ApplyLocalization()
@@ -112,45 +123,307 @@ namespace WinVClip
             var result = new List<string>();
             if (string.IsNullOrEmpty(text)) return result;
 
-            var normalizedText = Regex.Replace(text, @"[\s\u3000]+", " ");
+            var elements = new List<string>();
+            var enumerator = System.Globalization.StringInfo.GetTextElementEnumerator(text);
+            while (enumerator.MoveNext())
+                elements.Add(enumerator.GetTextElement());
+
             int i = 0;
-            while (i < normalizedText.Length)
+            while (i < elements.Count)
             {
-                char c = normalizedText[i];
-                if (c == ' ')
+                string elem = elements[i];
+
+                if (IsLineBreak(elem))
+                {
+                    result.Add("↵");
+                    i++;
+                }
+                else if (IsWhitespace(elem))
                 {
                     result.Add(" ");
+                    while (i + 1 < elements.Count && IsWhitespace(elements[i + 1]) && !IsLineBreak(elements[i + 1]))
+                        i++;
                     i++;
                 }
-                else if (IsChineseChar(c))
+                else if (IsEmojiBase(elem))
                 {
-                    result.Add(c.ToString());
+                    result.Add(CollectEmojiSequence(elements, ref i));
+                }
+                else if (IsCJKChar(elem))
+                {
+                    result.Add(elem);
                     i++;
                 }
-                else if (IsAsciiLetter(c))
+                else if (IsJapaneseKana(elem))
                 {
-                    int start = i;
-                    while (i < normalizedText.Length && IsAsciiLetter(normalizedText[i])) i++;
-                    result.Add(normalizedText.Substring(start, i - start));
+                    result.Add(elem);
+                    i++;
                 }
-                else if (char.IsDigit(c))
+                else if (IsKoreanSyllable(elem))
                 {
-                    int start = i;
-                    while (i < normalizedText.Length && char.IsDigit(normalizedText[i])) i++;
-                    result.Add(normalizedText.Substring(start, i - start));
+                    result.Add(elem);
+                    i++;
+                }
+                else if (IsLetter(elem))
+                {
+                    var words = SplitPascalCase(elements, ref i);
+                    result.AddRange(words);
+                }
+                else if (IsDigit(elem))
+                {
+                    var start = i;
+                    while (i < elements.Count && IsDigit(elements[i])) i++;
+                    result.Add(string.Join("", elements.Skip(start).Take(i - start)));
                 }
                 else
                 {
-                    result.Add(c.ToString());
+                    result.Add(elem);
                     i++;
                 }
             }
             return result;
         }
 
-        private static bool IsChineseChar(char c) => c >= '\u4e00' && c <= '\u9fff' || c >= '\u3400' && c <= '\u4dbf';
+        private static List<string> SplitPascalCase(List<string> elements, ref int index)
+        {
+            var result = new List<string>();
+            var currentWord = new List<string>();
 
-        private static bool IsAsciiLetter(char c) => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+            while (index < elements.Count && IsLetter(elements[index]))
+            {
+                string elem = elements[index];
+                bool isUpper = IsUpperCase(elem);
+                bool nextIsLower = index + 1 < elements.Count && IsLetter(elements[index + 1]) && IsLowerCase(elements[index + 1]);
+
+                if (currentWord.Count > 0 && isUpper && nextIsLower)
+                {
+                    result.Add(string.Join("", currentWord));
+                    currentWord.Clear();
+                }
+                else if (currentWord.Count > 0 && isUpper && !nextIsLower && HasLowerCase(currentWord))
+                {
+                    result.Add(string.Join("", currentWord));
+                    currentWord.Clear();
+                }
+
+                currentWord.Add(elem);
+                index++;
+            }
+
+            if (currentWord.Count > 0)
+                result.Add(string.Join("", currentWord));
+
+            return result;
+        }
+
+        private static bool HasLowerCase(List<string> chars)
+        {
+            return chars.Any(c => IsLowerCase(c));
+        }
+
+        private static bool IsUpperCase(string s)
+        {
+            if (s.Length != 1) return false;
+            char c = s[0];
+            return (c >= 'A' && c <= 'Z') || (c >= 'Ａ' && c <= 'Ｚ');
+        }
+
+        private static bool IsLowerCase(string s)
+        {
+            if (s.Length != 1) return false;
+            char c = s[0];
+            return (c >= 'a' && c <= 'z') || (c >= 'ａ' && c <= 'ｚ');
+        }
+
+        private static bool IsLineBreak(string s)
+        {
+            if (s.Length != 1) return false;
+            char c = s[0];
+            return c == '\n' || c == '\r' || c == '\u2028' || c == '\u2029';
+        }
+
+        private static bool IsWhitespace(string s)
+        {
+            if (s.Length != 1) return false;
+            char c = s[0];
+            return char.IsWhiteSpace(c) || c == '\u3000';
+        }
+
+        private static bool IsCJKChar(string s)
+        {
+            if (s.Length == 1)
+            {
+                uint c = s[0];
+                return (c >= 0x4E00 && c <= 0x9FFF)
+                    || (c >= 0x3400 && c <= 0x4DBF)
+                    || (c >= 0xF900 && c <= 0xFAFF)
+                    || (c >= 0x2E80 && c <= 0x2EFF)
+                    || (c >= 0x2F00 && c <= 0x2FDF)
+                    || (c >= 0x3000 && c <= 0x303F)
+                    || (c >= 0x31C0 && c <= 0x31EF)
+                    || (c >= 0x3200 && c <= 0x32FF)
+                    || (c >= 0x3300 && c <= 0x33FF)
+                    || (c >= 0xFE30 && c <= 0xFE4F)
+                    || (c >= 0xFF00 && c <= 0xFFEF);
+            }
+            if (s.Length == 2 && char.IsHighSurrogate(s[0]))
+            {
+                uint codePoint = (uint)char.ConvertToUtf32(s[0], s[1]);
+                return (codePoint >= 0x20000 && codePoint <= 0x2A6DF)
+                    || (codePoint >= 0x2A700 && codePoint <= 0x2B73F)
+                    || (codePoint >= 0x2B740 && codePoint <= 0x2B81F)
+                    || (codePoint >= 0x2B820 && codePoint <= 0x2CEAF)
+                    || (codePoint >= 0x2CEB0 && codePoint <= 0x2EBEF)
+                    || (codePoint >= 0x2F800 && codePoint <= 0x2FA1F)
+                    || (codePoint >= 0x30000 && codePoint <= 0x3134F);
+            }
+            return false;
+        }
+
+        private static bool IsJapaneseKana(string s)
+        {
+            if (s.Length != 1) return false;
+            uint c = s[0];
+            return (c >= 0x3040 && c <= 0x309F)
+                || (c >= 0x30A0 && c <= 0x30FF)
+                || (c >= 0x31F0 && c <= 0x31FF)
+                || (c >= 0xFF65 && c <= 0xFF9F);
+        }
+
+        private static bool IsKoreanSyllable(string s)
+        {
+            if (s.Length != 1) return false;
+            uint c = s[0];
+            return (c >= 0xAC00 && c <= 0xD7AF)
+                || (c >= 0x1100 && c <= 0x11FF)
+                || (c >= 0x3130 && c <= 0x318F);
+        }
+
+        private static bool IsLetter(string s)
+        {
+            if (s.Length != 1) return false;
+            char c = s[0];
+            return (c >= 'a' && c <= 'z')
+                || (c >= 'A' && c <= 'Z')
+                || (c >= 'ａ' && c <= 'ｚ')
+                || (c >= 'Ａ' && c <= 'Ｚ');
+        }
+
+        private static bool IsDigit(string s)
+        {
+            if (s.Length != 1) return false;
+            char c = s[0];
+            return (c >= '0' && c <= '9')
+                || (c >= '０' && c <= '９');
+        }
+
+        private static bool IsEmojiBase(string s)
+        {
+            if (s.Length == 1)
+            {
+                uint c = s[0];
+                return (c >= 0x1F600 && c <= 0x1F64F)
+                    || (c >= 0x1F300 && c <= 0x1F5FF)
+                    || (c >= 0x1F680 && c <= 0x1F6FF)
+                    || (c >= 0x1F1E6 && c <= 0x1F1FF)
+                    || (c >= 0x1F900 && c <= 0x1F9FF)
+                    || (c >= 0x1FA00 && c <= 0x1FA6F)
+                    || (c >= 0x1FA70 && c <= 0x1FAFF)
+                    || (c >= 0x2600 && c <= 0x26FF)
+                    || (c >= 0x2700 && c <= 0x27BF)
+                    || (c >= 0x2300 && c <= 0x23FF)
+                    || (c >= 0x2B50 && c <= 0x2B55)
+                    || (c >= 0x203C && c <= 0x3299)
+                    || c == 0x00A9 || c == 0x00AE
+                    || c == 0x2122 || c == 0x3030
+                    || c == 0x303D || c == 0x3297
+                    || c == 0xFE0F;
+            }
+            if (s.Length == 2 && char.IsHighSurrogate(s[0]))
+            {
+                uint cp = (uint)char.ConvertToUtf32(s[0], s[1]);
+                return (cp >= 0x1F000 && cp <= 0x1F02F)
+                    || (cp >= 0x1F0A0 && cp <= 0x1F0FF)
+                    || (cp >= 0x1F100 && cp <= 0x1F1FF)
+                    || (cp >= 0x1F600 && cp <= 0x1F64F)
+                    || (cp >= 0x1F300 && cp <= 0x1F5FF)
+                    || (cp >= 0x1F680 && cp <= 0x1F6FF)
+                    || (cp >= 0x1F900 && cp <= 0x1F9FF)
+                    || (cp >= 0x1FA00 && cp <= 0x1FA6F)
+                    || (cp >= 0x1FA70 && cp <= 0x1FAFF)
+                    || (cp >= 0x1FC00 && cp <= 0x1FCFF)
+                    || (cp >= 0x27000 && cp <= 0x27BFF);
+            }
+            return false;
+        }
+
+        private static bool IsEmojiComponent(string s)
+        {
+            if (s.Length == 1)
+            {
+                uint c = s[0];
+                return c == 0x200D  // ZWJ
+                    || c == 0xFE0F  // VS16
+                    || c == 0xFE0E  // VS15
+                    || c == 0x20E3  // combining enclosing keycap
+                    || (c >= 0x1F3FB && c <= 0x1F3FF)  // skin tone
+                    || (c >= 0xE0020 && c <= 0xE007F);  // tag
+            }
+            if (s.Length == 2 && char.IsHighSurrogate(s[0]))
+            {
+                uint cp = (uint)char.ConvertToUtf32(s[0], s[1]);
+                return (cp >= 0x1F3FB && cp <= 0x1F3FF);
+            }
+            return false;
+        }
+
+        private static bool IsRegionalIndicator(string s)
+        {
+            if (s.Length != 1) return false;
+            return s[0] >= 0x1F1E6 && s[0] <= 0x1F1FF;
+        }
+
+        private static string CollectEmojiSequence(List<string> elements, ref int index)
+        {
+            var sequence = new List<string> { elements[index] };
+            index++;
+
+            // Flag sequence: Regional Indicator pair
+            if (IsRegionalIndicator(sequence[0]) && index < elements.Count && IsRegionalIndicator(elements[index]))
+            {
+                sequence.Add(elements[index]);
+                index++;
+                return string.Join("", sequence);
+            }
+
+            // ZWJ sequence, modifier sequence, keycap sequence
+            while (index < elements.Count)
+            {
+                string next = elements[index];
+
+                if (next == "\u200D") // ZWJ
+                {
+                    sequence.Add(next);
+                    index++;
+                    if (index < elements.Count && (IsEmojiBase(elements[index]) || IsEmojiComponent(elements[index])))
+                    {
+                        sequence.Add(elements[index]);
+                        index++;
+                    }
+                }
+                else if (IsEmojiComponent(next)) // VS16, skin tone, keycap, tag
+                {
+                    sequence.Add(next);
+                    index++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            return string.Join("", sequence);
+        }
 
         private Border CreateCharElement(string text, int index)
         {

@@ -22,6 +22,8 @@ namespace WinVClip.Models
         public string PasteShortcutMode { get; set; } = "Auto";
         public bool IsAdministratorRun { get; set; } = false;
         public string Language { get; set; } = "";
+        public int FontSize { get; set; } = 14;
+        public bool ShowHotkeyTipOnStartup { get; set; } = true;
         public DateTime? LastVacuumDate { get; set; } = null;
 
         [JsonIgnore]

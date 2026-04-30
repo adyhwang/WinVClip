@@ -87,6 +87,7 @@
     "Settings.Nav.Storage": "Storage & Backup",
     "Settings.Nav.Search": "Search Engine",
     "Settings.Nav.System": "System",
+    "Settings.Nav.About": "About",
     "Settings.Button.Reset": "Reset",
     "Settings.Button.Apply": "Apply",
     "Settings.Button.OK": "OK",
@@ -371,6 +372,20 @@
     "EmojiPanel.Group.Activities": "Activities",
     "EmojiPanel.Group.Objects": "Objects",
     "EmojiPanel.Group.Symbols": "Symbols",
-    "EmojiPanel.Group.Flags": "Flags"
+    "EmojiPanel.Group.Flags": "Flags",
+
+    "Settings.General.FontSize.Title": "Font Size",
+    "Settings.General.FontSize.Description": "Adjust interface font size (reopen windows to apply)",
+
+    "Settings.System.ShowHotkeyTip": "Show hotkey tip on startup",
+    "Settings.System.ShowHotkeyTipDescription": "Show hotkey info in tray notification on startup",
+
+    "Settings.History.ManualCleanup.Title": "Manual Cleanup",
+    "Settings.History.ClearAll": "Clear All History",
+    "Settings.History.ClearUngrouped": "Clear Ungrouped History",
+    "Settings.History.ClearBeforeDays": "Clear history older than specified days",
+    "Settings.History.ClearBeforeDaysHint": "Only ungrouped records will be deleted, grouped records will be preserved",
+    "Settings.History.ClearBeforeDaysConfirm": "Are you sure you want to clear ungrouped history older than {0} days?\n\nGrouped records will be preserved.",
+    "Settings.History.Execute": "Execute"
   }
 }
