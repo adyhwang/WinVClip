@@ -879,6 +879,7 @@ namespace WinVClip
 
         private DoubleAnimation _currentScrollAnimation;
         private bool _isAnimatingScroll = false;
+        private ScrollViewer _listBoxScrollViewer;
 
         private int _panelState = 0;
         private List<CharGroupData> _charGroups = new List<CharGroupData>();
@@ -907,6 +908,11 @@ namespace WinVClip
 
             DataContext = _viewModel;
             InitializeComponent();
+            
+            ClipboardListBox.Loaded += (s, e) =>
+            {
+                _listBoxScrollViewer = FindVisualChild<ScrollViewer>(ClipboardListBox);
+            };
             
             ApplyLocalization();
             ApplyFontSize();
@@ -1057,9 +1063,9 @@ namespace WinVClip
             if (_emojiPanelBuilt && EmojiTabControl.SelectedItem is TabItem emojiTab)
                 LoadGroupContent(_emojiGroups.FirstOrDefault(g => g.Id == emojiTab.Tag as string) ?? _emojiGroups.FirstOrDefault(), EmojiContentPanel, "EmojiPanel", true);
             
-            if (MainScrollViewer != null)
+            if (_listBoxScrollViewer != null)
             {
-                MainScrollViewer.ScrollToVerticalOffset(0);
+                _listBoxScrollViewer.ScrollToVerticalOffset(0);
             }
             
             // 设置全局鼠标钩子以检测外部点击
@@ -1331,9 +1337,9 @@ namespace WinVClip
             }
             catch { }
             
-            if (MainScrollViewer != null)
+            if (_listBoxScrollViewer != null)
             {
-                MainScrollViewer.ScrollToVerticalOffset(0);
+                _listBoxScrollViewer.ScrollToVerticalOffset(0);
             }
             
             RemoveGlobalMouseHook();
@@ -1669,17 +1675,15 @@ namespace WinVClip
             menu.Items.Add(item);
         }
 
-        private void MainScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        private void ListBox_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
             if (e.VerticalChange == 0)
                 return;
 
-            // 动画滚动期间不触发加载，避免重复加载
             if (_isAnimatingScroll)
                 return;
 
-            var scrollViewer = sender as ScrollViewer;
-            if (scrollViewer == null)
+            if (!(e.OriginalSource is ScrollViewer scrollViewer))
                 return;
 
             if (scrollViewer.ScrollableHeight <= 0)
@@ -1696,10 +1700,9 @@ namespace WinVClip
 
         private void ClipboardListBox_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
-            if (MainScrollViewer != null)
+            if (_listBoxScrollViewer != null)
             {
-                // 平滑滚动动画
-                double targetOffset = MainScrollViewer.VerticalOffset - e.Delta;
+                double targetOffset = _listBoxScrollViewer.VerticalOffset - e.Delta;
                 AnimateScrollTo(targetOffset);
                 e.Handled = true;
             }
@@ -1707,21 +1710,21 @@ namespace WinVClip
 
         private void AnimateScrollTo(double targetOffset)
         {
-            // 限制滚动范围
-            targetOffset = Math.Max(0, Math.Min(targetOffset, MainScrollViewer.ScrollableHeight));
+            if (_listBoxScrollViewer == null)
+                return;
 
-            // 取消之前的动画
+            targetOffset = Math.Max(0, Math.Min(targetOffset, _listBoxScrollViewer.ScrollableHeight));
+
             if (_currentScrollAnimation != null)
             {
-                MainScrollViewer.BeginAnimation(ScrollViewerBehavior.VerticalOffsetProperty, null);
+                _listBoxScrollViewer.BeginAnimation(ScrollViewerBehavior.VerticalOffsetProperty, null);
             }
 
             _isAnimatingScroll = true;
 
-            // 创建动画
             _currentScrollAnimation = new DoubleAnimation
             {
-                From = MainScrollViewer.VerticalOffset,
+                From = _listBoxScrollViewer.VerticalOffset,
                 To = targetOffset,
                 Duration = TimeSpan.FromMilliseconds(150),
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
@@ -1732,15 +1735,14 @@ namespace WinVClip
                 _isAnimatingScroll = false;
                 _currentScrollAnimation = null;
 
-                // 动画完成后检查是否需要加载更多
-                var distanceToBottom = MainScrollViewer.ScrollableHeight - MainScrollViewer.VerticalOffset;
+                var distanceToBottom = _listBoxScrollViewer.ScrollableHeight - _listBoxScrollViewer.VerticalOffset;
                 if (distanceToBottom <= 50 && _viewModel.HasMoreItems && !_viewModel.IsLoadingMore)
                 {
                     _ = _viewModel.LoadMoreItemsAsync();
                 }
             };
 
-            MainScrollViewer.BeginAnimation(ScrollViewerBehavior.VerticalOffsetProperty, _currentScrollAnimation);
+            _listBoxScrollViewer.BeginAnimation(ScrollViewerBehavior.VerticalOffsetProperty, _currentScrollAnimation);
         }
 
         private void ClipboardListBox_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -2948,6 +2950,20 @@ namespace WinVClip
         private void EmojiTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             PanelTabControl_SelectionChanged(EmojiTabControl, _emojiGroups, EmojiContentPanel, "EmojiPanel", true);
+        }
+
+        private static T FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is T result)
+                    return result;
+                var found = FindVisualChild<T>(child);
+                if (found != null)
+                    return found;
+            }
+            return null;
         }
     }
 }

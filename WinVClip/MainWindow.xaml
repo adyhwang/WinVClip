@@ -222,23 +222,15 @@
                         </TabControl.ItemTemplate>
                     </TabControl>
 
-                    <ScrollViewer x:Name="MainScrollViewer" Grid.Column="1"
-                              VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled"
-                              Margin="0,0,-8,0"
-                              PanningMode="VerticalOnly"
-                              ScrollChanged="MainScrollViewer_ScrollChanged">
-                    <ScrollViewer.Resources>
-                        <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBarStyle}"/>
-                    </ScrollViewer.Resources>
-
-                    <StackPanel>
+                    <Grid Grid.Column="1" Margin="0,0,-8,0">
                         <ListBox x:Name="ClipboardListBox"
                                  Background="Transparent" BorderThickness="0"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 ScrollViewer.CanContentScroll="True"
                                  VirtualizingPanel.IsVirtualizing="True"
                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                 VirtualizingPanel.ScrollUnit="Pixel"
                                  SelectionMode="Single"
                                  SelectedIndex="0"
                                  ItemContainerStyle="{DynamicResource ClipboardItemContainerStyle}"
@@ -248,7 +240,12 @@
                                  PreviewMouseLeftButtonUp="ClipboardListBox_PreviewMouseLeftButtonUp"
                                  PreviewMouseWheel="ClipboardListBox_PreviewMouseWheel"
                                  KeyDown="ClipboardListBox_KeyDown"
-                                 AllowDrop="True">
+                                 AllowDrop="True"
+                                 ScrollViewer.ScrollChanged="ListBox_ScrollChanged">
+
+                        <ListBox.Resources>
+                            <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBarStyle}"/>
+                        </ListBox.Resources>
 
                         <ListBox.ContextMenu>
                             <ContextMenu x:Name="ItemContextMenu" Style="{DynamicResource ContextMenuStyle}" Opened="ContextMenu_Opened">
@@ -463,8 +460,7 @@
                                    Margin="8,0,0,0"
                                    VerticalAlignment="Center"/>
                     </StackPanel>
-                </StackPanel>
-                </ScrollViewer>
+                    </Grid>
 
                     <!-- 空状态提示 -->
                     <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
