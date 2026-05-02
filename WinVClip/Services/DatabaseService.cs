@@ -22,7 +22,15 @@ namespace WinVClip.Services
             Directory.CreateDirectory(Path.GetDirectoryName(dbPath) ?? ".");
             _connection = new SqliteConnection($"Data Source={dbPath}");
             _connection.Open();
+            EnableWALMode();
             InitializeDatabase();
+        }
+
+        private void EnableWALMode()
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = "PRAGMA journal_mode=WAL;";
+            command.ExecuteNonQuery();
         }
 
         private void InitializeDatabase()
@@ -427,8 +435,6 @@ namespace WinVClip.Services
             command.CommandText = "DELETE FROM ClipboardItems WHERE Id = @Id";
             command.Parameters.AddWithValue("@Id", id);
             command.ExecuteNonQuery();
-            
-            VacuumDatabase();
         }
 
         private void DeleteImageFile(string? imagePath)
@@ -943,8 +949,6 @@ namespace WinVClip.Services
             command.CommandText = "DELETE FROM Groups WHERE Id = @Id";
             command.Parameters.AddWithValue("@Id", id);
             command.ExecuteNonQuery();
-            
-            VacuumDatabase();
         }
 
         public void UpdateItemGroup(long itemId, long? groupId)
@@ -1114,8 +1118,6 @@ namespace WinVClip.Services
                     using var deleteCommand = _connection.CreateCommand();
                     deleteCommand.CommandText = $"DELETE FROM ClipboardItems WHERE Id IN ({idsToDelete})";
                     deleteCommand.ExecuteNonQuery();
-
-                    VacuumDatabase();
                 }
             }
         }

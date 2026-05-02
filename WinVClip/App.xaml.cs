@@ -161,15 +161,16 @@ namespace WinVClip
 
             _mainWindow.Hide();
 
-            // 检查是否需要执行 Vacuum
-            CheckAndPerformPeriodicVacuum();
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                CheckAndPerformPeriodicVacuum();
 
-            // 设置定时器，每天检查一次是否需要执行 Vacuum
-            _vacuumTimer = new System.Threading.Timer(
-                callback: _ => CheckAndPerformPeriodicVacuum(),
-                state: null,
-                dueTime: TimeSpan.FromDays(1),
-                period: TimeSpan.FromDays(1));
+                _vacuumTimer = new System.Threading.Timer(
+                    callback: _ => CheckAndPerformPeriodicVacuum(),
+                    state: null,
+                    dueTime: TimeSpan.FromDays(1),
+                    period: TimeSpan.FromDays(1));
+            }), System.Windows.Threading.DispatcherPriority.Background, null);
 
             Current.Exit += (s, args) => CleanupResources();
         }

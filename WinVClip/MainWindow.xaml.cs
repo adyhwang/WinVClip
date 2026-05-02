@@ -86,20 +86,26 @@ namespace WinVClip
 
     public class ClipboardTypeToBackgroundConverter : BaseConverter
     {
+        private static readonly SolidColorBrush TextBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(107, 114, 128));
+        private static readonly SolidColorBrush ImageBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(16, 185, 129));
+        private static readonly SolidColorBrush FileListBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(245, 158, 11));
+        private static readonly SolidColorBrush RichTextBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(139, 92, 246));
+        private static readonly SolidColorBrush DefaultBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204));
+
         public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is ClipboardType type)
             {
                 return type switch
                 {
-                    ClipboardType.Text => new SolidColorBrush(System.Windows.Media.Color.FromRgb(107, 114, 128)),
-                    ClipboardType.Image => new SolidColorBrush(System.Windows.Media.Color.FromRgb(16, 185, 129)),
-                    ClipboardType.FileList => new SolidColorBrush(System.Windows.Media.Color.FromRgb(245, 158, 11)),
-                    ClipboardType.RichText => new SolidColorBrush(System.Windows.Media.Color.FromRgb(139, 92, 246)),
-                    _ => new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204))
+                    ClipboardType.Text => TextBrush,
+                    ClipboardType.Image => ImageBrush,
+                    ClipboardType.FileList => FileListBrush,
+                    ClipboardType.RichText => RichTextBrush,
+                    _ => DefaultBrush
                 };
             }
-            return new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204));
+            return DefaultBrush;
         }
     }
 
@@ -208,56 +214,10 @@ namespace WinVClip
             if (item.Type == ClipboardType.FileList && item.FilePaths?.Count > 0)
                 return Visibility.Visible;
 
-            if (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText)
-            {
-                string content = item.Content?.Trim() ?? "";
-                if (IsLocalPath(content))
-                    return Visibility.Visible;
-            }
+            if (item.IsLocalPath)
+                return Visibility.Visible;
 
             return Visibility.Collapsed;
-        }
-
-        private static bool IsLocalPath(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text))
-                return false;
-
-            try
-            {
-                string path = TrimQuotes(text);
-                
-                if (Path.IsPathRooted(path) || path.Contains(Path.DirectorySeparatorChar) || path.Contains(Path.AltDirectorySeparatorChar))
-                {
-                    if (File.Exists(path) || Directory.Exists(path))
-                        return true;
-                }
-            }
-            catch
-            {
-            }
-
-            return false;
-        }
-
-        public static string TrimQuotes(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text))
-                return text;
-
-            text = text.Trim();
-            
-            if (text.StartsWith("\"") && text.EndsWith("\""))
-            {
-                return text.Substring(1, text.Length - 2);
-            }
-            
-            if (text.StartsWith("'") && text.EndsWith("'"))
-            {
-                return text.Substring(1, text.Length - 2);
-            }
-            
-            return text;
         }
     }
 
@@ -283,6 +243,8 @@ namespace WinVClip
 
     public class TypeFilterToBackgroundConverter : BaseConverter
     {
+        private static readonly SolidColorBrush ActiveFilterBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204));
+
         public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (int.TryParse(parameter?.ToString(), out int targetTypeValue))
@@ -298,7 +260,7 @@ namespace WinVClip
                 };
                 
                 if (isActive)
-                    return new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204));
+                    return ActiveFilterBrush;
             }
             return Application.Current.FindResource("ItemBackground");
         }
@@ -454,8 +416,12 @@ namespace WinVClip
 
         private static string GetFileCountSuffix(List<string> filePaths)
         {
-            var folderCount = filePaths.Count(p => Directory.Exists(p));
-            var fileCount = filePaths.Count - folderCount;
+            int folderCount = 0, fileCount = 0;
+            foreach (var p in filePaths)
+            {
+                if (Directory.Exists(p)) folderCount++;
+                else fileCount++;
+            }
             
             return folderCount > 0 && fileCount > 0
                 ? string.Format(Loc.Get("Preview.FilesAndFolders", "……(共{0}个文件、{1}个目录)"), fileCount, folderCount)
@@ -467,7 +433,9 @@ namespace WinVClip
 
     public class ImageCache
     {
+        private static readonly int MaxCacheSize = 50;
         private static readonly Dictionary<string, BitmapImage> _cache = new Dictionary<string, BitmapImage>();
+        private static readonly LinkedList<string> _lruList = new LinkedList<string>();
         private static readonly object _lock = new object();
 
         public static BitmapImage GetImage(string imagePath)
@@ -480,7 +448,11 @@ namespace WinVClip
             lock (_lock)
             {
                 if (_cache.TryGetValue(fullPath, out var cachedImage))
+                {
+                    _lruList.Remove(fullPath);
+                    _lruList.AddFirst(fullPath);
                     return cachedImage;
+                }
 
                 try
                 {
@@ -490,11 +462,19 @@ namespace WinVClip
                         image.BeginInit();
                         image.UriSource = new Uri(fullPath);
                         image.CacheOption = BitmapCacheOption.OnLoad;
-                        image.DecodePixelWidth = 500; // 限制解码尺寸，提高性能
+                        image.DecodePixelWidth = 500;
                         image.EndInit();
-                        image.Freeze(); // 允许跨线程访问
+                        image.Freeze();
+
+                        while (_cache.Count >= MaxCacheSize && _lruList.Count > 0)
+                        {
+                            var oldest = _lruList.Last.Value;
+                            _lruList.RemoveLast();
+                            _cache.Remove(oldest);
+                        }
 
                         _cache[fullPath] = image;
+                        _lruList.AddFirst(fullPath);
                         return image;
                     }
                 }
@@ -511,6 +491,7 @@ namespace WinVClip
             lock (_lock)
             {
                 _cache.Clear();
+                _lruList.Clear();
             }
         }
     }
@@ -533,7 +514,7 @@ namespace WinVClip
         private readonly SettingsService _settingsService;
         private readonly System.Timers.Timer _searchDelayTimer;
 
-        public ObservableCollection<ClipboardItem> ClipboardItems { get; } = new ObservableCollection<ClipboardItem>();
+        public RangeObservableCollection<ClipboardItem> ClipboardItems { get; } = new RangeObservableCollection<ClipboardItem>();
 
         public string Hotkey => _settingsService.Settings.Hotkey;
         
@@ -741,12 +722,11 @@ namespace WinVClip
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    ClipboardItems.Clear();
                     foreach (var item in newItems)
                     {
                         item.IsSelected = SelectedItemIds.Contains(item.Id);
-                        ClipboardItems.Add(item);
                     }
+                    ClipboardItems.ReplaceAll(newItems);
                     OnPropertyChanged(nameof(HasItems));
                     OnPropertyChanged(nameof(IsEmpty));
                 });
@@ -790,8 +770,8 @@ namespace WinVClip
                     foreach (var item in newItems)
                     {
                         item.IsSelected = SelectedItemIds.Contains(item.Id);
-                        ClipboardItems.Add(item);
                     }
+                    ClipboardItems.AddRange(newItems);
                 });
             }
             catch (Exception)
@@ -815,6 +795,18 @@ namespace WinVClip
                 _currentOffset = CacheSize;
                 HasMoreItems = true;
             }
+        }
+
+        public void ReleaseMemory()
+        {
+            foreach (var item in ClipboardItems)
+            {
+                item.ReleaseMemory();
+            }
+            ClipboardItems.Clear();
+            _currentOffset = 0;
+            HasMoreItems = true;
+            SelectedItemIds.Clear();
         }
 
         public void LoadItems()
@@ -890,9 +882,9 @@ namespace WinVClip
 
         private int _panelState = 0;
         private List<CharGroupData> _charGroups = new List<CharGroupData>();
-        private Dictionary<string, FrameworkElement> _charGroupAnchors = new Dictionary<string, FrameworkElement>();
         private List<CharGroupData> _emojiGroups = new List<CharGroupData>();
-        private Dictionary<string, FrameworkElement> _emojiGroupAnchors = new Dictionary<string, FrameworkElement>();
+        private bool _charPanelBuilt = false;
+        private bool _emojiPanelBuilt = false;
 
         public bool IsPanelActive
         {
@@ -918,8 +910,8 @@ namespace WinVClip
             
             ApplyLocalization();
             ApplyFontSize();
-            LoadCharacterData();
-            LoadEmojiData();
+            _charGroups = LoadPanelDataRaw("Characters", "characters.json", "WinVClip.Resources.Characters.characters.json") ?? new List<CharGroupData>();
+            _emojiGroups = LoadPanelDataRaw("Emoji", "emoji.json", "WinVClip.Resources.Emoji.emoji.json") ?? new List<CharGroupData>();
             _viewModel.LoadGroups();
 
             _savedLeft = Left;
@@ -970,8 +962,8 @@ namespace WinVClip
             MenuClearUngroupedHistory.Header = Loc.Get("MainWindow.ContextMenu.ClearUngroupedHistory", "清空所有未分组记录");
 
             PanelToggleButton.ToolTip = Loc.Get("Panel.ToolTip.Toggle", "字符/表情面板");
-            RefreshPanelLocalization(_charGroups, CharTabControl, _charGroupAnchors, "CharPanel");
-            RefreshPanelLocalization(_emojiGroups, EmojiTabControl, _emojiGroupAnchors, "EmojiPanel");
+            RefreshPanelLocalization(_charGroups, CharTabControl, "CharPanel");
+            RefreshPanelLocalization(_emojiGroups, EmojiTabControl, "EmojiPanel");
         }
 
         private void ApplyFontSize()
@@ -1059,6 +1051,11 @@ namespace WinVClip
             
             _viewModel.LoadItems();
             ClipboardListBox.SelectedIndex = 0;
+            
+            if (_charPanelBuilt && CharTabControl.SelectedItem is TabItem charTab)
+                LoadGroupContent(_charGroups.FirstOrDefault(g => g.Id == charTab.Tag as string) ?? _charGroups.FirstOrDefault(), CharContentPanel, "CharPanel", false);
+            if (_emojiPanelBuilt && EmojiTabControl.SelectedItem is TabItem emojiTab)
+                LoadGroupContent(_emojiGroups.FirstOrDefault(g => g.Id == emojiTab.Tag as string) ?? _emojiGroups.FirstOrDefault(), EmojiContentPanel, "EmojiPanel", true);
             
             if (MainScrollViewer != null)
             {
@@ -1240,6 +1237,9 @@ namespace WinVClip
         [DllImport("kernel32.dll")]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
 
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool SetProcessWorkingSetSize(IntPtr proc, IntPtr min, IntPtr max);
+
         // 窗口样式常量
         private const int GWL_EXSTYLE = -20;
         private const int WS_EX_NOACTIVATE = 0x08000000;
@@ -1309,7 +1309,27 @@ namespace WinVClip
             Hide();
             _isVisible = false;
             
-            _viewModel.TrimCache();
+            HideCustomTooltip();
+            _tooltipTimer?.Stop();
+            
+            _viewModel.ReleaseMemory();
+            ImageCache.Clear();
+            
+            if (_charPanelBuilt)
+                CharContentPanel.Children.Clear();
+            if (_emojiPanelBuilt)
+                EmojiContentPanel.Children.Clear();
+            
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true);
+            GC.WaitForPendingFinalizers();
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true);
+            
+            try
+            {
+                using var proc = System.Diagnostics.Process.GetCurrentProcess();
+                SetProcessWorkingSetSize(proc.Handle, (IntPtr)(-1), (IntPtr)(-1));
+            }
+            catch { }
             
             if (MainScrollViewer != null)
             {
@@ -2608,20 +2628,25 @@ namespace WinVClip
                 _currentTooltipItem = item;
                 _currentTooltipBorder = border;
 
-                _tooltipTimer?.Stop();
-                _tooltipTimer = new System.Windows.Threading.DispatcherTimer
+                if (_tooltipTimer == null)
                 {
-                    Interval = TimeSpan.FromMilliseconds(500)
-                };
-                _tooltipTimer.Tick += (s, args) =>
-                {
-                    _tooltipTimer.Stop();
-                    if (_currentTooltipItem == item && border.IsMouseOver)
+                    _tooltipTimer = new System.Windows.Threading.DispatcherTimer
                     {
-                        ShowCustomTooltip(border, item);
-                    }
-                };
+                        Interval = TimeSpan.FromMilliseconds(500)
+                    };
+                    _tooltipTimer.Tick += OnTooltipTimerTick;
+                }
+                _tooltipTimer.Stop();
                 _tooltipTimer.Start();
+            }
+        }
+
+        private void OnTooltipTimerTick(object sender, EventArgs e)
+        {
+            _tooltipTimer.Stop();
+            if (_currentTooltipItem != null && _currentTooltipBorder != null && _currentTooltipBorder.IsMouseOver)
+            {
+                ShowCustomTooltip(_currentTooltipBorder, _currentTooltipItem);
             }
         }
 
@@ -2690,12 +2715,14 @@ namespace WinVClip
                     CharPanel.Visibility = Visibility.Visible;
                     EmojiPanel.Visibility = Visibility.Collapsed;
                     PanelToggleButton.Content = "🔣";
+                    LoadCharacterData();
                     break;
                 case 2:
                     ClipboardPanel.Visibility = Visibility.Collapsed;
                     CharPanel.Visibility = Visibility.Collapsed;
                     EmojiPanel.Visibility = Visibility.Visible;
                     PanelToggleButton.Content = "😀";
+                    LoadEmojiData();
                     break;
             }
             OnPropertyChanged(nameof(IsPanelActive));
@@ -2703,21 +2730,19 @@ namespace WinVClip
 
         private void LoadCharacterData()
         {
-            var groups = LoadPanelData("Characters", "characters.json", "WinVClip.Resources.Characters.characters.json");
-            if (groups == null) return;
-            _charGroups = groups;
-            BuildPanel(_charGroups, CharTabControl, CharContentPanel, _charGroupAnchors, "CharPanel", false);
+            if (_charPanelBuilt) return;
+            _charPanelBuilt = true;
+            BuildPanel(_charGroups, CharTabControl, CharContentPanel, "CharPanel", false);
         }
 
         private void LoadEmojiData()
         {
-            var groups = LoadPanelData("Emoji", "emoji.json", "WinVClip.Resources.Emoji.emoji.json");
-            if (groups == null) return;
-            _emojiGroups = groups;
-            BuildPanel(_emojiGroups, EmojiTabControl, EmojiContentPanel, _emojiGroupAnchors, "EmojiPanel", true);
+            if (_emojiPanelBuilt) return;
+            _emojiPanelBuilt = true;
+            BuildPanel(_emojiGroups, EmojiTabControl, EmojiContentPanel, "EmojiPanel", true);
         }
 
-        private List<CharGroupData> LoadPanelData(string subDir, string fileName, string embeddedResourceName)
+        private List<CharGroupData> LoadPanelDataRaw(string subDir, string fileName, string embeddedResourceName)
         {
             try
             {
@@ -2750,11 +2775,10 @@ namespace WinVClip
         }
 
         private void BuildPanel(List<CharGroupData> groups, TabControl tabControl, StackPanel contentPanel,
-            Dictionary<string, FrameworkElement> anchors, string locPrefix, bool isEmoji)
+            string locPrefix, bool isEmoji)
         {
             tabControl.Items.Clear();
             contentPanel.Children.Clear();
-            anchors.Clear();
 
             var isZh = Loc.CurrentLanguageCode.StartsWith("zh");
 
@@ -2776,69 +2800,80 @@ namespace WinVClip
                     Tag = group.Id
                 };
                 tabControl.Items.Add(tabItem);
-
-                var groupBorder = new Border
-                {
-                    Tag = group.Id,
-                    Margin = new Thickness(0, 0, 0, 8)
-                };
-                anchors[group.Id] = groupBorder;
-
-                var groupStack = new StackPanel();
-
-                var headerText = new TextBlock
-                {
-                    Text = displayName,
-                    FontSize = 12,
-                    FontWeight = FontWeights.Bold,
-                    Foreground = (System.Windows.Media.Brush)FindResource("SecondaryTextForeground"),
-                    Margin = new Thickness(4, 4, 4, 4)
-                };
-                groupStack.Children.Add(headerText);
-
-                var wrapPanel = new WrapPanel
-                {
-                    Margin = new Thickness(2, 0, 2, 0)
-                };
-
-                foreach (var ch in group.Chars)
-                {
-                    var btn = new Button
-                    {
-                        Tag = ch,
-                        Cursor = Cursors.Hand,
-                        Style = (Style)FindResource("CharButtonStyle"),
-                        Margin = new Thickness(1)
-                    };
-
-                    if (isEmoji)
-                    {
-                        btn.Content = new Emoji.Wpf.TextBlock { Text = ch, FontSize = 18, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-                        btn.Width = 36;
-                        btn.Height = 36;
-                        btn.ToolTip = new Emoji.Wpf.TextBlock { Text = ch, FontSize = 54, TextAlignment = TextAlignment.Center };
-                    }
-                    else
-                    {
-                        btn.Content = ch;
-                        btn.Width = 32;
-                        btn.Height = 32;
-                        btn.FontSize = 14;
-                        btn.ToolTip = new TextBlock { Text = ch, FontSize = 42, TextAlignment = TextAlignment.Center };
-                    }
-
-                    btn.Click += CharButton_Click;
-                    wrapPanel.Children.Add(btn);
-                }
-
-                groupStack.Children.Add(wrapPanel);
-                groupBorder.Child = groupStack;
-                contentPanel.Children.Add(groupBorder);
             }
+
+            if (tabControl.Items.Count > 0)
+                tabControl.SelectedIndex = 0;
         }
 
-        private void RefreshPanelLocalization(List<CharGroupData> groups, TabControl tabControl,
-            Dictionary<string, FrameworkElement> anchors, string locPrefix)
+        private void LoadGroupContent(CharGroupData group, StackPanel contentPanel, string locPrefix, bool isEmoji)
+        {
+            contentPanel.Children.Clear();
+
+            var isZh = Loc.CurrentLanguageCode.StartsWith("zh");
+            var groupName = isZh ? group.NameZh : group.NameEn;
+            var locKey = $"{locPrefix}.Group.{GroupIdToLocalKey(group.Id)}";
+            var displayName = Loc.Get(locKey, groupName);
+
+            var groupBorder = new Border
+            {
+                Tag = group.Id,
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+
+            var groupStack = new StackPanel();
+
+            var headerText = new TextBlock
+            {
+                Text = displayName,
+                FontSize = 12,
+                FontWeight = FontWeights.Bold,
+                Foreground = (System.Windows.Media.Brush)FindResource("SecondaryTextForeground"),
+                Margin = new Thickness(4, 4, 4, 4)
+            };
+            groupStack.Children.Add(headerText);
+
+            var wrapPanel = new WrapPanel
+            {
+                Margin = new Thickness(2, 0, 2, 0)
+            };
+
+            foreach (var ch in group.Chars)
+            {
+                var btn = new Button
+                {
+                    Tag = ch,
+                    Cursor = Cursors.Hand,
+                    Style = (Style)FindResource("CharButtonStyle"),
+                    Margin = new Thickness(1)
+                };
+
+                if (isEmoji)
+                {
+                    btn.Content = new Emoji.Wpf.TextBlock { Text = ch, FontSize = 18, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                    btn.Width = 36;
+                    btn.Height = 36;
+                    btn.ToolTip = new Emoji.Wpf.TextBlock { Text = ch, FontSize = 54, TextAlignment = TextAlignment.Center };
+                }
+                else
+                {
+                    btn.Content = ch;
+                    btn.Width = 32;
+                    btn.Height = 32;
+                    btn.FontSize = 14;
+                    btn.ToolTip = new TextBlock { Text = ch, FontSize = 42, TextAlignment = TextAlignment.Center };
+                }
+
+                btn.Click += CharButton_Click;
+                wrapPanel.Children.Add(btn);
+            }
+
+            groupStack.Children.Add(wrapPanel);
+            groupBorder.Child = groupStack;
+            contentPanel.Children.Add(groupBorder);
+        }
+
+        private void RefreshPanelLocalization(List<CharGroupData> groups, TabControl tabControl, string locPrefix)
         {
             if (groups == null || groups.Count == 0) return;
 
@@ -2855,32 +2890,17 @@ namespace WinVClip
                 if (tabItem.Header is TextBlock tb)
                     tb.Text = displayName;
             }
-
-            foreach (var kvp in anchors)
-            {
-                var group = groups.FirstOrDefault(g => g.Id == kvp.Key);
-                if (group == null) continue;
-
-                var locKey = $"{locPrefix}.Group.{GroupIdToLocalKey(group.Id)}";
-                var displayName = Loc.Get(locKey, isZh ? group.NameZh : group.NameEn);
-
-                if (kvp.Value is Border border && border.Child is StackPanel sp && sp.Children.Count > 0 && sp.Children[0] is TextBlock header)
-                    header.Text = displayName;
-            }
         }
 
-        private void PanelTabControl_SelectionChanged(TabControl tabControl, Dictionary<string, FrameworkElement> anchors, ScrollViewer scrollViewer, StackPanel contentPanel)
+        private void PanelTabControl_SelectionChanged(TabControl tabControl, List<CharGroupData> groups,
+            StackPanel contentPanel, string locPrefix, bool isEmoji)
         {
             if (tabControl.SelectedItem is TabItem tabItem && tabItem.Tag is string groupId)
             {
-                if (anchors.TryGetValue(groupId, out var anchor))
+                var group = groups.FirstOrDefault(g => g.Id == groupId);
+                if (group != null)
                 {
-                    var transform = anchor.TransformToVisual(contentPanel);
-                    if (transform != null)
-                    {
-                        var offset = transform.Transform(new System.Windows.Point(0, 0));
-                        scrollViewer.ScrollToVerticalOffset(offset.Y);
-                    }
+                    LoadGroupContent(group, contentPanel, locPrefix, isEmoji);
                 }
             }
         }
@@ -2922,12 +2942,12 @@ namespace WinVClip
 
         private void CharTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            PanelTabControl_SelectionChanged(CharTabControl, _charGroupAnchors, CharScrollViewer, CharContentPanel);
+            PanelTabControl_SelectionChanged(CharTabControl, _charGroups, CharContentPanel, "CharPanel", false);
         }
 
         private void EmojiTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            PanelTabControl_SelectionChanged(EmojiTabControl, _emojiGroupAnchors, EmojiScrollViewer, EmojiContentPanel);
+            PanelTabControl_SelectionChanged(EmojiTabControl, _emojiGroups, EmojiContentPanel, "EmojiPanel", true);
         }
     }
 }

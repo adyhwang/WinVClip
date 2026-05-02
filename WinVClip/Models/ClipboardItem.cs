@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Runtime.CompilerServices;
 
 namespace WinVClip.Models
@@ -19,6 +20,95 @@ namespace WinVClip.Models
         public DateTime CreatedAt { get; set; }
         public string PreviewText { get; set; } = string.Empty;
         public long? GroupId { get; set; }
+
+        private bool? _isLocalPath;
+        public bool IsLocalPath
+        {
+            get
+            {
+                if (_isLocalPath == null)
+                {
+                    _isLocalPath = ComputeIsLocalPath();
+                }
+                return _isLocalPath.Value;
+            }
+        }
+
+        private int _folderCount = -1;
+        public int FolderCount
+        {
+            get
+            {
+                if (_folderCount == -1)
+                {
+                    _folderCount = ComputeFolderCount();
+                }
+                return _folderCount;
+            }
+        }
+
+        private int _fileCount = -1;
+        public int FileCount
+        {
+            get
+            {
+                if (_fileCount == -1)
+                {
+                    int fc = FolderCount;
+                }
+                return _fileCount;
+            }
+        }
+
+        private bool ComputeIsLocalPath()
+        {
+            if (Type != ClipboardType.Text && Type != ClipboardType.RichText)
+                return false;
+
+            string content = Content?.Trim() ?? "";
+            if (string.IsNullOrWhiteSpace(content))
+                return false;
+
+            try
+            {
+                string path = TrimQuotes(content);
+                if (Path.IsPathRooted(path) || path.IndexOf(Path.DirectorySeparatorChar) >= 0 || path.IndexOf(Path.AltDirectorySeparatorChar) >= 0)
+                {
+                    return File.Exists(path) || Directory.Exists(path);
+                }
+            }
+            catch { }
+
+            return false;
+        }
+
+        private int ComputeFolderCount()
+        {
+            if (Type == ClipboardType.FileList && FilePaths?.Count > 0)
+            {
+                int folders = 0, files = 0;
+                foreach (var p in FilePaths)
+                {
+                    if (Directory.Exists(p)) folders++;
+                    else files++;
+                }
+                _fileCount = files;
+                return folders;
+            }
+            _fileCount = 0;
+            return 0;
+        }
+
+        private static string TrimQuotes(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return text;
+            text = text.Trim();
+            if (text.StartsWith("\"") && text.EndsWith("\""))
+                return text.Substring(1, text.Length - 2);
+            if (text.StartsWith("'") && text.EndsWith("'"))
+                return text.Substring(1, text.Length - 2);
+            return text;
+        }
 
         private string? _groupName;
         public string? GroupName
@@ -84,7 +174,9 @@ namespace WinVClip.Models
                     image.BeginInit();
                     image.UriSource = new System.Uri(fullPath);
                     image.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                    image.DecodePixelWidth = 64;
                     image.EndInit();
+                    image.Freeze();
                     _imageThumbnail = image;
                     OnPropertyChanged(nameof(ImageThumbnail));
                 }
@@ -98,6 +190,26 @@ namespace WinVClip.Models
             {
                 loadAction();
             }
+        }
+
+        public void ClearImageThumbnail()
+        {
+            _imageThumbnail = null;
+        }
+
+        public void ReleaseMemory()
+        {
+            _imageThumbnail = null;
+            Content = null;
+            RichContent = null;
+            CsvContent = null;
+            ImagePath = null;
+            ImageHash = null;
+            PreviewText = null;
+            FilePaths?.Clear();
+            _isLocalPath = null;
+            _folderCount = -1;
+            _fileCount = -1;
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

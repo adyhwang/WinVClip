@@ -28,10 +28,10 @@ namespace WinVClip.Services
         private IntPtr _hwnd;
         private bool _isListenerRegistered;
 
-        private int _debounceTimerId;
         private readonly object _debounceLock = new object();
         private bool _debouncePending;
         private const int DebounceIntervalMs = 80;
+        private System.Windows.Threading.DispatcherTimer? _debounceDispatcherTimer;
 
         private const int WM_CLIPBOARDUPDATE = 0x031D;
 
@@ -129,33 +129,37 @@ namespace WinVClip.Services
                 _debouncePending = true;
             }
 
-            _debounceTimerId++;
-            var currentId = _debounceTimerId;
-
-            Task.Delay(DebounceIntervalMs).ContinueWith(_ =>
+            if (_debounceDispatcherTimer == null)
             {
-                lock (_debounceLock)
+                _debounceDispatcherTimer = new System.Windows.Threading.DispatcherTimer
                 {
-                    if (currentId != _debounceTimerId)
-                        return;
+                    Interval = TimeSpan.FromMilliseconds(DebounceIntervalMs)
+                };
+                _debounceDispatcherTimer.Tick += OnDebounceTimerTick;
+            }
+            _debounceDispatcherTimer.Stop();
+            _debounceDispatcherTimer.Start();
+        }
 
-                    _debouncePending = false;
-                }
+        private void OnDebounceTimerTick(object? sender, EventArgs e)
+        {
+            _debounceDispatcherTimer.Stop();
 
-                _dispatcher.BeginInvoke(new Action(() =>
-                {
-                    if (!_isMonitoring || !_settingsService.Settings.MonitorEnabled)
-                        return;
+            lock (_debounceLock)
+            {
+                _debouncePending = false;
+            }
 
-                    try
-                    {
-                        ProcessClipboard();
-                    }
-                    catch
-                    {
-                    }
-                }));
-            });
+            if (!_isMonitoring || !_settingsService.Settings.MonitorEnabled)
+                return;
+
+            try
+            {
+                ProcessClipboard();
+            }
+            catch
+            {
+            }
         }
 
         private void UpdateLastClipboardState()
@@ -599,10 +603,23 @@ namespace WinVClip.Services
         {
             try
             {
-                // 创建可写的BitmapSource副本，确保可以正确编码
-                BitmapSource writableBitmap = CreateWritableBitmap(image);
+                BitmapSource processImage = image;
                 
-                // 尝试多种编码器保存图片
+                const int maxDimension = 1920;
+                if (image.PixelWidth > maxDimension || image.PixelHeight > maxDimension)
+                {
+                    double scale = Math.Min((double)maxDimension / image.PixelWidth, (double)maxDimension / image.PixelHeight);
+                    int newWidth = (int)(image.PixelWidth * scale);
+                    int newHeight = (int)(image.PixelHeight * scale);
+                    
+                    var scaledBitmap = new System.Windows.Media.Imaging.TransformedBitmap(image, new System.Windows.Media.ScaleTransform(scale, scale));
+                    if (scaledBitmap.CanFreeze)
+                        scaledBitmap.Freeze();
+                    processImage = scaledBitmap;
+                }
+                
+                BitmapSource writableBitmap = CreateWritableBitmap(processImage);
+                
                 byte[] result = TryEncodeWithPngEncoder(writableBitmap);
                 
                 if (result.Length == 0)
