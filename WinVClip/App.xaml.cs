@@ -145,11 +145,19 @@ namespace WinVClip
             _clipboardMonitor = new ClipboardMonitor(_databaseService, _settingsService);
             _clipboardMonitor.OnClipboardChanged += item => 
             {
-                Dispatcher.Invoke(() => _mainWindow?.ViewModel?.AddItem(item));
+                Dispatcher.Invoke(() =>
+                {
+                    if (_mainWindow?.ViewModel?.IsWindowVisible == true)
+                        _mainWindow.ViewModel.AddItem(item);
+                });
             };
             _clipboardMonitor.OnDuplicateUpdated += () =>
             {
-                Dispatcher.Invoke(() => _mainWindow?.ViewModel?.LoadItems());
+                Dispatcher.Invoke(() =>
+                {
+                    if (_mainWindow?.ViewModel?.IsWindowVisible == true)
+                        _mainWindow.ViewModel.LoadItems();
+                });
             };
             _clipboardMonitor.Start();
 
