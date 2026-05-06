@@ -645,6 +645,13 @@ namespace WinVClip
 
         public bool IsEmpty => ClipboardItems.Count == 0;
 
+        private bool _isWindowVisible = false;
+        public bool IsWindowVisible
+        {
+            get => _isWindowVisible;
+            set => _isWindowVisible = value;
+        }
+
         private bool _isLoading = false;
         public bool IsLoading
         {
@@ -843,6 +850,9 @@ namespace WinVClip
 
         public void AddItem(ClipboardItem item)
         {
+            if (!_isWindowVisible)
+                return;
+
             ClipboardItems.Insert(0, item);
             if (ClipboardItems.Count > 200)
             {
@@ -875,7 +885,9 @@ namespace WinVClip
         private System.Windows.Threading.DispatcherTimer _tooltipTimer;
         private ClipboardItem _currentTooltipItem;
         private Border _currentTooltipBorder;
-        private bool _isPasting = false; // 防止快速点击时的并发执行
+        private bool _isPasting = false;
+
+        private System.Threading.Timer _backgroundGcTimer;
 
         private DoubleAnimation _currentScrollAnimation;
         private bool _isAnimatingScroll = false;
@@ -981,7 +993,9 @@ namespace WinVClip
 
         private void OnItemAdded(object sender, EventArgs e)
         {
-            // 新记录添加时，滚动到顶部
+            if (!_isVisible)
+                return;
+
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 if (ClipboardListBox.Items.Count > 0)
@@ -1050,6 +1064,10 @@ namespace WinVClip
             // 使用无焦点方式显示窗口
             ShowWithoutActivation();
             _isVisible = true;
+            _viewModel.IsWindowVisible = true;
+            
+            _backgroundGcTimer?.Dispose();
+            _backgroundGcTimer = null;
             
             App.GetWindowStateService()?.SetVisible();
             
@@ -1314,6 +1332,7 @@ namespace WinVClip
             SavePosition();
             Hide();
             _isVisible = false;
+            _viewModel.IsWindowVisible = false;
             
             HideCustomTooltip();
             _tooltipTimer?.Stop();
@@ -1336,6 +1355,20 @@ namespace WinVClip
                 SetProcessWorkingSetSize(proc.Handle, (IntPtr)(-1), (IntPtr)(-1));
             }
             catch { }
+
+            _backgroundGcTimer?.Dispose();
+            _backgroundGcTimer = new System.Threading.Timer(_ =>
+            {
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, true);
+                GC.WaitForPendingFinalizers();
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, true);
+                try
+                {
+                    using var proc = System.Diagnostics.Process.GetCurrentProcess();
+                    SetProcessWorkingSetSize(proc.Handle, (IntPtr)(-1), (IntPtr)(-1));
+                }
+                catch { }
+            }, null, TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1));
             
             if (_listBoxScrollViewer != null)
             {

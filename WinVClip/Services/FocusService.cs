@@ -93,15 +93,18 @@ namespace WinVClip.Services
             FocusChanged?.Invoke(hwnd);
         }
 
+        private readonly StringBuilder _cachedClassName = new StringBuilder(256);
+        private readonly StringBuilder _cachedWindowText = new StringBuilder(256);
+
         private bool IsSystemWindow(IntPtr hwnd)
         {
-            StringBuilder className = new StringBuilder(256);
-            GetClassName(hwnd, className, 256);
-            string classNameStr = className.ToString();
+            _cachedClassName.Clear();
+            GetClassName(hwnd, _cachedClassName, 256);
+            string classNameStr = _cachedClassName.ToString();
 
-            StringBuilder windowText = new StringBuilder(256);
-            GetWindowText(hwnd, windowText, 256);
-            string windowTextStr = windowText.ToString();
+            _cachedWindowText.Clear();
+            GetWindowText(hwnd, _cachedWindowText, 256);
+            string windowTextStr = _cachedWindowText.ToString();
 
             if (classNameStr == "Shell_TrayWnd" ||
                 classNameStr == "Shell_SecondaryTrayWnd" ||

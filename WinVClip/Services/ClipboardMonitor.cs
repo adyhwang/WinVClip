@@ -33,6 +33,8 @@ namespace WinVClip.Services
         private const int DebounceIntervalMs = 80;
         private System.Windows.Threading.DispatcherTimer? _debounceDispatcherTimer;
 
+        private System.Threading.Timer? _postProcessGcTimer;
+
         private const int WM_CLIPBOARDUPDATE = 0x031D;
 
         public event Action<ClipboardItem>? OnClipboardChanged;
@@ -200,9 +202,7 @@ namespace WinVClip.Services
                     var image = System.Windows.Clipboard.GetImage();
                     if (image != null)
                     {
-                        var imageData = ImageToBytes(image);
-                        var hash = ComputeHash(imageData);
-                        _lastContentSignatures[ClipboardType.Image] = ComputeSignature(ClipboardType.Image, hash);
+                        _lastContentSignatures[ClipboardType.Image] = ComputeSignature(ClipboardType.Image, $"{image.PixelWidth}x{image.PixelHeight}_{image.Format}");
                     }
                 }
 
@@ -416,7 +416,9 @@ namespace WinVClip.Services
                                     string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, imagePath);
                                     
                                     System.IO.File.WriteAllBytes(fullPath, imageData);
+                                    imageData = null;
                                 }
+                                image = null;
                             }
                         }
 
@@ -433,6 +435,8 @@ namespace WinVClip.Services
                             CreatedAt = DateTime.Now
                         };
                         SaveItem(item);
+                        if (hasImage)
+                            SchedulePostProcessGc();
                     }
                     return;
                 }
@@ -444,6 +448,7 @@ namespace WinVClip.Services
                 if (image != null)
                 {
                     ProcessImageClipboard(image);
+                    image = null;
                 }
                 return;
             }
@@ -584,11 +589,6 @@ namespace WinVClip.Services
 
         private void SaveItem(ClipboardItem item)
         {
-            if (item.Type == ClipboardType.Image && !string.IsNullOrEmpty(item.ImagePath))
-            {
-                var thumbnail = item.ImageThumbnail;
-            }
-
             var id = _databaseService.InsertItem(item);
             item.Id = id;
             OnClipboardChanged?.Invoke(item);
@@ -597,6 +597,25 @@ namespace WinVClip.Services
             {
                 _databaseService.CleanupExcessHistoryItems(_settingsService.Settings.MaxHistoryItems);
             }
+        }
+
+        private void SchedulePostProcessGc()
+        {
+            _postProcessGcTimer?.Dispose();
+            _postProcessGcTimer = new System.Threading.Timer(_ =>
+            {
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, true);
+                GC.WaitForPendingFinalizers();
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, true);
+                try
+                {
+                    using var proc = System.Diagnostics.Process.GetCurrentProcess();
+                    SetProcessWorkingSetSize(proc.Handle, (IntPtr)(-1), (IntPtr)(-1));
+                }
+                catch { }
+                _postProcessGcTimer?.Dispose();
+                _postProcessGcTimer = null;
+            }, null, TimeSpan.FromSeconds(3), TimeSpan.FromMilliseconds(-1));
         }
 
         private byte[] ImageToBytes(BitmapSource image)
@@ -709,15 +728,13 @@ namespace WinVClip.Services
         {
             try
             {
-                // 将WPF BitmapSource转换为GDI+ Bitmap
                 int width = image.PixelWidth;
                 int height = image.PixelHeight;
-                int stride = width * 4; // 32位格式，每像素4字节
+                int stride = width * 4;
                 byte[] pixels = new byte[height * stride];
 
                 image.CopyPixels(pixels, stride, 0);
 
-                // 创建GDI+ Bitmap
                 using var gdiBitmap = new System.Drawing.Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
                 System.Drawing.Imaging.BitmapData bmpData = gdiBitmap.LockBits(
                     new System.Drawing.Rectangle(0, 0, width, height),
@@ -726,8 +743,8 @@ namespace WinVClip.Services
 
                 System.Runtime.InteropServices.Marshal.Copy(pixels, 0, bmpData.Scan0, pixels.Length);
                 gdiBitmap.UnlockBits(bmpData);
+                pixels = null;
 
-                // 使用GDI+保存为PNG
                 using var memoryStream = new MemoryStream();
                 gdiBitmap.Save(memoryStream, System.Drawing.Imaging.ImageFormat.Png);
                 return memoryStream.ToArray();
@@ -742,26 +759,38 @@ namespace WinVClip.Services
         {
             try
             {
-                // 尝试直接获取图像
                 var image = System.Windows.Clipboard.GetImage();
                 if (image != null)
+                {
+                    if (image.CanFreeze)
+                        image.Freeze();
                     return image;
+                }
                     
-                // 如果直接获取失败，尝试从DataObject获取
                 var dataObject = System.Windows.Clipboard.GetDataObject();
                 if (dataObject != null)
                 {
-                    // 尝试获取不同格式的图像数据
                     if (dataObject.GetDataPresent(System.Windows.DataFormats.Bitmap))
                     {
                         var bitmap = dataObject.GetData(System.Windows.DataFormats.Bitmap);
                         if (bitmap is System.Drawing.Bitmap gdiBitmap)
                         {
-                            return System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
-                                gdiBitmap.GetHbitmap(),
-                                IntPtr.Zero,
-                                Int32Rect.Empty,
-                                BitmapSizeOptions.FromEmptyOptions());
+                            IntPtr hBitmap = gdiBitmap.GetHbitmap();
+                            try
+                            {
+                                var result = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+                                    hBitmap,
+                                    IntPtr.Zero,
+                                    Int32Rect.Empty,
+                                    BitmapSizeOptions.FromEmptyOptions());
+                                if (result.CanFreeze)
+                                    result.Freeze();
+                                return result;
+                            }
+                            finally
+                            {
+                                DeleteObject(hBitmap);
+                            }
                         }
                     }
                     else if (dataObject.GetDataPresent(System.Windows.DataFormats.Dib))
@@ -775,6 +804,8 @@ namespace WinVClip.Services
                             bitmapImage.StreamSource = stream;
                             bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
                             bitmapImage.EndInit();
+                            if (bitmapImage.CanFreeze)
+                                bitmapImage.Freeze();
                             return bitmapImage;
                         }
                     }
@@ -782,7 +813,6 @@ namespace WinVClip.Services
             }
             catch (Exception ex)
             {
-                // 可以添加日志记录
                 Console.WriteLine($"Get clipboard image error: {ex.Message}");
             }
             
@@ -814,8 +844,7 @@ namespace WinVClip.Services
                     string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, relativePath);
                     
                     System.IO.File.WriteAllBytes(fullPath, imageData);
-                    
-                    ValidateSavedImage(fullPath);
+                    imageData = null;
                     
                     var item = new ClipboardItem
                     {
@@ -828,28 +857,16 @@ namespace WinVClip.Services
 
                     SaveItem(item);
                 }
+                else
+                {
+                    imageData = null;
+                }
+
+                SchedulePostProcessGc();
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Process image clipboard error: {ex.Message}");
-            }
-        }
-
-        private void ValidateSavedImage(string filePath)
-        {
-            try
-            {
-                using var testStream = System.IO.File.OpenRead(filePath);
-                var testImage = new System.Windows.Media.Imaging.BitmapImage();
-                testImage.BeginInit();
-                testImage.StreamSource = testStream;
-                testImage.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
-                testImage.EndInit();
-            }
-            catch (Exception ex)
-            {
-                // 可以添加日志记录
-                Console.WriteLine($"Validate saved image error: {ex.Message}");
             }
         }
 
@@ -858,6 +875,9 @@ namespace WinVClip.Services
             if (!_disposed)
             {
                 Stop();
+
+                _postProcessGcTimer?.Dispose();
+                _postProcessGcTimer = null;
 
                 if (_hwndSource != null)
                 {
@@ -877,5 +897,11 @@ namespace WinVClip.Services
         [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool RemoveClipboardFormatListener(IntPtr hwnd);
+
+        [DllImport("gdi32.dll")]
+        private static extern bool DeleteObject(IntPtr hObject);
+
+        [DllImport("kernel32.dll")]
+        private static extern bool SetProcessWorkingSetSize(IntPtr proc, IntPtr min, IntPtr max);
     }
 }
