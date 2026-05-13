@@ -1021,6 +1021,16 @@ namespace WinVClip
             var handle = new WindowInteropHelper(this).Handle;
             _hwndSource = HwndSource.FromHwnd(handle);
             _hwndSource.AddHook(WndProc);
+
+            DisableMaximizeAndAeroSnap(handle);
+        }
+
+        private void DisableMaximizeAndAeroSnap(IntPtr handle)
+        {
+            var style = GetWindowLongPtr(handle, GWL_STYLE);
+            var newStyle = (IntPtr)(style.ToInt64() & ~WS_MAXIMIZEBOX);
+            SetWindowLongPtr(handle, GWL_STYLE, newStyle);
+            SetWindowPos(handle, IntPtr.Zero, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
         }
 
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -1265,12 +1275,16 @@ namespace WinVClip
         private static extern bool SetProcessWorkingSetSize(IntPtr proc, IntPtr min, IntPtr max);
 
         // 窗口样式常量
+        private const int GWL_STYLE = -16;
         private const int GWL_EXSTYLE = -20;
+        private const int WS_MAXIMIZEBOX = 0x00010000;
+        private const int WS_SIZEBOX = 0x00040000;
         private const int WS_EX_NOACTIVATE = 0x08000000;
         private const int WS_EX_TOPMOST = 0x00000008;
         private const int SWP_NOACTIVATE = 0x0010;
         private const int SWP_NOMOVE = 0x0002;
         private const int SWP_NOSIZE = 0x0001;
+        private const int SWP_FRAMECHANGED = 0x0020;
 
         // 鼠标钩子常量
         private const int WH_MOUSE_LL = 14;
