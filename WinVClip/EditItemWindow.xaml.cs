@@ -38,12 +38,14 @@ namespace WinVClip
 
         private void SaveButton_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(_item.Content))
+            var text = ContentTextBox.Text;
+            if (string.IsNullOrWhiteSpace(text))
             {
                 MessageBox.Show("内容不能为空", "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
+            _item.Content = text.Trim();
             DialogResult = true;
             Close();
         }
