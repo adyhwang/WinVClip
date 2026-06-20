@@ -97,7 +97,7 @@
                                 </TextBlock>
 
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0"
-                                            Visibility="{Binding Name, Converter={StaticResource DefaultGroupVisibilityConverter}}">
+                                            Visibility="{Binding Id, Converter={StaticResource DefaultGroupVisibilityConverter}}">
                                     <Button Content="✏️" Width="32" Height="32" Margin="0"
                                             Style="{DynamicResource ToolButtonStyle}"
                                             ToolTip="{Binding DataContext.EditButtonTooltip, RelativeSource={RelativeSource AncestorType=Window}}"

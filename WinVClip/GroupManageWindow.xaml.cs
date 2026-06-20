@@ -249,9 +249,14 @@ namespace WinVClip
 
     public class DefaultGroupVisibilityConverter : IValueConverter
     {
+        // 默认分组（Favorite）的 Id 为 1，在数据库初始化时创建
+        private const long DefaultGroupId = 1;
+
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is string name && name == "Favorite")
+            if (value is long id && id == DefaultGroupId)
+                return Visibility.Collapsed;
+            if (value is int intId && intId == DefaultGroupId)
                 return Visibility.Collapsed;
             return Visibility.Visible;
         }

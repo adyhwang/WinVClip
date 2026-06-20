@@ -118,7 +118,8 @@ namespace WinVClip.Services
                 return true;
             }
 
-            if (windowTextStr == "WinVClip" || windowTextStr == "菜单")
+            // "菜单" 是 WPF ContextMenu 弹出窗口的默认窗口标题
+            if (windowTextStr == "菜单")
             {
                 return true;
             }

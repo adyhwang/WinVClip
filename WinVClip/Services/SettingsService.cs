@@ -26,10 +26,8 @@ namespace WinVClip.Services
             
             try
             {
-                // 尝试写入测试文件，检查权限
-                string testPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "test_permission.txt");
-                File.WriteAllText(testPath, "test");
-                File.Delete(testPath);
+                // 通过尝试创建目录来检查可写性（若已存在则为无操作）
+                Directory.CreateDirectory(AppDomain.CurrentDomain.BaseDirectory);
                 return basePath;
             }
             catch

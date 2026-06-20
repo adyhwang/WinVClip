@@ -54,7 +54,7 @@ namespace WinVClip.Models
             {
                 if (_fileCount == -1)
                 {
-                    int fc = FolderCount;
+                    ComputeFolderCount();
                 }
                 return _fileCount;
             }
@@ -200,12 +200,12 @@ namespace WinVClip.Models
         public void ReleaseMemory()
         {
             _imageThumbnail = null;
-            Content = null;
+            Content = string.Empty;
             RichContent = null;
             CsvContent = null;
             ImagePath = null;
             ImageHash = null;
-            PreviewText = null;
+            PreviewText = string.Empty;
             FilePaths?.Clear();
             _isLocalPath = null;
             _folderCount = -1;
