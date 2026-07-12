@@ -19,7 +19,6 @@ namespace WinVClip.Services
         private readonly int _trayIconId;
         private Icon? _icon;
         private bool _disposed;
-        private static int _nextTrayIconId = 1;
 
         public bool IsMonitoringEnabled
         {
@@ -40,7 +39,7 @@ namespace WinVClip.Services
         {
             _settingsService = settingsService;
             _windowHandle = windowHandle;
-            _trayIconId = System.Threading.Interlocked.Increment(ref _nextTrayIconId);
+            _trayIconId = new Random().Next();
             
             _icon = LoadIcon();
             

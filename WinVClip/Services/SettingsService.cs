@@ -10,8 +10,19 @@ namespace WinVClip.Services
         private readonly string _settingsPath;
         private Models.AppSettings _settings = null!;
         private readonly object _lock = new object();
+        private StartupTaskService _startupTask;
 
         public event Action? SettingsChanged;
+
+        public StartupTaskService StartupTask
+        {
+            get
+            {
+                if (_startupTask == null)
+                    _startupTask = new StartupTaskService(this);
+                return _startupTask;
+            }
+        }
 
         public SettingsService()
         {
@@ -26,8 +37,10 @@ namespace WinVClip.Services
             
             try
             {
-                // 通过尝试创建目录来检查可写性（若已存在则为无操作）
-                Directory.CreateDirectory(AppDomain.CurrentDomain.BaseDirectory);
+                // 尝试写入测试文件，检查权限
+                string testPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "test_permission.txt");
+                File.WriteAllText(testPath, "test");
+                File.Delete(testPath);
                 return basePath;
             }
             catch
@@ -127,50 +140,17 @@ namespace WinVClip.Services
             }
         }
 
-        /// <summary>
-        /// 检查是否已设置为开机启动（从注册表读取）
-        /// </summary>
         public bool IsStartupEnabled()
         {
-            try
-            {
-                var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false);
-                if (key != null)
-                {
-                    var value = key.GetValue("WinVClip");
-                    return value != null;
-                }
-            }
-            catch
-            {
-            }
-            return false;
+            return StartupTask.IsStartupEnabled();
         }
 
-        /// <summary>
-        /// 设置或取消开机启动
-        /// </summary>
         public void SetStartupRegistry(bool enable)
         {
-            try
-            {
-                var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
-                if (key != null)
-                {
-                    if (enable)
-                    {
-                        var exePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "WinVClip.exe");
-                        key.SetValue("WinVClip", $"\"{exePath}\"");
-                    }
-                    else
-                    {
-                        key.DeleteValue("WinVClip", false);
-                    }
-                }
-            }
-            catch
-            {
-            }
+            if (enable)
+                StartupTask.EnableStartup();
+            else
+                StartupTask.DisableStartup();
         }
 
         public void InitializeSearchEngines()

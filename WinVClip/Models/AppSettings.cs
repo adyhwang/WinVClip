@@ -25,6 +25,7 @@ namespace WinVClip.Models
         public int FontSize { get; set; } = 14;
         public bool ShowHotkeyTipOnStartup { get; set; } = true;
         public DateTime? LastVacuumDate { get; set; } = null;
+        public string StartupLastExePath { get; set; } = "";
 
         [JsonIgnore]
         public List<SearchEngine> SearchEngines { get; set; } = new List<SearchEngine>();

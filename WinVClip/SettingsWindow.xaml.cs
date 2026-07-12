@@ -28,7 +28,7 @@ namespace WinVClip
         public SettingsWindow(SettingsService settingsService)
         {
             _settingsService = settingsService;
-            // 从注册表读取开机启动状态
+            // 从计划任务读取开机启动状态
             _originalStartWithWindows = _settingsService.IsStartupEnabled();
             
             _originalSettings = new AppSettings

@@ -13,7 +13,6 @@ namespace WinVClip.Services
         private readonly SqliteConnection _connection;
         private readonly string _dbPath;
         private bool _disposed;
-        private readonly object _dbLock = new object();
 
         public string DatabasePath => _dbPath;
 
@@ -30,14 +29,7 @@ namespace WinVClip.Services
         private void EnableWALMode()
         {
             using var command = _connection.CreateCommand();
-            // WAL 模式：写入性能更好，且支持并发读
             command.CommandText = "PRAGMA journal_mode=WAL;";
-            command.ExecuteNonQuery();
-            // 降低 SQLite 内存占用：
-            // - cache_size=-2000：页缓存约 2MB（负值表示 KB）
-            // - mmap_size=0：禁用内存映射 I/O，避免占用虚拟地址空间
-            // - temp_store=MEMORY：临时表用内存（量小，开销低）
-            command.CommandText = "PRAGMA cache_size=-2000; PRAGMA mmap_size=0; PRAGMA temp_store=MEMORY;";
             command.ExecuteNonQuery();
         }
 
@@ -204,10 +196,7 @@ namespace WinVClip.Services
             {
                 try
                 {
-                    lock (_dbLock)
-                    {
-                        return action();
-                    }
+                    return action();
                 }
                 catch
                 {
@@ -245,8 +234,6 @@ namespace WinVClip.Services
 
         public long InsertItem(Models.ClipboardItem item)
         {
-            lock (_dbLock)
-            {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
                 INSERT INTO ClipboardItems (Type, Content, RichContent, RichFormat, CsvContent, ImagePath, ImageHash, FilePaths, CreatedAt, PreviewText, GroupId)
@@ -266,7 +253,6 @@ namespace WinVClip.Services
             command.Parameters.AddWithValue("@GroupId", item.GroupId ?? (object)DBNull.Value);
 
             return Convert.ToInt64(command.ExecuteScalar());
-            }
         }
 
         public int InsertItemsBatch(List<Models.ClipboardItem> items)
@@ -274,8 +260,6 @@ namespace WinVClip.Services
             if (items == null || items.Count == 0)
                 return 0;
 
-            lock (_dbLock)
-            {
             using var transaction = _connection.BeginTransaction();
             try
             {
@@ -354,14 +338,11 @@ namespace WinVClip.Services
                 transaction.Rollback();
                 throw;
             }
-            }
         }
 
-        public List<Models.ClipboardItem> GetItems(int limit = 100, int offset = 0, string? searchText = null,
+        public List<Models.ClipboardItem> GetItems(int limit = 100, int offset = 0, string? searchText = null, 
             int? typeFilter = null, long? groupIdFilter = null)
         {
-            lock (_dbLock)
-            {
             var items = new List<Models.ClipboardItem>();
             using var command = _connection.CreateCommand();
 
@@ -414,18 +395,15 @@ namespace WinVClip.Services
             }
 
             return items;
-            }
         }
 
         public List<Models.ClipboardItem> GetAllItems()
         {
-            return GetItems(10000, 0);
+            return GetItems(int.MaxValue, 0);
         }
 
         public Models.ClipboardItem? GetItem(long id)
         {
-            lock (_dbLock)
-            {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
                 SELECT c.Id, c.Type, c.Content, c.RichContent, c.RichFormat, c.CsvContent, c.ImagePath, c.ImageHash, c.FilePaths, c.CreatedAt, c.PreviewText, c.GroupId, g.Name as GroupName
@@ -442,13 +420,10 @@ namespace WinVClip.Services
             }
 
             return null;
-            }
         }
 
         public void DeleteItem(long id)
         {
-            lock (_dbLock)
-            {
             var item = GetItem(id);
             // 删除图片文件（图片类型或含图片的富文本类型）
             if (item != null && !string.IsNullOrEmpty(item.ImagePath))
@@ -460,7 +435,6 @@ namespace WinVClip.Services
             command.CommandText = "DELETE FROM ClipboardItems WHERE Id = @Id";
             command.Parameters.AddWithValue("@Id", id);
             command.ExecuteNonQuery();
-            }
         }
 
         private void DeleteImageFile(string? imagePath)
@@ -477,8 +451,6 @@ namespace WinVClip.Services
 
         public void DeleteOldItems(DateTime cutoffDate)
         {
-            lock (_dbLock)
-            {
             using var selectCommand = _connection.CreateCommand();
             // 查询所有含图片路径的旧记录（图片类型或富文本类型）
             selectCommand.CommandText = "SELECT Id, ImagePath FROM ClipboardItems WHERE CreatedAt < @Cutoff AND ImagePath IS NOT NULL AND ImagePath != '' AND GroupId IS NULL";
@@ -509,7 +481,6 @@ namespace WinVClip.Services
             {
                 VacuumDatabase();
             }
-            }
         }
 
         public void ClearHistory()
@@ -524,13 +495,10 @@ namespace WinVClip.Services
 
         private void ClearHistoryInternal(bool ungroupedOnly)
         {
-            lock (_dbLock)
-            {
             var imagePaths = GetImagePathsToDelete(ungroupedOnly);
             DeleteImageFiles(imagePaths);
             DeleteItemsFromDatabase(ungroupedOnly);
             VacuumDatabase();
-            }
         }
 
         private List<string> GetImagePathsToDelete(bool ungroupedOnly)
@@ -636,8 +604,6 @@ namespace WinVClip.Services
         /// </summary>
         public (bool exists, bool isGrouped) CheckContentExists(string content, int type)
         {
-            lock (_dbLock)
-            {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
                 SELECT GroupId IS NOT NULL as IsGrouped 
@@ -654,7 +620,6 @@ namespace WinVClip.Services
                 return (true, isGrouped);
             }
             return (false, false);
-            }
         }
 
         public Dictionary<string, bool> GetExistingTextContents(HashSet<string> contents)
@@ -668,8 +633,6 @@ namespace WinVClip.Services
             if (validContents.Count == 0)
                 return result;
 
-            lock (_dbLock)
-            {
             using var command = _connection.CreateCommand();
             var placeholders = new List<string>();
             var paramIndex = 0;
@@ -694,7 +657,6 @@ namespace WinVClip.Services
                 result[content] = isGrouped;
             }
             return result;
-            }
         }
 
         public int DeleteUngroupedDuplicatesBatch(HashSet<string> contents)
@@ -707,8 +669,6 @@ namespace WinVClip.Services
             if (validContents.Count == 0)
                 return 0;
 
-            lock (_dbLock)
-            {
             using var command = _connection.CreateCommand();
             var placeholders = new List<string>();
             var paramIndex = 0;
@@ -726,7 +686,6 @@ namespace WinVClip.Services
             command.Parameters.AddWithValue("@Type", (int)ClipboardType.Text);
 
             return Convert.ToInt32(command.ExecuteScalar());
-            }
         }
 
         public Dictionary<string, bool> GetExistingRichTextContents(HashSet<string> richContents)
@@ -735,8 +694,6 @@ namespace WinVClip.Services
             if (richContents == null || richContents.Count == 0)
                 return result;
 
-            lock (_dbLock)
-            {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
                 SELECT RichContent, GroupId IS NOT NULL as IsGrouped 
@@ -762,7 +719,6 @@ namespace WinVClip.Services
                 result[content] = isGrouped;
             }
             return result;
-            }
         }
 
         public int DeleteUngroupedRichTextDuplicatesBatch(HashSet<string> richContents)
@@ -770,8 +726,6 @@ namespace WinVClip.Services
             if (richContents == null || richContents.Count == 0)
                 return 0;
 
-            lock (_dbLock)
-            {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
                 DELETE FROM ClipboardItems 
@@ -790,7 +744,6 @@ namespace WinVClip.Services
             command.CommandText = string.Format(command.CommandText, string.Join(",", placeholders));
 
             return Convert.ToInt32(command.ExecuteScalar());
-            }
         }
 
         public Dictionary<string, bool> GetExistingFileListSignatures(HashSet<string> signatures)
@@ -799,8 +752,6 @@ namespace WinVClip.Services
             if (signatures == null || signatures.Count == 0)
                 return result;
 
-            lock (_dbLock)
-            {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
                 SELECT FilePaths, GroupId IS NOT NULL as IsGrouped 
@@ -824,7 +775,6 @@ namespace WinVClip.Services
                 }
             }
             return result;
-            }
         }
 
         public int DeleteUngroupedFileListDuplicatesBatch(HashSet<string> signatures)
@@ -833,20 +783,18 @@ namespace WinVClip.Services
                 return 0;
 
             var deletedCount = 0;
-            lock (_dbLock)
-            {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
                 SELECT Id, FilePaths FROM ClipboardItems 
                 WHERE Type = @Type AND GroupId IS NULL";
             command.Parameters.AddWithValue("@Type", (int)ClipboardType.FileList);
 
-            var idsToDelete = new List<long>();
+            var idsToDelete = new List<int>();
             using (var reader = command.ExecuteReader())
             {
                 while (reader.Read())
                 {
-                    var id = reader.GetInt64(0);
+                    var id = reader.GetInt32(0);
                     var filePathsStr = reader.GetString(1);
                     if (!string.IsNullOrEmpty(filePathsStr))
                     {
@@ -860,22 +808,16 @@ namespace WinVClip.Services
                 }
             }
 
-            if (idsToDelete.Count > 0)
+            foreach (var id in idsToDelete)
             {
                 using var deleteCommand = _connection.CreateCommand();
-                var placeholders = new List<string>();
-                for (int i = 0; i < idsToDelete.Count; i++)
-                {
-                    var paramName = $"@Id{i}";
-                    placeholders.Add(paramName);
-                    deleteCommand.Parameters.AddWithValue(paramName, idsToDelete[i]);
-                }
-                deleteCommand.CommandText = $"DELETE FROM ClipboardItems WHERE Id IN ({string.Join(",", placeholders)})";
-                deletedCount = deleteCommand.ExecuteNonQuery();
+                deleteCommand.CommandText = "DELETE FROM ClipboardItems WHERE Id = @Id";
+                deleteCommand.Parameters.AddWithValue("@Id", id);
+                deleteCommand.ExecuteNonQuery();
+                deletedCount++;
             }
 
             return deletedCount;
-            }
         }
 
         public Dictionary<string, bool> GetExistingImageHashes(HashSet<string> imageHashes)
@@ -884,8 +826,6 @@ namespace WinVClip.Services
             if (imageHashes == null || imageHashes.Count == 0)
                 return result;
 
-            lock (_dbLock)
-            {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
                 SELECT ImageHash, GroupId IS NOT NULL as IsGrouped 
@@ -911,7 +851,6 @@ namespace WinVClip.Services
                 result[hash] = isGrouped;
             }
             return result;
-            }
         }
 
         public int DeleteUngroupedImageDuplicatesBatch(HashSet<string> imageHashes)
@@ -919,8 +858,6 @@ namespace WinVClip.Services
             if (imageHashes == null || imageHashes.Count == 0)
                 return 0;
 
-            lock (_dbLock)
-            {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
                 DELETE FROM ClipboardItems 
@@ -939,14 +876,11 @@ namespace WinVClip.Services
             command.CommandText = string.Format(command.CommandText, string.Join(",", placeholders));
 
             return Convert.ToInt32(command.ExecuteScalar());
-            }
         }
 
         public List<Models.Group> GetAllGroups()
         {
             var groups = new List<Models.Group>();
-            lock (_dbLock)
-            {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
                 SELECT Id, Name, Icon, CreatedAt
@@ -967,13 +901,10 @@ namespace WinVClip.Services
             }
 
             return groups;
-            }
         }
 
         public long CreateGroup(string name, string icon = "⭐")
         {
-            lock (_dbLock)
-            {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
                 INSERT INTO Groups (Name, Icon, CreatedAt)
@@ -985,13 +916,10 @@ namespace WinVClip.Services
             command.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
 
             return Convert.ToInt64(command.ExecuteScalar());
-            }
         }
 
         public long InsertGroup(string name, string icon, DateTime createdAt)
         {
-            lock (_dbLock)
-            {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
                 INSERT INTO Groups (Name, Icon, CreatedAt)
@@ -1003,49 +931,37 @@ namespace WinVClip.Services
             command.Parameters.AddWithValue("@CreatedAt", createdAt);
 
             return Convert.ToInt64(command.ExecuteScalar());
-            }
         }
 
         public void UpdateGroup(long id, string name, string icon)
         {
-            lock (_dbLock)
-            {
             using var command = _connection.CreateCommand();
             command.CommandText = "UPDATE Groups SET Name = @Name, Icon = @Icon WHERE Id = @Id";
             command.Parameters.AddWithValue("@Id", id);
             command.Parameters.AddWithValue("@Name", name);
             command.Parameters.AddWithValue("@Icon", icon);
             command.ExecuteNonQuery();
-            }
         }
 
         public void DeleteGroup(long id)
         {
-            lock (_dbLock)
-            {
             using var command = _connection.CreateCommand();
             command.CommandText = "DELETE FROM Groups WHERE Id = @Id";
             command.Parameters.AddWithValue("@Id", id);
             command.ExecuteNonQuery();
-            }
         }
 
         public void UpdateItemGroup(long itemId, long? groupId)
         {
-            lock (_dbLock)
-            {
             using var command = _connection.CreateCommand();
             command.CommandText = "UPDATE ClipboardItems SET GroupId = @GroupId WHERE Id = @Id";
             command.Parameters.AddWithValue("@Id", itemId);
             command.Parameters.AddWithValue("@GroupId", groupId ?? (object)DBNull.Value);
             command.ExecuteNonQuery();
-            }
         }
 
         public void UpdateItemContent(long itemId, string content)
         {
-            lock (_dbLock)
-            {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
                 UPDATE ClipboardItems 
@@ -1056,13 +972,10 @@ namespace WinVClip.Services
             command.Parameters.AddWithValue("@Content", content);
             command.Parameters.AddWithValue("@PreviewText", content.Length > 100 ? content.Substring(0, 100) : content);
             command.ExecuteNonQuery();
-            }
         }
 
         public Models.ClipboardItem? GetLatestItemByImageHash(string imageHash)
         {
-            lock (_dbLock)
-            {
             using var command = _connection.CreateCommand();
             command.CommandText = @"
                 SELECT c.Id, c.Type, c.Content, c.RichContent, c.RichFormat, c.CsvContent, c.ImagePath, c.ImageHash, c.FilePaths, c.CreatedAt, c.PreviewText, c.GroupId
@@ -1079,7 +992,6 @@ namespace WinVClip.Services
                 return ReadItem(reader);
             }
             return null;
-            }
         }
 
         public bool TextExistsInDatabase(string content)
@@ -1125,19 +1037,29 @@ namespace WinVClip.Services
             {
                 using var command = _connection.CreateCommand();
                 command.CommandText = @"
-                    SELECT Content FROM ClipboardItems 
-                    WHERE Type = @Type AND FilePaths = @FilePaths
+                    SELECT Content, FilePaths FROM ClipboardItems 
+                    WHERE Type = @Type
                     ORDER BY CreatedAt DESC
-                    LIMIT 1
                 ";
                 command.Parameters.AddWithValue("@Type", (int)Models.ClipboardType.FileList);
-                command.Parameters.AddWithValue("@FilePaths", normalizedPaths);
 
                 using var reader = command.ExecuteReader();
-                if (reader.Read())
+                while (reader.Read())
                 {
                     var dbContent = reader["Content"]?.ToString() ?? "";
-                    return (true, dbContent);
+                    var dbFilePaths = reader["FilePaths"]?.ToString() ?? "";
+
+                    var dbPathList = dbFilePaths.Split('|').Where(p => !string.IsNullOrEmpty(p)).ToList();
+                    if (dbPathList.Count == sortedPaths.Count)
+                    {
+                        var sortedDbPaths = dbPathList.OrderBy(p => p.ToLowerInvariant()).ToList();
+                        var normalizedDbPaths = string.Join("|", sortedDbPaths);
+                        
+                        if (normalizedDbPaths == normalizedPaths)
+                        {
+                            return (true, dbContent);
+                        }
+                    }
                 }
                 return (false, (string)null);
             }, (false, (string)null));
@@ -1155,8 +1077,6 @@ namespace WinVClip.Services
             if (maxItems <= 0) // 0或负数表示无限
                 return;
 
-            lock (_dbLock)
-            {
             // 获取当前未分组记录的数量
             using var countCommand = _connection.CreateCommand();
             countCommand.CommandText = "SELECT COUNT(*) FROM ClipboardItems WHERE GroupId IS NULL";
@@ -1191,31 +1111,27 @@ namespace WinVClip.Services
                     DeleteImageFile(imagePath);
                 }
 
-                // 从数据库中删除记录（参数化）
+                // 从数据库中删除记录
                 if (itemsToDeleteList.Count > 0)
                 {
+                    var idsToDelete = string.Join(",", itemsToDeleteList.Select(r => r.Id));
                     using var deleteCommand = _connection.CreateCommand();
-                    var placeholders = new List<string>();
-                    for (int i = 0; i < itemsToDeleteList.Count; i++)
-                    {
-                        var paramName = $"@Id{i}";
-                        placeholders.Add(paramName);
-                        deleteCommand.Parameters.AddWithValue(paramName, itemsToDeleteList[i].Id);
-                    }
-                    deleteCommand.CommandText = $"DELETE FROM ClipboardItems WHERE Id IN ({string.Join(",", placeholders)})";
+                    deleteCommand.CommandText = $"DELETE FROM ClipboardItems WHERE Id IN ({idsToDelete})";
                     deleteCommand.ExecuteNonQuery();
                 }
-            }
             }
         }
 
         public void VacuumDatabase()
         {
-            lock (_dbLock)
+            try
             {
-            using var command = _connection.CreateCommand();
-            command.CommandText = "VACUUM";
-            command.ExecuteNonQuery();
+                using var command = _connection.CreateCommand();
+                command.CommandText = "VACUUM";
+                command.ExecuteNonQuery();
+            }
+            catch
+            {
             }
         }
 

@@ -171,6 +171,8 @@
                                     <Button x:Name="RestoreSystemWinVButton" Content="还原系统 Win+V" Padding="12,6" 
                                             Style="{DynamicResource LinkButtonStyle}" HorizontalAlignment="Left"
                                             Click="RestoreSystemWinV_Click"/>
+
+                                            
                                 </StackPanel>
                             </Border>
 

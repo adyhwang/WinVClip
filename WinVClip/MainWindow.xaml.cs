@@ -22,7 +22,6 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Interop;
-using System.Windows.Threading;
 using WinVClip.Models;
 using WinVClip.Services;
 
@@ -454,48 +453,36 @@ namespace WinVClip
                     _lruList.AddFirst(fullPath);
                     return cachedImage;
                 }
-            }
 
-            BitmapImage image = null;
-            try
-            {
-                if (File.Exists(fullPath))
+                try
                 {
-                    image = new BitmapImage();
-                    image.BeginInit();
-                    image.UriSource = new Uri(fullPath);
-                    image.CacheOption = BitmapCacheOption.OnLoad;
-                    image.DecodePixelWidth = 500;
-                    image.EndInit();
-                    image.Freeze();
-                }
-            }
-            catch
-            {
-            }
+                    if (File.Exists(fullPath))
+                    {
+                        var image = new BitmapImage();
+                        image.BeginInit();
+                        image.UriSource = new Uri(fullPath);
+                        image.CacheOption = BitmapCacheOption.OnLoad;
+                        image.DecodePixelWidth = 500;
+                        image.EndInit();
+                        image.Freeze();
 
-            if (image == null)
+                        while (_cache.Count >= MaxCacheSize && _lruList.Count > 0)
+                        {
+                            var oldest = _lruList.Last.Value;
+                            _lruList.RemoveLast();
+                            _cache.Remove(oldest);
+                        }
+
+                        _cache[fullPath] = image;
+                        _lruList.AddFirst(fullPath);
+                        return image;
+                    }
+                }
+                catch
+                {
+                }
+
                 return null;
-
-            lock (_lock)
-            {
-                if (_cache.TryGetValue(fullPath, out var cachedImage))
-                {
-                    _lruList.Remove(fullPath);
-                    _lruList.AddFirst(fullPath);
-                    return cachedImage;
-                }
-
-                while (_cache.Count >= MaxCacheSize && _lruList.Count > 0)
-                {
-                    var oldest = _lruList.Last.Value;
-                    _lruList.RemoveLast();
-                    _cache.Remove(oldest);
-                }
-
-                _cache[fullPath] = image;
-                _lruList.AddFirst(fullPath);
-                return image;
             }
         }
 
@@ -665,8 +652,6 @@ namespace WinVClip
             set => _isWindowVisible = value;
         }
 
-        private bool _isItemsDirty = true;
-
         private bool _isLoading = false;
         public bool IsLoading
         {
@@ -829,22 +814,11 @@ namespace WinVClip
             _currentOffset = 0;
             HasMoreItems = true;
             SelectedItemIds.Clear();
-            // 清空列表后需要重新加载
-            _isItemsDirty = true;
-            // 停止搜索延迟定时器，避免隐藏后触发无意义的加载
-            _searchDelayTimer?.Stop();
         }
 
         public void LoadItems()
         {
-            _isItemsDirty = false;
             _ = LoadItemsAsync();
-        }
-
-        public void LoadItemsIfDirty()
-        {
-            if (_isItemsDirty)
-                LoadItems();
         }
 
         public void ToggleSelection(ClipboardItem item)
@@ -877,10 +851,7 @@ namespace WinVClip
         public void AddItem(ClipboardItem item)
         {
             if (!_isWindowVisible)
-            {
-                _isItemsDirty = true;
                 return;
-            }
 
             ClipboardItems.Insert(0, item);
             if (ClipboardItems.Count > 200)
@@ -911,13 +882,12 @@ namespace WinVClip
         private double _savedTop;
         private System.Windows.Point _dragStartPoint;
 
-        // 后台内存修剪定时器：窗口隐藏时定期 GC + 修剪工作集
-        private System.Threading.Timer? _backgroundMemoryTimer;
-
         private System.Windows.Threading.DispatcherTimer _tooltipTimer;
         private ClipboardItem _currentTooltipItem;
         private Border _currentTooltipBorder;
         private bool _isPasting = false;
+
+        private System.Threading.Timer _backgroundGcTimer;
 
         private DoubleAnimation _currentScrollAnimation;
         private bool _isAnimatingScroll = false;
@@ -1087,10 +1057,6 @@ namespace WinVClip
 
         public void ShowAtCursor()
         {
-            // 停止后台内存修剪定时器（窗口可见时不需要）
-            _backgroundMemoryTimer?.Dispose();
-            _backgroundMemoryTimer = null;
-
             var mousePosDevice = GetCursorPosition();
             var hMonitor = MonitorFromPoint(mousePosDevice, MONITOR_DEFAULTTONEAREST);
             var screen = GetScreenFromPoint(mousePosDevice);
@@ -1110,11 +1076,14 @@ namespace WinVClip
             _isVisible = true;
             _viewModel.IsWindowVisible = true;
             
+            _backgroundGcTimer?.Dispose();
+            _backgroundGcTimer = null;
+            
             App.GetWindowStateService()?.SetVisible();
             
             SavePosition();
             
-            _viewModel.LoadItemsIfDirty();
+            _viewModel.LoadItems();
             ClipboardListBox.SelectedIndex = 0;
             
             if (_charPanelBuilt && CharTabControl.SelectedItem is TabItem charTab)
@@ -1302,21 +1271,8 @@ namespace WinVClip
         [DllImport("kernel32.dll")]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
 
-        [DllImport("kernel32.dll")]
-        private static extern bool SetProcessWorkingSetSize(IntPtr hProcess, IntPtr dwMinimumWorkingSetSize, IntPtr dwMaximumWorkingSetSize);
-
-        [DllImport("kernel32.dll")]
-        private static extern bool SetProcessWorkingSetSizeEx(IntPtr hProcess, IntPtr dwMinimumWorkingSetSize, IntPtr dwMaximumWorkingSetSize, uint dwFlags);
-
-        [DllImport("kernel32.dll")]
-        private static extern IntPtr GetProcessHeap();
-
-        [DllImport("kernel32.dll")]
-        private static extern IntPtr HeapCompact(IntPtr hHeap, uint dwFlags);
-
-        // SetProcessWorkingSetSizeEx 标志：禁用硬工作集限制，让系统尽可能修剪
-        private const uint QUOTA_LIMITS_HARDWS_MIN_DISABLE = 0x00000002;
-        private const uint QUOTA_LIMITS_HARDWS_MAX_DISABLE = 0x00000004;
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool SetProcessWorkingSetSize(IntPtr proc, IntPtr min, IntPtr max);
 
         // 窗口样式常量
         private const int GWL_STYLE = -16;
@@ -1387,15 +1343,6 @@ namespace WinVClip
 
         private void HideAndSave()
         {
-            HideToBackground();
-        }
-
-        /// <summary>
-        /// 隐藏窗口到后台并执行内存清理。
-        /// 适用于用户主动隐藏和初次启动后隐藏到后台。
-        /// </summary>
-        public void HideToBackground()
-        {
             SavePosition();
             Hide();
             _isVisible = false;
@@ -1412,84 +1359,37 @@ namespace WinVClip
             if (_emojiPanelBuilt)
                 EmojiContentPanel.Children.Clear();
             
-            if (_listBoxScrollViewer != null)
-            {
-                _listBoxScrollViewer.ScrollToVerticalOffset(0);
-            }
-            
-            RemoveGlobalMouseHook();
-
-            // 窗口隐藏后延迟释放内存：GC 回收托管对象 + 修剪工作集
-            // 延迟 350ms 让窗口完全隐藏后再清理（参考 QuickClipboard 的 HIDE_CLEANUP_DELAY_MS）
-            System.Windows.Threading.DispatcherTimer? trimTimer = null;
-            trimTimer = new System.Windows.Threading.DispatcherTimer(
-                TimeSpan.FromMilliseconds(350),
-                System.Windows.Threading.DispatcherPriority.Background,
-                (s, e) =>
-                {
-                    trimTimer?.Stop();
-                    TrimProcessMemory();
-                },
-                System.Windows.Threading.Dispatcher.CurrentDispatcher);
-            trimTimer.Start();
-
-            // 启动后台内存修剪定时器：每 2 分钟修剪一次工作集
-            // 后台活动（剪贴板监听、焦点变化）会持续分配内存，需要定期回收
-            _backgroundMemoryTimer?.Dispose();
-            _backgroundMemoryTimer = new System.Threading.Timer(
-                _ => TrimProcessMemory(),
-                null,
-                TimeSpan.FromMinutes(2),
-                TimeSpan.FromMinutes(2));
-        }
-
-        /// <summary>
-        /// 执行 GC 并修剪进程工作集，降低后台内存占用。
-        /// 借鉴 QuickClipboard 的内存清理策略：
-        /// 1. GC 回收托管对象
-        /// 2. HeapCompact 压缩进程堆，减少堆碎片（GC 不做这个）
-        /// 3. SetProcessWorkingSetSizeEx 修剪工作集（比 SetProcessWorkingSetSize 更彻底）
-        /// 仅在窗口隐藏等非交互时机调用，避免影响用户体验。
-        /// </summary>
-        private static void TrimProcessMemory()
-        {
-            // 1. 回收托管对象
-            GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, true);
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true);
             GC.WaitForPendingFinalizers();
-            GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, true);
-
-            // 2. 压缩进程堆，减少堆碎片
-            try
-            {
-                var heap = GetProcessHeap();
-                if (heap != IntPtr.Zero)
-                {
-                    HeapCompact(heap, 0);
-                }
-            }
-            catch { }
-
-            // 3. 修剪工作集：使用 SetProcessWorkingSetSizeEx + 禁用硬限制标志
-            // 比简单的 SetProcessWorkingSetSize(-1,-1) 更彻底
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true);
+            
             try
             {
                 using var proc = System.Diagnostics.Process.GetCurrentProcess();
-                SetProcessWorkingSetSizeEx(
-                    proc.Handle,
-                    (IntPtr)(-1),
-                    (IntPtr)(-1),
-                    QUOTA_LIMITS_HARDWS_MIN_DISABLE | QUOTA_LIMITS_HARDWS_MAX_DISABLE);
+                SetProcessWorkingSetSize(proc.Handle, (IntPtr)(-1), (IntPtr)(-1));
             }
-            catch
+            catch { }
+
+            _backgroundGcTimer?.Dispose();
+            _backgroundGcTimer = new System.Threading.Timer(_ =>
             {
-                // 降级到 SetProcessWorkingSetSize
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, true);
+                GC.WaitForPendingFinalizers();
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, true);
                 try
                 {
                     using var proc = System.Diagnostics.Process.GetCurrentProcess();
                     SetProcessWorkingSetSize(proc.Handle, (IntPtr)(-1), (IntPtr)(-1));
                 }
                 catch { }
+            }, null, TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1));
+            
+            if (_listBoxScrollViewer != null)
+            {
+                _listBoxScrollViewer.ScrollToVerticalOffset(0);
             }
+            
+            RemoveGlobalMouseHook();
         }
 
         // 焦点控制相关方法
@@ -1902,7 +1802,7 @@ namespace WinVClip
                 if (_viewModel.IsMultiSelectMode)
                     _viewModel.ToggleSelection(item);
                 else
-                    PasteItem(item);
+                    PasteItemWithKeyboardModifiers(item);
             }
         }
 
@@ -2100,19 +2000,8 @@ namespace WinVClip
 
         private void PasteAsText_Click(object sender, RoutedEventArgs e)
         {
-            if (ClipboardListBox.SelectedItem is not ClipboardItem item) return;
-            if (_isPasting) return;
-
-            try
-            {
-                _isPasting = true;
-                Clipboard.SetText(item.Content);
-                PostPasteFlow(pasteHashText: item.Content ?? "", moveTopItem: item);
-            }
-            finally
-            {
-                _isPasting = false;
-            }
+            if (ClipboardListBox.SelectedItem is ClipboardItem item)
+                PasteItemAsPlainText(item);
         }
 
         private void PasteAsImage_Click(object sender, RoutedEventArgs e)
@@ -2233,18 +2122,26 @@ namespace WinVClip
         
         private async void EnsureContextMenuTopmost(ContextMenu contextMenu)
         {
-            // 等待上下文菜单的 HWND 完成创建后再设置置顶
-            await Dispatcher.Yield(DispatcherPriority.Background);
-            SetContextMenuTopmost(contextMenu);
+            for (int i = 0; i < 10; i++)
+            {
+                SetContextMenuTopmost(contextMenu);
+                await System.Threading.Tasks.Task.Delay(10);
+            }
         }
         
         private void SetContextMenuTopmost(ContextMenu contextMenu)
         {
-            var hwndSource = PresentationSource.FromVisual(contextMenu) as HwndSource;
-            if (hwndSource != null)
+            try
             {
-                var hwnd = hwndSource.Handle;
-                SetWindowPos(hwnd, (IntPtr)(-1), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                var hwndSource = PresentationSource.FromVisual(contextMenu) as HwndSource;
+                if (hwndSource != null)
+                {
+                    var hwnd = hwndSource.Handle;
+                    SetWindowPos(hwnd, (IntPtr)(-1), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                }
+            }
+            catch
+            {
             }
         }
 
@@ -2377,6 +2274,69 @@ namespace WinVClip
                 Clipboard.SetDataObject(target);
         }
 
+        private void PasteItemWithKeyboardModifiers(ClipboardItem item)
+        {
+            var modifiers = Keyboard.Modifiers;
+            bool isCtrlShift = (modifiers & ModifierKeys.Control) != 0 && (modifiers & ModifierKeys.Shift) != 0;
+            bool isCtrlOrShift = (modifiers & (ModifierKeys.Control | ModifierKeys.Shift)) != 0;
+
+            if (isCtrlShift && (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText))
+            {
+                PasteItemAsPlainTextRemoveNewlines(item);
+            }
+            else if (isCtrlOrShift && (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText))
+            {
+                PasteItemAsPlainText(item);
+            }
+            else
+            {
+                PasteItem(item);
+            }
+        }
+
+        private void PasteItemAsPlainText(ClipboardItem item)
+        {
+            if (_isPasting) return;
+
+            try
+            {
+                _isPasting = true;
+                Clipboard.SetText(item.Content ?? "");
+                PostPasteFlow(pasteHashText: item.Content ?? "", moveTopItem: item);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isPasting = false;
+            }
+        }
+
+        private void PasteItemAsPlainTextRemoveNewlines(ClipboardItem item)
+        {
+            if (_isPasting) return;
+
+            try
+            {
+                _isPasting = true;
+                string text = (item.Content ?? "").Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ");
+                while (text.Contains("  "))
+                    text = text.Replace("  ", " ");
+                Clipboard.SetText(text.Trim());
+                PostPasteFlow(pasteHashText: text, moveTopItem: item);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isPasting = false;
+            }
+        }
+
         private void PasteItem(ClipboardItem item)
         {
             if (_isPasting) return;
@@ -2404,12 +2364,12 @@ namespace WinVClip
             }
         }
 
-        private async void ActivateAndPaste(IntPtr windowHandle)
+        private void ActivateAndPaste(IntPtr windowHandle)
         {
             if (windowHandle != IntPtr.Zero)
             {
                 SetForegroundWindow(windowHandle);
-                await Task.Delay(20);
+                Thread.Sleep(20);
                 var pasteMode = App.SettingsService?.GetPasteShortcutMode() ?? Services.PasteShortcutMode.Auto;
                 KeyboardService.SimulatePaste(pasteMode);
             }
@@ -2419,13 +2379,13 @@ namespace WinVClip
                 if (desktopHwnd != IntPtr.Zero)
                 {
                     SetForegroundWindow(desktopHwnd);
-                    await Task.Delay(20);
+                    Thread.Sleep(20);
                     KeyboardService.SimulatePaste(PasteShortcutMode.CtrlV);
                 }
             }
         }
 
-        private async void PostPasteFlow(string pasteHashText = null, List<string> pasteHashFiles = null,
+        private void PostPasteFlow(string pasteHashText = null, List<string> pasteHashFiles = null,
             ClipboardItem moveTopItem = null, List<ClipboardItem> moveTopItems = null,
             IntPtr? overrideTargetHwnd = null)
         {
@@ -2459,11 +2419,11 @@ namespace WinVClip
             if (windowStateService != null && !windowStateService.IsPinned)
             {
                 HideWindow();
-                await Task.Delay(50);
+                Thread.Sleep(50);
             }
             else
             {
-                await Task.Delay(30);
+                Thread.Sleep(30);
             }
 
             ActivateAndPaste(targetHwnd);

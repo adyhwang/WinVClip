@@ -51,6 +51,16 @@ namespace WinVClip.Services
             keybd_event((byte)vk, 0, up ? KEYEVENTF_KEYUP : 0, 0);
         }
 
+        private static void ReleaseKey(int vk)
+        {
+            for (int i = 0; i < 20; i++)
+            {
+                if (!IsKeyPressed(vk)) break;
+                SendKey(vk, true);
+                Thread.Sleep(5);
+            }
+        }
+
         public static (bool Ctrl, bool Alt, bool Shift, bool Win) GetModifierKeysState()
         {
             bool ctrl = IsKeyPressed(VK_CONTROL);
@@ -109,16 +119,10 @@ namespace WinVClip.Services
         private static void SimulatePasteCtrlV()
         {
             bool userAlt = IsKeyPressed(VK_MENU);
+            bool userShift = IsKeyPressed(VK_SHIFT);
 
-            if (userAlt)
-            {
-                for (int i = 0; i < 20; i++)
-                {
-                    if (!IsKeyPressed(VK_MENU)) break;
-                    SendKey(VK_MENU, true);
-                    Thread.Sleep(5);
-                }
-            }
+            if (userAlt) ReleaseKey(VK_MENU);
+            if (userShift) ReleaseKey(VK_SHIFT);
 
             bool userCtrl = IsKeyPressed(VK_CONTROL);
 
@@ -140,6 +144,11 @@ namespace WinVClip.Services
                     SendKey(VK_CONTROL, true);
                 }
 
+                if (userShift)
+                {
+                    SendKey(VK_SHIFT, false);
+                }
+
                 if (userAlt)
                 {
                     SendKey(VK_MENU, false);
@@ -152,6 +161,12 @@ namespace WinVClip.Services
 
         private static void SimulatePasteShiftInsert()
         {
+            bool userCtrl = IsKeyPressed(VK_CONTROL);
+            bool userAlt = IsKeyPressed(VK_MENU);
+
+            if (userCtrl) ReleaseKey(VK_CONTROL);
+            if (userAlt) ReleaseKey(VK_MENU);
+
             bool userShift = IsKeyPressed(VK_SHIFT);
 
             if (!userShift)
@@ -170,6 +185,16 @@ namespace WinVClip.Services
                 if (!userShift)
                 {
                     SendKey(VK_SHIFT, true);
+                }
+
+                if (userAlt)
+                {
+                    SendKey(VK_MENU, false);
+                }
+
+                if (userCtrl)
+                {
+                    SendKey(VK_CONTROL, false);
                 }
             }
         }

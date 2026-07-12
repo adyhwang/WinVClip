@@ -18,7 +18,6 @@ namespace WinVClip
         private static CleanupService? _cleanupService;
         private static MainWindow? _mainWindow;
         private static SettingsWindow? _settingsWindow;
-        private static readonly object _settingsWindowLock = new object();
         private static Mutex? _mutex;
         private static FocusService? _focusService;
         private static WindowStateService? _windowStateService;
@@ -95,6 +94,8 @@ namespace WinVClip
                 Current.Shutdown();
                 return;
             }
+
+            _settingsService.StartupTask.CheckAndUpdatePath();
 
             _databaseService = DatabaseService;
 
@@ -174,7 +175,7 @@ namespace WinVClip
                 _cleanupService.Start(_settingsService.Settings.RetentionDays);
             }
 
-            _mainWindow.HideToBackground();
+            _mainWindow.Hide();
 
             Dispatcher.BeginInvoke(new Action(() =>
             {
@@ -205,15 +206,12 @@ namespace WinVClip
 
         public static void ShowSettingsWindow()
         {
-            lock (_settingsWindowLock)
-            {
             if (_settingsWindow == null || !_settingsWindow.IsVisible)
             {
                 _settingsWindow = new SettingsWindow(SettingsService);
                 _settingsWindow.Owner = _mainWindow;
                 _settingsWindow.ShowDialog();
                 _settingsWindow = null;
-            }
             }
         }
 

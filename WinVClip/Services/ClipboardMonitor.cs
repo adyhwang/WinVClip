@@ -236,8 +236,8 @@ namespace WinVClip.Services
             UnregisterListener();
         }
 
-        private volatile bool _isIgnoringChange = false;
-        private volatile bool _isPasteOperation = false;
+        private bool _isIgnoringChange = false;
+        private bool _isPasteOperation = false;
         private string _lastPasteHash = string.Empty;
 
         public void IgnoreNextChange(int milliseconds = 500)
@@ -273,22 +273,21 @@ namespace WinVClip.Services
 
         public void SetLastPasteHashText(string text)
         {
-            System.Threading.Volatile.Write(ref _lastPasteHash, ComputeHash(System.Text.Encoding.UTF8.GetBytes(text ?? "")));
+            _lastPasteHash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(text ?? ""));
         }
 
         public void SetLastPasteHashFiles(List<string> filePaths)
         {
             var sortedPaths = filePaths.OrderBy(p => p.ToLowerInvariant()).ToList();
-            System.Threading.Volatile.Write(ref _lastPasteHash, ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", sortedPaths))));
+            _lastPasteHash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", sortedPaths)));
         }
 
         private bool IsRecentlyPastedContent(string content)
         {
-            var lastHash = System.Threading.Volatile.Read(ref _lastPasteHash);
-            if (string.IsNullOrEmpty(lastHash) || string.IsNullOrEmpty(content))
+            if (string.IsNullOrEmpty(_lastPasteHash) || string.IsNullOrEmpty(content))
                 return false;
             var contentHash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(content));
-            return contentHash == lastHash;
+            return contentHash == _lastPasteHash;
         }
 
         public bool CheckAndClearPasteOperation()
@@ -303,20 +302,20 @@ namespace WinVClip.Services
 
         private void ProcessClipboard()
         {
-            bool hasText;
-            bool hasImage;
-            bool hasFileDrop;
-            bool hasRichText;
-            System.Windows.IDataObject dataObject;
+            bool hasText = false;
+            bool hasImage = false;
+            bool hasFileDrop = false;
+            bool hasRichText = false;
 
             try
             {
-                dataObject = System.Windows.Clipboard.GetDataObject();
                 hasText = System.Windows.Clipboard.ContainsText();
                 hasImage = System.Windows.Clipboard.ContainsImage();
                 hasFileDrop = System.Windows.Clipboard.ContainsFileDropList();
-                hasRichText = dataObject?.GetDataPresent(System.Windows.DataFormats.Html) == true ||
-                              dataObject?.GetDataPresent(System.Windows.DataFormats.Rtf) == true;
+                
+                var dataObject = System.Windows.Clipboard.GetDataObject();
+                hasRichText = dataObject.GetDataPresent(System.Windows.DataFormats.Html) || 
+                              dataObject.GetDataPresent(System.Windows.DataFormats.Rtf);
             }
             catch
             {
@@ -328,6 +327,7 @@ namespace WinVClip.Services
 
             if (hasFileDrop && _settingsService.Settings.CaptureFiles)
             {
+                var dataObject = System.Windows.Clipboard.GetDataObject();
                 if (dataObject.GetDataPresent(System.Windows.DataFormats.FileDrop))
                 {
                     var fileList = dataObject.GetData(System.Windows.DataFormats.FileDrop) as string[];
@@ -368,6 +368,7 @@ namespace WinVClip.Services
 
             if (hasRichText && hasText && _settingsService.Settings.CaptureImages)
             {
+                var dataObject = System.Windows.Clipboard.GetDataObject();
                 string richContent = null;
                 string richFormat = null;
                 string csvContent = null;
@@ -452,7 +453,7 @@ namespace WinVClip.Services
                 return;
             }
 
-            if (hasText)
+            if (hasText && _settingsService.Settings.CaptureImages)
             {
                 var text = System.Windows.Clipboard.GetText();
                 if (ShouldProcessText(text))
@@ -600,47 +601,21 @@ namespace WinVClip.Services
 
         private void SchedulePostProcessGc()
         {
-            // 图片处理后会产生大字节数组（imageData）和 BitmapSource 等临时对象，
-            // 延迟 1 秒执行 GC + 堆压缩 + 工作集修剪，回收内存并降低后台占用。
-            // 仅触发一次（period=-1），不会频繁占用 CPU。
             _postProcessGcTimer?.Dispose();
             _postProcessGcTimer = new System.Threading.Timer(_ =>
             {
                 GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, true);
                 GC.WaitForPendingFinalizers();
                 GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, true);
-
-                // 压缩进程堆，减少堆碎片
-                try
-                {
-                    var heap = GetProcessHeap();
-                    if (heap != IntPtr.Zero) HeapCompact(heap, 0);
-                }
-                catch { }
-
-                // 修剪工作集
                 try
                 {
                     using var proc = System.Diagnostics.Process.GetCurrentProcess();
-                    SetProcessWorkingSetSizeEx(
-                        proc.Handle,
-                        (IntPtr)(-1),
-                        (IntPtr)(-1),
-                        QUOTA_LIMITS_HARDWS_MIN_DISABLE | QUOTA_LIMITS_HARDWS_MAX_DISABLE);
+                    SetProcessWorkingSetSize(proc.Handle, (IntPtr)(-1), (IntPtr)(-1));
                 }
-                catch
-                {
-                    try
-                    {
-                        using var proc = System.Diagnostics.Process.GetCurrentProcess();
-                        SetProcessWorkingSetSize(proc.Handle, (IntPtr)(-1), (IntPtr)(-1));
-                    }
-                    catch { }
-                }
-
+                catch { }
                 _postProcessGcTimer?.Dispose();
                 _postProcessGcTimer = null;
-            }, null, TimeSpan.FromSeconds(1), TimeSpan.FromMilliseconds(-1));
+            }, null, TimeSpan.FromSeconds(3), TimeSpan.FromMilliseconds(-1));
         }
 
         private byte[] ImageToBytes(BitmapSource image)
@@ -928,17 +903,5 @@ namespace WinVClip.Services
 
         [DllImport("kernel32.dll")]
         private static extern bool SetProcessWorkingSetSize(IntPtr proc, IntPtr min, IntPtr max);
-
-        [DllImport("kernel32.dll")]
-        private static extern bool SetProcessWorkingSetSizeEx(IntPtr hProcess, IntPtr dwMinimumWorkingSetSize, IntPtr dwMaximumWorkingSetSize, uint dwFlags);
-
-        [DllImport("kernel32.dll")]
-        private static extern IntPtr GetProcessHeap();
-
-        [DllImport("kernel32.dll")]
-        private static extern IntPtr HeapCompact(IntPtr hHeap, uint dwFlags);
-
-        private const uint QUOTA_LIMITS_HARDWS_MIN_DISABLE = 0x00000002;
-        private const uint QUOTA_LIMITS_HARDWS_MAX_DISABLE = 0x00000004;
     }
 }
