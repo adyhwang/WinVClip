@@ -22,14 +22,19 @@ namespace WinVClip.Services
             Directory.CreateDirectory(Path.GetDirectoryName(dbPath) ?? ".");
             _connection = new SqliteConnection($"Data Source={dbPath}");
             _connection.Open();
-            EnableWALMode();
+            ConfigurePragmas();
             InitializeDatabase();
         }
 
-        private void EnableWALMode()
+        private void ConfigurePragmas()
         {
             using var command = _connection.CreateCommand();
-            command.CommandText = "PRAGMA journal_mode=WAL;";
+            command.CommandText = @"
+                PRAGMA journal_mode=WAL;
+                PRAGMA cache_size=-2000;
+                PRAGMA mmap_size=0;
+                PRAGMA temp_store=MEMORY;
+            ";
             command.ExecuteNonQuery();
         }
 
@@ -1118,7 +1123,27 @@ namespace WinVClip.Services
                     using var deleteCommand = _connection.CreateCommand();
                     deleteCommand.CommandText = $"DELETE FROM ClipboardItems WHERE Id IN ({idsToDelete})";
                     deleteCommand.ExecuteNonQuery();
+
+                    // 删除超量记录后压缩数据库，回收磁盘空间
+                    VacuumDatabase();
                 }
+            }
+        }
+
+        /// <summary>
+        /// 执行 WAL checkpoint 并截断 WAL 文件，回收磁盘空间。
+        /// </summary>
+        public void CheckpointDatabase()
+        {
+            try
+            {
+                using var command = _connection.CreateCommand();
+                command.CommandText = "PRAGMA wal_checkpoint(TRUNCATE);";
+                command.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Checkpoint] WAL checkpoint failed: {ex.Message}");
             }
         }
 
@@ -1126,12 +1151,19 @@ namespace WinVClip.Services
         {
             try
             {
+                // VACUUM 不会回收 WAL 文件空间，需要先 checkpoint 把 WAL 内容合并回主库
+                CheckpointDatabase();
+
                 using var command = _connection.CreateCommand();
                 command.CommandText = "VACUUM";
                 command.ExecuteNonQuery();
+
+                // VACUUM 过程中可能再次产生 WAL，再次 checkpoint 截断
+                CheckpointDatabase();
             }
-            catch
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[Vacuum] Database vacuum failed: {ex.Message}");
             }
         }
 

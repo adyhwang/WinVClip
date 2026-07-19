@@ -22,6 +22,7 @@ namespace WinVClip
         private static FocusService? _focusService;
         private static WindowStateService? _windowStateService;
         private static System.Threading.Timer? _vacuumTimer;
+        private static System.Threading.Timer? _checkpointTimer;
 
         public static DatabaseService DatabaseService => _databaseService ??= new DatabaseService(GetDatabasePath());
         public static SettingsService SettingsService => _settingsService ??= new SettingsService();
@@ -181,8 +182,17 @@ namespace WinVClip
             {
                 CheckAndPerformPeriodicVacuum();
 
+                // 每 6 小时执行一次 WAL checkpoint（轻量操作，截断 .db-wal 文件）
+                _checkpointTimer = new System.Threading.Timer(
+                    callback: _ => Dispatcher.Invoke(() => _databaseService?.CheckpointDatabase()),
+                    state: null,
+                    dueTime: TimeSpan.FromHours(6),
+                    period: TimeSpan.FromHours(6));
+
+                // 每 1 天检查一次是否需要 VACUUM（实际每 2 天执行一次完整压缩）
+                // 必须在 Dispatcher 上执行，避免与剪贴板监控的写入并发访问同一连接
                 _vacuumTimer = new System.Threading.Timer(
-                    callback: _ => CheckAndPerformPeriodicVacuum(),
+                    callback: _ => Dispatcher.Invoke(() => CheckAndPerformPeriodicVacuum()),
                     state: null,
                     dueTime: TimeSpan.FromDays(1),
                     period: TimeSpan.FromDays(1));
@@ -194,11 +204,14 @@ namespace WinVClip
         private static void CleanupResources()
         {
             _vacuumTimer?.Dispose();
+            _checkpointTimer?.Dispose();
             _clipboardMonitor?.Stop();
             _clipboardMonitor?.Dispose();
             _hotkeyService?.Dispose();
             _cleanupService?.Dispose();
             _trayService?.Dispose();
+            // 退出前主动 checkpoint，把 WAL 内容合并回主库并截断 .db-wal 文件
+            _databaseService?.CheckpointDatabase();
             _databaseService?.Dispose();
             _focusService?.Dispose();
             _mutex?.Dispose();
@@ -342,24 +355,22 @@ namespace WinVClip
                 if (daysSinceLastVacuum >= 2)
                 {
                     System.Diagnostics.Debug.WriteLine($"[Vacuum] 开始执行数据库压缩，上次执行: {lastVacuumDate:yyyy-MM-dd}");
-                    
-                    System.Threading.Tasks.Task.Run(() =>
+
+                    // 必须在 UI 线程执行，避免与剪贴板监控并发访问同一 SqliteConnection
+                    try
                     {
-                        try
+                        _databaseService?.VacuumDatabase();
+                        if (_settingsService?.Settings != null)
                         {
-                            _databaseService?.VacuumDatabase();
-                            if (_settingsService?.Settings != null)
-                            {
-                                _settingsService.Settings.LastVacuumDate = today;
-                                _settingsService.SaveSettings();
-                                System.Diagnostics.Debug.WriteLine($"[Vacuum] 数据库压缩成功，已更新日期: {today:yyyy-MM-dd}");
-                            }
+                            _settingsService.Settings.LastVacuumDate = today;
+                            _settingsService.SaveSettings();
+                            System.Diagnostics.Debug.WriteLine($"[Vacuum] 数据库压缩成功，已更新日期: {today:yyyy-MM-dd}");
                         }
-                        catch (Exception ex)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"[Vacuum] 数据库压缩失败: {ex.Message}");
-                        }
-                    });
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[Vacuum] 数据库压缩失败: {ex.Message}");
+                    }
                 }
                 else
                 {
