@@ -20,10 +20,12 @@
 
 WinVClip 是一款使用 AI 辅助开发的 Windows 剪贴板管理工具，旨在帮助用户高效管理剪贴板历史记录。它能够自动捕获和存储剪贴板内容，支持多种数据类型，并提供便捷的搜索、分组和管理功能。
 
-<img width="350" height="600" alt="主界面" src="https://github.com/user-attachments/assets/2765372b-064d-4c72-8169-239d3b979ae3" />
-<img width="197" height="164" alt="托盘菜单" src="https://github.com/user-attachments/assets/ef7bd558-4887-4497-a8f3-503d843ea7db" />
-<img width="750" height="620" alt="设置窗口" src="https://github.com/user-attachments/assets/ccbc0794-56ea-4308-ba49-69b3a396300b" />
-<img width="600" height="500" alt="5" src="https://github.com/user-attachments/assets/562efe07-c768-463d-9085-95fa47f96ecb" />
+<img width="388" height="600" alt="1" src="https://github.com/user-attachments/assets/4d991e1f-eff8-432d-a8d7-669d6c279b1d" />
+<img width="750" height="620" alt="2" src="https://github.com/user-attachments/assets/855b262d-615f-4dbc-bf80-31b6a8ec63cd" />
+<img width="750" height="620" alt="3" src="https://github.com/user-attachments/assets/036acb39-2af2-4db9-ba06-393aac53e4b6" />
+<img width="750" height="620" alt="4" src="https://github.com/user-attachments/assets/d248273a-726c-4e17-959d-ad56e9ef4d15" />
+<img width="600" height="500" alt="5" src="https://github.com/user-attachments/assets/a6b20891-5e5e-4de3-bba2-219020679729" />
+
 
 ---
 
@@ -40,6 +42,7 @@ WinVClip 是一款使用 AI 辅助开发的 Windows 剪贴板管理工具，旨�
 | 📁 **分组管理** | 将剪贴板项分组整理，支持创建、编辑、删除分组 |
 | 🔎 **搜索功能** | 内置搜索引擎，快速检索剪贴板内容 |
 | 🎨 **主题切换** | 支持亮色/暗色主题，可跟随系统自动切换 |
+| 🚀 **开机自启** | 支持开机自动启动，开机即用无需手动打开 |
 
 ### 高级功能
 
@@ -52,13 +55,14 @@ WinVClip 是一款使用 AI 辅助开发的 Windows 剪贴板管理工具，旨�
 | 🔒 **数据持久化** | 使用 SQLite 数据库存储，数据安全可靠 |
 | 🖥️ **智能粘贴** | 自动识别终端环境，智能选择 `Ctrl+V` 或 `Shift+Insert` |
 | 📌 **窗口置顶** | 支持窗口置顶功能，方便对照操作 |
-| 🏷️ **类型筛选** | 按内容类型（文本/图片/文件/富文本）筛选历史记录 |
+| 🏷️ **类型筛选** | 按内容类型（文本/图片/文件/富文本/链接）筛选历史记录 |
 | 🔗 **快捷操作** | 右键菜单支持快速搜索、打开文件、访问链接等操作 |
 | 🔤 **拆分选字** | 将文本拆分为单字/单词，选择性插入所需内容 |
 | 😀 **表情面板** | 内置表情面板，支持分类浏览和快速插入 |
 | 🔣 **字符面板** | 内置特殊字符面板，快速访问符号和字符 |
 | 🔠 **字体大小** | 可调整界面字体大小（10-30），主界面和拆分选字界面即时生效 |
 | 🌐 **多语言** | 支持中英文切换，语言修改即时生效无需重启 |
+| ⚡ **内存优化** | 后台自动内存回收，最小化后自动释放内存，资源占用更低 |
 
 ---
 
@@ -146,6 +150,8 @@ cd WinVClip
 - **粘贴方式**: 自动选择、Ctrl+V、Shift+Insert
 - **语言**: 中英文切换，修改即时生效
 - **字体大小**: 可调整范围 10-30，主界面和拆分选字界面即时生效
+- **开机自启**: 开机自动启动程序
+- **窗口置顶**: 主窗口始终显示在最前方
 
 #### 捕获设置
 - **监控开关**: 启用/禁用剪贴板监控
@@ -191,24 +197,28 @@ cd WinVClip
 WinVClip/
 ├── Models/                      # 数据模型层
 │   ├── AppSettings.cs          # 应用程序设置模型
+│   ├── CharGroupData.cs        # 字符分组数据模型
 │   ├── ClipboardItem.cs        # 剪贴板条目模型
 │   ├── ClipboardType.cs        # 剪贴板类型枚举
 │   ├── Group.cs                # 分组模型
+│   ├── LanguageModel.cs        # 语言模型
+│   ├── RangeObservableCollection.cs  # 范围可观察集合
 │   └── SearchEngine.cs         # 搜索引擎模型
 │
 ├── Services/                    # 服务层
+│   ├── BackupService.cs        # 数据备份服务
+│   ├── CleanupService.cs       # 自动清理服务
 │   ├── ClipboardMonitor.cs     # 剪贴板监控服务
 │   ├── DatabaseService.cs      # 数据库操作服务
-│   ├── SettingsService.cs      # 设置管理服务
+│   ├── FocusService.cs         # 窗口焦点追踪服务
 │   ├── HotkeyService.cs        # 全局快捷键服务
+│   ├── KeyboardService.cs      # 键盘模拟服务
+│   ├── LocalizationService.cs  # 多语言本地化服务
+│   ├── SettingsService.cs      # 设置管理服务
+│   ├── StartupTaskService.cs   # 开机自启服务
 │   ├── ThemeService.cs         # 主题管理服务
 │   ├── TrayService.cs          # 系统托盘服务
-│   ├── FocusService.cs         # 窗口焦点追踪服务
-│   ├── KeyboardService.cs      # 键盘模拟服务
-│   ├── WindowStateService.cs   # 窗口状态管理
-│   ├── BackupService.cs        # 数据备份服务
-│   ├── CleanupService.cs       # 自动删除服务
-│   └── LocalizationService.cs  # 多语言本地化服务
+│   └── WindowStateService.cs   # 窗口状态管理
 │
 ├── Windows/                     # 窗口层
 │   ├── MainWindow.xaml         # 主窗口
@@ -221,6 +231,11 @@ WinVClip/
 │   ├── LightTheme.xaml         # 亮色主题
 │   ├── DarkTheme.xaml          # 暗色主题
 │   └── SharedStyles.xaml       # 共享样式
+│
+├── Resources/                   # 资源文件
+│   ├── Characters/             # 特殊字符数据
+│   ├── Emoji/                  # 表情数据
+│   └── Languages/              # 多语言资源
 │
 └── App.xaml.cs                  # 应用程序入口
 ```
@@ -314,6 +329,7 @@ Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Them
 感谢以下 AI 工具在开发过程中提供的帮助：
 
 - **Trae** 
+- **Doubao** 
 - **GLM** 
 - **Kimi** 
 - **DeepSeek** 
