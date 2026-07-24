@@ -20,11 +20,11 @@
 
 WinVClip is a Windows clipboard manager developed with AI assistance, designed to help users efficiently manage clipboard history. It automatically captures and stores clipboard content, supports multiple data types, and provides convenient search, grouping, and management features.
 
-
-<img width="627" height="612" alt="1" src="https://github.com/user-attachments/assets/12638bde-6ccf-46a4-a3c7-568557854fdc" />
-<img width="750" height="620" alt="2" src="https://github.com/user-attachments/assets/7fafce65-8c39-48b4-8c6f-bf06187ce680" />
-<img width="750" height="620" alt="3" src="https://github.com/user-attachments/assets/356505b2-8c43-42ee-a03e-85eea39f2c15" />
-<img width="600" height="500" alt="6" src="https://github.com/user-attachments/assets/c62de8bc-6461-45b7-8a78-f88ad7f118c8" />
+<img width="388" height="600" alt="1e" src="https://github.com/user-attachments/assets/991f7b6d-d451-446d-90bc-7ce33c690e72" />
+<img width="750" height="620" alt="2e" src="https://github.com/user-attachments/assets/160dd5a8-ef8d-4760-a954-b0f0e85164db" />
+<img width="750" height="620" alt="3e" src="https://github.com/user-attachments/assets/f5ee72af-3ff1-4fcf-a0f6-a4b024f73578" />
+<img width="750" height="620" alt="4e" src="https://github.com/user-attachments/assets/644414b0-c82e-4eb4-9c79-2666f6a27068" />
+<img width="600" height="500" alt="5e" src="https://github.com/user-attachments/assets/8d6fe202-cca4-4a11-aa0f-dc3f2b783424" />
 
 
 ---
@@ -42,6 +42,7 @@ WinVClip is a Windows clipboard manager developed with AI assistance, designed t
 | 📁 **Group Management** | Organize clipboard items into groups, supports creating, editing, and deleting groups |
 | 🔎 **Search Function** | Built-in search engine for quick retrieval of clipboard content |
 | 🎨 **Theme Switching** | Supports light/dark themes, can automatically follow system settings |
+| 🚀 **Auto Startup** | Supports auto-start on boot, ready to use without manual launch |
 
 ### Advanced Features
 
@@ -54,13 +55,14 @@ WinVClip is a Windows clipboard manager developed with AI assistance, designed t
 | 🔒 **Data Persistence** | Uses SQLite database for storage, data is safe and reliable |
 | 🖥️ **Smart Paste** | Automatically detects terminal environment, intelligently chooses `Ctrl+V` or `Shift+Insert` |
 | 📌 **Window Pin** | Supports window always-on-top for convenient comparison operations |
-| 🏷️ **Type Filter** | Filter history records by content type (text/image/file/rich text) |
+| 🏷️ **Type Filter** | Filter history records by content type (text/image/file/rich text/link) |
 | 🔗 **Quick Actions** | Right-click menu supports quick search, open files, visit links, and more |
 | 🔤 **Split Characters** | Split text into individual characters/words for selective insertion |
 | 😀 **Emoji Panel** | Built-in emoji panel with category browsing and quick insertion |
 | 🔣 **Character Panel** | Built-in special character panel for quick access to symbols and characters |
 | 🔠 **Font Size** | Adjustable interface font size (10-30), applies to main window and character picker instantly |
 | 🌐 **Multi-language** | Supports Chinese and English, language changes apply instantly without restart |
+| ⚡ **Memory Optimization** | Background automatic memory cleanup, auto releases memory when minimized, lower resource usage |
 
 ---
 
@@ -148,6 +150,8 @@ Build with Visual Studio:
 - **Paste Method**: Auto select, Ctrl+V, Shift+Insert
 - **Language**: Chinese/English, changes apply instantly
 - **Font Size**: Adjustable from 10 to 30, applies instantly to main window and character picker
+- **Auto Startup**: Auto launch program on system boot
+- **Window Always On Top**: Main window stays on top of all windows
 
 #### Capture Settings
 - **Monitor Switch**: Enable/disable clipboard monitoring
@@ -193,36 +197,45 @@ Build with Visual Studio:
 WinVClip/
 ├── Models/                      # Data model layer
 │   ├── AppSettings.cs          # Application settings model
+│   ├── CharGroupData.cs        # Character group data model
 │   ├── ClipboardItem.cs        # Clipboard item model
 │   ├── ClipboardType.cs        # Clipboard type enum
 │   ├── Group.cs                # Group model
+│   ├── LanguageModel.cs        # Language model
+│   ├── RangeObservableCollection.cs  # Range observable collection
 │   └── SearchEngine.cs         # Search engine model
 │
 ├── Services/                    # Service layer
-│   ├── ClipboardMonitor.cs     # Clipboard monitoring service
-│   ├── DatabaseService.cs      # Database operation service
-│   ├── SettingsService.cs      # Settings management service
-│   ├── HotkeyService.cs        # Global hotkey service
-│   ├── ThemeService.cs         # Theme management service
-│   ├── TrayService.cs          # System tray service
-│   ├── FocusService.cs         # Window focus tracking service
-│   ├── KeyboardService.cs      # Keyboard simulation service
-│   ├── WindowStateService.cs   # Window state management
 │   ├── BackupService.cs        # Data backup service
 │   ├── CleanupService.cs       # Auto cleanup service
-│   └── LocalizationService.cs  # Multi-language localization service
+│   ├── ClipboardMonitor.cs     # Clipboard monitoring service
+│   ├── DatabaseService.cs      # Database operation service
+│   ├── FocusService.cs         # Window focus tracking service
+│   ├── HotkeyService.cs        # Global hotkey service
+│   ├── KeyboardService.cs      # Keyboard simulation service
+│   ├── LocalizationService.cs  # Multi-language localization service
+│   ├── SettingsService.cs      # Settings management service
+│   ├── StartupTaskService.cs   # Auto startup service
+│   ├── ThemeService.cs         # Theme management service
+│   ├── TrayService.cs          # System tray service
+│   └── WindowStateService.cs   # Window state management
 │
 ├── Windows/                     # Window layer
 │   ├── MainWindow.xaml         # Main window
 │   ├── SettingsWindow.xaml     # Settings window
 │   ├── EditItemWindow.xaml     # Edit window
 │   ├── GroupManageWindow.xaml  # Group management window
-│   └── CharPickerWindow.xaml   # Split characters window
+│   └── CharPickerWindow.xaml   # Character picker window
 │
 ├── Themes/                      # Theme resources
 │   ├── LightTheme.xaml         # Light theme
 │   ├── DarkTheme.xaml          # Dark theme
 │   └── SharedStyles.xaml       # Shared styles
+│
+├── Resources/                   # Resource files
+│   ├── Characters/             # Special character data
+│   ├── Emoji/                  # Emoji data
+│   └── Languages/              # Multi-language resources
 │
 └── App.xaml.cs                  # Application entry point
 ```
@@ -315,6 +328,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 Thanks to the following AI tools for their help during development:
 
 - **Trae**
+- **Doubao** 
 - **GLM**
 - **Kimi**
 - **DeepSeek**
