@@ -649,6 +649,74 @@ namespace WinVClip
 
         public bool IsEmpty => ClipboardItems.Count == 0;
 
+        private int _totalCount;
+        public int TotalCount
+        {
+            get => _totalCount;
+            set
+            {
+                _totalCount = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(StatusText));
+            }
+        }
+
+        private int _textCount;
+        public int TextCount
+        {
+            get => _textCount;
+            set
+            {
+                _textCount = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private int _imageCount;
+        public int ImageCount
+        {
+            get => _imageCount;
+            set
+            {
+                _imageCount = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private int _fileCount;
+        public int FileCount
+        {
+            get => _fileCount;
+            set
+            {
+                _fileCount = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private int _richTextCount;
+        public int RichTextCount
+        {
+            get => _richTextCount;
+            set
+            {
+                _richTextCount = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public string StatusText
+        {
+            get
+            {
+                if (IsAnyFilterActive || !string.IsNullOrEmpty(SearchText))
+                {
+                    return Loc.Get("MainWindow.Status.Filtered", ClipboardItems.Count, _totalCount);
+                }
+                return Loc.Get("MainWindow.Status.Total", _totalCount);
+            }
+        }
+
         private bool _isWindowVisible = false;
         public bool IsWindowVisible
         {
@@ -720,6 +788,9 @@ namespace WinVClip
             try
             {
                 List<ClipboardItem> newItems = null;
+                Dictionary<int, int> typeCounts = null;
+                int totalCount = 0;
+                int linkFilterCount = 0;
                 await Task.Run(() =>
                 {
                     if (TypeFilter == FilterType.Link)
@@ -728,12 +799,15 @@ namespace WinVClip
                         (int)ClipboardType.Text, GroupFilter);
                     _filteredLinkItems = allTextItems?.Where(item => MainWindow.IsValidUrl(item.Content)).ToList() ?? new List<ClipboardItem>();
                     newItems = _filteredLinkItems.Take(PageSize).ToList();
+                    linkFilterCount = _filteredLinkItems.Count;
                 }
                     else
                     {
                         newItems = _databaseService.GetItems(PageSize, _currentOffset, SearchText,
                             TypeFilter, GroupFilter);
                     }
+                    totalCount = _databaseService.GetTotalCount(SearchText, TypeFilter, GroupFilter);
+                    typeCounts = _databaseService.GetItemCountsByType(SearchText, GroupFilter);
                 });
                 
                 if (newItems == null)
@@ -751,6 +825,23 @@ namespace WinVClip
                     ClipboardItems.ReplaceAll(newItems);
                     OnPropertyChanged(nameof(HasItems));
                     OnPropertyChanged(nameof(IsEmpty));
+
+                    if (TypeFilter == FilterType.Link)
+                    {
+                        TotalCount = linkFilterCount;
+                    }
+                    else
+                    {
+                        TotalCount = totalCount;
+                    }
+                    if (typeCounts != null)
+                    {
+                        TextCount = typeCounts.ContainsKey((int)ClipboardType.Text) ? typeCounts[(int)ClipboardType.Text] : 0;
+                        ImageCount = typeCounts.ContainsKey((int)ClipboardType.Image) ? typeCounts[(int)ClipboardType.Image] : 0;
+                        FileCount = typeCounts.ContainsKey((int)ClipboardType.FileList) ? typeCounts[(int)ClipboardType.FileList] : 0;
+                        RichTextCount = typeCounts.ContainsKey((int)ClipboardType.RichText) ? typeCounts[(int)ClipboardType.RichText] : 0;
+                    }
+                    OnPropertyChanged(nameof(StatusText));
                 });
             }
             catch (Exception)
@@ -882,6 +973,26 @@ namespace WinVClip
             }
             OnPropertyChanged(nameof(HasItems));
             OnPropertyChanged(nameof(IsEmpty));
+
+            TotalCount++;
+            switch (item.Type)
+            {
+                case ClipboardType.Text:
+                    TextCount++;
+                    break;
+                case ClipboardType.Image:
+                    ImageCount++;
+                    break;
+                case ClipboardType.FileList:
+                    FileCount++;
+                    break;
+                case ClipboardType.RichText:
+                    RichTextCount++;
+                    TextCount++;
+                    break;
+            }
+            OnPropertyChanged(nameof(StatusText));
+
             ItemAdded?.Invoke(this, EventArgs.Empty);
         }
 
@@ -890,6 +1001,25 @@ namespace WinVClip
             ClipboardItems.Remove(item);
             OnPropertyChanged(nameof(HasItems));
             OnPropertyChanged(nameof(IsEmpty));
+
+            if (TotalCount > 0) TotalCount--;
+            switch (item.Type)
+            {
+                case ClipboardType.Text:
+                    if (TextCount > 0) TextCount--;
+                    break;
+                case ClipboardType.Image:
+                    if (ImageCount > 0) ImageCount--;
+                    break;
+                case ClipboardType.FileList:
+                    if (FileCount > 0) FileCount--;
+                    break;
+                case ClipboardType.RichText:
+                    if (RichTextCount > 0) RichTextCount--;
+                    if (TextCount > 0) TextCount--;
+                    break;
+            }
+            OnPropertyChanged(nameof(StatusText));
         }
     }
 
@@ -2008,6 +2138,57 @@ namespace WinVClip
             };
             this.Hide();
             charPickerWindow.Show();
+        }
+
+        private void GenerateQRCode_Click(object sender, RoutedEventArgs e)
+        {
+            if (ClipboardListBox.SelectedItem is not ClipboardItem item)
+                return;
+
+            string text = item.Content ?? "";
+            if (string.IsNullOrEmpty(text))
+                return;
+
+            var qrWindow = new QRCodeWindow(text);
+            qrWindow.Closed += (_, _) =>
+            {
+                if (_viewModel.IsPinned)
+                    this.Show();
+                else
+                    this.Hide();
+            };
+            this.Hide();
+            qrWindow.Show();
+        }
+
+        private void MenuGenerateQRCode_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.MenuItem menuItem)
+                menuItem.Header = Loc.Get("MainWindow.ContextMenu.GenerateQRCode", "生成二维码");
+        }
+
+        private void StatusTextTip_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Panel panel)
+                panel.ToolTip = Loc.Get("ClipboardType.Text", "文本");
+        }
+
+        private void StatusImageTip_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Panel panel)
+                panel.ToolTip = Loc.Get("ClipboardType.Image", "图片");
+        }
+
+        private void StatusFileTip_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Panel panel)
+                panel.ToolTip = Loc.Get("ClipboardType.FileList", "文件");
+        }
+
+        private void StatusRichTextTip_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Panel panel)
+                panel.ToolTip = Loc.Get("ClipboardType.RichText", "富文本");
         }
 
         private void MenuCharPicker_Loaded(object sender, RoutedEventArgs e)

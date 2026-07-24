@@ -407,6 +407,89 @@ namespace WinVClip.Services
             return GetItems(int.MaxValue, 0);
         }
 
+        public Dictionary<int, int> GetItemCountsByType(string? searchText = null, long? groupIdFilter = null)
+        {
+            var counts = new Dictionary<int, int>();
+            using var command = _connection.CreateCommand();
+
+            var whereClause = new StringBuilder("WHERE 1=1");
+            var parameters = new List<SqliteParameter>();
+
+            if (!string.IsNullOrEmpty(searchText))
+            {
+                whereClause.Append(" AND (Content LIKE @Search OR PreviewText LIKE @Search)");
+                parameters.Add(new SqliteParameter("@Search", $"%{searchText}%"));
+            }
+
+            if (groupIdFilter.HasValue)
+            {
+                whereClause.Append(" AND GroupId = @GroupId");
+                parameters.Add(new SqliteParameter("@GroupId", groupIdFilter.Value));
+            }
+
+            command.CommandText = $@"
+                SELECT Type, COUNT(*) as Cnt
+                FROM ClipboardItems
+                {whereClause}
+                GROUP BY Type
+            ";
+            parameters.ForEach(p => command.Parameters.Add(p));
+
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var type = reader.GetInt32(0);
+                var count = reader.GetInt32(1);
+                counts[type] = count;
+            }
+
+            return counts;
+        }
+
+        public int GetTotalCount(string? searchText = null, int? typeFilter = null, long? groupIdFilter = null)
+        {
+            using var command = _connection.CreateCommand();
+
+            var whereClause = new StringBuilder("WHERE 1=1");
+            var parameters = new List<SqliteParameter>();
+
+            if (!string.IsNullOrEmpty(searchText))
+            {
+                whereClause.Append(" AND (Content LIKE @Search OR PreviewText LIKE @Search)");
+                parameters.Add(new SqliteParameter("@Search", $"%{searchText}%"));
+            }
+
+            if (typeFilter.HasValue)
+            {
+                if (typeFilter.Value == (int)Models.ClipboardType.Text)
+                {
+                    whereClause.Append(" AND (Type = @Type OR Type = @RichTextType)");
+                    parameters.Add(new SqliteParameter("@Type", typeFilter.Value));
+                    parameters.Add(new SqliteParameter("@RichTextType", (int)Models.ClipboardType.RichText));
+                }
+                else
+                {
+                    whereClause.Append(" AND Type = @Type");
+                    parameters.Add(new SqliteParameter("@Type", typeFilter.Value));
+                }
+            }
+
+            if (groupIdFilter.HasValue)
+            {
+                whereClause.Append(" AND GroupId = @GroupId");
+                parameters.Add(new SqliteParameter("@GroupId", groupIdFilter.Value));
+            }
+
+            command.CommandText = $@"
+                SELECT COUNT(*) FROM ClipboardItems
+                {whereClause}
+            ";
+            parameters.ForEach(p => command.Parameters.Add(p));
+
+            var result = command.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+
         public Models.ClipboardItem? GetItem(long id)
         {
             using var command = _connection.CreateCommand();

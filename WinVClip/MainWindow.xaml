@@ -286,6 +286,10 @@
                                           Style="{DynamicResource MenuItemStyle}"
                                           Visibility="{Binding ., Converter={local:ItemTypeToUrlVisibilityConverter}}"
                                           DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <MenuItem x:Name="MenuGenerateQRCode" Header="生成二维码" Icon="📱" Click="GenerateQRCode_Click" Loaded="MenuGenerateQRCode_Loaded"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding ., Converter={local:IsTextOrRichTextConverter}}"
+                                          DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                 <MenuItem x:Name="MenuOpenFolder" Header="打开文件夹" Icon="📂" Click="OpenFolderMenuItem_Click"
                                           Style="{DynamicResource MenuItemStyle}"
                                           Visibility="{Binding ., Converter={local:ItemTypeToFolderVisibilityConverter}}"
@@ -564,11 +568,51 @@
                 </Grid>
             </Grid>
 
-            <Grid Grid.Row="3" Margin="10,4,0,0">
-                <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
-                           Text="{Binding Hotkey}"
-                           Foreground="{DynamicResource SecondaryTextForeground}"
-                           FontSize="10"/>
+            <Grid Grid.Row="3" Margin="10,4,10,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding StatusText}"
+                               Foreground="{DynamicResource SecondaryTextForeground}"
+                               FontSize="11"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel x:Name="StatusTextTip" Orientation="Horizontal" ToolTip="文本" Margin="0,0,8,0" Loaded="StatusTextTip_Loaded">
+                        <Border Background="#6B7280" CornerRadius="2" Width="10" Height="10" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding TextCount}"
+                                   Foreground="{DynamicResource SecondaryTextForeground}"
+                                   FontSize="11"
+                                   Margin="4,0,0,0"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel x:Name="StatusImageTip" Orientation="Horizontal" ToolTip="图片" Margin="0,0,8,0" Loaded="StatusImageTip_Loaded">
+                        <Border Background="#10B981" CornerRadius="2" Width="10" Height="10" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding ImageCount}"
+                                   Foreground="{DynamicResource SecondaryTextForeground}"
+                                   FontSize="11"
+                                   Margin="4,0,0,0"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel x:Name="StatusFileTip" Orientation="Horizontal" ToolTip="文件" Margin="0,0,8,0" Loaded="StatusFileTip_Loaded">
+                        <Border Background="#F59E0B" CornerRadius="2" Width="10" Height="10" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding FileCount}"
+                                   Foreground="{DynamicResource SecondaryTextForeground}"
+                                   FontSize="11"
+                                   Margin="4,0,0,0"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel x:Name="StatusRichTextTip" Orientation="Horizontal" ToolTip="富文本" Loaded="StatusRichTextTip_Loaded">
+                        <Border Background="#8B5CF6" CornerRadius="2" Width="10" Height="10" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding RichTextCount}"
+                                   Foreground="{DynamicResource SecondaryTextForeground}"
+                                   FontSize="11"
+                                   Margin="4,0,0,0"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
             </Grid>
         </Grid>
     </Border>

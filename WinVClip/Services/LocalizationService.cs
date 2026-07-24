@@ -179,6 +179,13 @@ namespace WinVClip.Services
 
                 if (cultureName.StartsWith("zh", StringComparison.OrdinalIgnoreCase))
                 {
+                    if (cultureName.Equals("zh-TW", StringComparison.OrdinalIgnoreCase) ||
+                        cultureName.Equals("zh-HK", StringComparison.OrdinalIgnoreCase) ||
+                        cultureName.Equals("zh-MO", StringComparison.OrdinalIgnoreCase) ||
+                        cultureName.Equals("zh-SG", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return "zh-TW";
+                    }
                     return "zh-CN";
                 }
 
