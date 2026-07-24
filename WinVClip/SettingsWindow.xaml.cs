@@ -50,7 +50,8 @@ namespace WinVClip
                 PasteShortcutMode = _settingsService.Settings.PasteShortcutMode,
                 Language = _settingsService.Settings.Language,
                 FontSize = _settingsService.Settings.FontSize,
-                ShowHotkeyTipOnStartup = _settingsService.Settings.ShowHotkeyTipOnStartup
+                ShowHotkeyTipOnStartup = _settingsService.Settings.ShowHotkeyTipOnStartup,
+                UseSystemCharPanel = _settingsService.Settings.UseSystemCharPanel
             };
 
             _tempHotkey = _originalSettings.Hotkey;
@@ -150,6 +151,11 @@ namespace WinVClip
             AdminRunDescription.Text = Loc.Get("Settings.General.Admin.RunDescription", "以管理员权限运行可向所有窗口发送粘贴操作");
             AdminRunHint.Text = Loc.Get("Settings.General.Admin.Hint", "提示：普通权限无法向管理员权限的窗口（如管理员PowerShell、CMD等等）自动粘贴");
 
+            CharPanelCardTitle.Text = Loc.Get("Settings.General.CharPanel.Title", "🔣字符面板按钮");
+            UseSystemCharPanelCheckBox.Content = Loc.Get("Settings.General.CharPanel.UseSystem", "是否调用系统的字符面板？");
+            UseSystemCharPanelDescription.Text = Loc.Get("Settings.General.CharPanel.UseSystemDescription", "勾选后，点击主面板的🔣按钮将调用系统字符面板（Win+.快捷键）");
+            UseSystemCharPanelWarning.Text = Loc.Get("Settings.General.CharPanel.UseSystemWarning", "仅Windows 10 Version 1709以上版本可用，其他系统请勿勾选。");
+
             FontSizeCardTitle.Text = Loc.Get("Settings.General.FontSize.Title", "字体大小");
             FontSizeDescription.Text = Loc.Get("Settings.General.FontSize.Description", "调整界面字体大小（需重新打开窗口生效）");
         }
@@ -172,8 +178,8 @@ namespace WinVClip
         {
             HistoryTitleText.Text = Loc.Get("Settings.History.Title", "历史记录");
             HistoryManageCardTitle.Text = Loc.Get("Settings.History.CardTitle", "历史记录管理");
-            AutoCleanupInfoText.Text = Loc.Get("Settings.History.AutoCleanupInfo", "自动清理不会删除已分组的历史记录");
-            EnableAutoCleanupCheckBox.Content = Loc.Get("Settings.History.EnableAutoCleanup", "启用自动清理");
+            AutoCleanupInfoText.Text = Loc.Get("Settings.History.AutoCleanupInfo", "自动删除不会删除已分组的历史记录");
+            EnableAutoCleanupCheckBox.Content = Loc.Get("Settings.History.EnableAutoCleanup", "启用自动删除");
             RetentionDaysText.Text = Loc.Get("Settings.History.RetentionDays", "保留天数");
             RetentionDaysHint.Text = Loc.Get("Settings.History.RetentionDaysHint", "超过设定天数的历史记录将被自动删除");
             MaxRecordsText.Text = Loc.Get("Settings.History.MaxRecords", "最大记录数");
@@ -181,12 +187,19 @@ namespace WinVClip
             KeepForeverItem.Content = Loc.Get("Settings.History.KeepForever", "永久保留");
             UnlimitedItem.Content = Loc.Get("Settings.History.Unlimited", "无限制");
 
-            ManualCleanupCardTitle.Text = Loc.Get("Settings.History.ManualCleanup.Title", "手动清理");
-            ClearAllHistoryButton.Content = Loc.Get("Settings.History.ClearAll", "清空所有历史");
-            ClearUngroupedHistoryButton.Content = Loc.Get("Settings.History.ClearUngrouped", "清空未分组历史");
-            ClearBeforeDaysText.Text = Loc.Get("Settings.History.ClearBeforeDays", "清空指定天数之前的历史记录");
+            ManualCleanupCardTitle.Text = Loc.Get("Settings.History.ManualCleanup.Title", "手动删除");
+            ClearAllHistoryButton.Content = Loc.Get("Settings.History.ClearAll", "删除所有历史");
+            ClearUngroupedHistoryButton.Content = Loc.Get("Settings.History.ClearUngrouped", "删除未分组历史");
+            ClearBeforeDaysText.Text = Loc.Get("Settings.History.ClearBeforeDays", "删除指定天数之前和指定类型的历史记录");
             ClearBeforeDaysButton.Content = Loc.Get("Settings.History.Execute", "执行");
             ClearBeforeDaysHint.Text = Loc.Get("Settings.History.ClearBeforeDaysHint", "仅删除未分组的记录，已分组的记录将被保留");
+
+            ClearTypeAll.Content = Loc.Get("Settings.History.DeleteType.All", "全部");
+            ClearTypeText.Content = Loc.Get("Settings.History.DeleteType.Text", "文本");
+            ClearTypeRichText.Content = Loc.Get("Settings.History.DeleteType.RichText", "富文本");
+            ClearTypeLink.Content = Loc.Get("Settings.History.DeleteType.Link", "链接");
+            ClearTypeImage.Content = Loc.Get("Settings.History.DeleteType.Image", "图片");
+            ClearTypeFile.Content = Loc.Get("Settings.History.DeleteType.File", "文件");
         }
 
         private void ApplyPanelStorageLocalization()
@@ -1056,7 +1069,7 @@ namespace WinVClip
 
                         await Dispatcher.InvokeAsync(() =>
                         {
-                            statusText.Text = Loc.Get("Import.CleaningDuplicates", "正在清理未分组重复数据...");
+                            statusText.Text = Loc.Get("Import.CleaningDuplicates", "正在删除未分组重复数据...");
                             detailText.Text = string.Format(Loc.Get("Import.GroupedCount", "已分组: {0} 条"), groupedContents.Count) + "，" + string.Format(Loc.Get("Import.UngroupedCount", "未分组: {0} 条"), ungroupedContents.Count);
                         });
 
@@ -1068,7 +1081,7 @@ namespace WinVClip
                         await Dispatcher.InvokeAsync(() =>
                         {
                             statusText.Text = Loc.Get("Import.PreparingImport", "正在准备导入数据...");
-                            detailText.Text = string.Format(Loc.Get("Import.CleanedCount", "已清理 {0} 条，跳过 {1} 条"), deletedCount, skippedCount);
+                            detailText.Text = string.Format(Loc.Get("Import.CleanedCount", "已删除 {0} 条，跳过 {1} 条"), deletedCount, skippedCount);
                         });
 
                         var itemsToImport = new List<ClipboardItem>();
@@ -1106,7 +1119,7 @@ namespace WinVClip
                             progressWindow.Close();
                             var message = string.Format(Loc.Get("Settings.Storage.ImportSuccess", "导入成功！共导入 {0} 条记录。"), importCount);
                             if (deletedCount > 0)
-                                message += string.Format(Loc.Get("Settings.Storage.ImportCleaned", "\n已清理 {0} 条未分组重复数据。"), deletedCount);
+                                message += string.Format(Loc.Get("Settings.Storage.ImportCleaned", "\n已删除 {0} 条未分组重复数据。"), deletedCount);
                             if (skippedCount > 0)
                                 message += string.Format(Loc.Get("Settings.Storage.ImportSkipped", "\n已跳过 {0} 条已分组重复数据（保留）。"), skippedCount);
                             MessageBox.Show(message, Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
@@ -1514,7 +1527,7 @@ namespace WinVClip
                     var importCount = App.DatabaseService.InsertItemsBatch(itemsToImport);
                     var message = string.Format(Loc.Get("Settings.Storage.ImportJsonSuccess", "导入成功！共导入 {0} 条记录。"), importCount);
                     if (deletedCount > 0)
-                        message += string.Format(Loc.Get("Settings.Storage.ImportCleaned", "\n已清理 {0} 条未分组重复数据。"), deletedCount);
+                        message += string.Format(Loc.Get("Settings.Storage.ImportCleaned", "\n已删除 {0} 条未分组重复数据。"), deletedCount);
                     if (skippedCount > 0)
                         message += string.Format(Loc.Get("Settings.Storage.ImportSkipped", "\n已跳过 {0} 条已分组重复数据（保留）。"), skippedCount);
                     MessageBox.Show(message, Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
@@ -1750,7 +1763,7 @@ namespace WinVClip
         private void ClearAllHistory_Click(object sender, RoutedEventArgs e)
         {
             var result = MessageBox.Show(
-                Loc.Get("MainWindow.Message.ConfirmClearAll", "确定要清空所有剪贴板历史记录吗？\n\n此操作将删除所有记录（包括已分组的记录）。"),
+                Loc.Get("MainWindow.Message.ConfirmClearAll", "确定要删除所有剪贴板历史记录吗？\n\n此操作将删除所有记录（包括已分组的记录）。"),
                 Loc.Get("Message.Confirm", "确认"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
@@ -1759,14 +1772,14 @@ namespace WinVClip
             {
                 App.DatabaseService.ClearHistory();
                 App.GetMainWindow()?.ViewModel?.LoadItems();
-                MessageBox.Show(Loc.Get("Message.ClearSuccess", "清理成功"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(Loc.Get("Message.ClearSuccess", "删除成功"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
         private void ClearUngroupedHistory_Click(object sender, RoutedEventArgs e)
         {
             var result = MessageBox.Show(
-                Loc.Get("MainWindow.Message.ConfirmClearUngrouped", "确定要清空所有未分组的剪贴板历史记录吗？\n\n已分组的记录将保留。"),
+                Loc.Get("MainWindow.Message.ConfirmClearUngrouped", "确定要删除所有未分组的剪贴板历史记录吗？\n\n已分组的记录将保留。"),
                 Loc.Get("Message.Confirm", "确认"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
@@ -1775,17 +1788,52 @@ namespace WinVClip
             {
                 App.DatabaseService.ClearUngroupedHistory();
                 App.GetMainWindow()?.ViewModel?.LoadItems();
-                MessageBox.Show(Loc.Get("Message.ClearSuccess", "清理成功"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(Loc.Get("Message.ClearSuccess", "删除成功"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
         private void ClearBeforeDays_Click(object sender, RoutedEventArgs e)
         {
             var days = (int)ClearBeforeDaysSlider.Value;
-            var cutoffDate = DateTime.Now.AddDays(-days);
-            var confirmMsg = string.Format(
-                Loc.Get("Settings.History.ClearBeforeDaysConfirm", "确定要清空 {0} 天之前的未分组历史记录吗？\n\n已分组的记录将保留。"),
-                days);
+            var cutoffDate = days > 0 ? DateTime.Now.AddDays(-days) : DateTime.MinValue;
+
+            int? typeFilter = null;
+            string typeName = "";
+            if (ClearBeforeTypeComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag != null)
+            {
+                typeFilter = int.Parse(selectedItem.Tag.ToString());
+                typeName = selectedItem.Content.ToString();
+            }
+
+            string confirmMsg;
+            if (days == 0)
+            {
+                if (typeFilter == -1 || typeFilter == null)
+                {
+                    confirmMsg = Loc.Get("Settings.History.ClearAllTypeConfirm", "确定要删除所有未分组历史记录吗？\n\n已分组的记录将保留。");
+                }
+                else
+                {
+                    confirmMsg = string.Format(
+                        Loc.Get("Settings.History.ClearAllTypeConfirmWithType", "确定要删除所有 {0} 类型的未分组历史记录吗？\n\n已分组的记录将保留。"),
+                        typeName);
+                }
+            }
+            else
+            {
+                if (typeFilter == -1 || typeFilter == null)
+                {
+                    confirmMsg = string.Format(
+                        Loc.Get("Settings.History.ClearBeforeDaysConfirm", "确定要删除 {0} 天之前的未分组历史记录吗？\n\n已分组的记录将保留。"),
+                        days);
+                }
+                else
+                {
+                    confirmMsg = string.Format(
+                        Loc.Get("Settings.History.ClearBeforeDaysConfirmWithType", "确定要删除 {0} 天之前的 {1} 类型未分组历史记录吗？\n\n已分组的记录将保留。"),
+                        days, typeName);
+                }
+            }
 
             var result = MessageBox.Show(
                 confirmMsg,
@@ -1795,9 +1843,9 @@ namespace WinVClip
 
             if (result == MessageBoxResult.Yes)
             {
-                App.DatabaseService.DeleteOldItems(cutoffDate);
+                App.DatabaseService.DeleteOldItems(cutoffDate, typeFilter);
                 App.GetMainWindow()?.ViewModel?.LoadItems();
-                MessageBox.Show(Loc.Get("Message.ClearSuccess", "清理成功"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(Loc.Get("Message.ClearSuccess", "删除成功"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 

@@ -256,6 +256,7 @@ namespace WinVClip
                     0 => currentFilter == (int)ClipboardType.Text,
                     1 => currentFilter == (int)ClipboardType.Image,
                     2 => currentFilter == (int)ClipboardType.FileList,
+                    3 => currentFilter == FilterType.Link,
                     _ => false
                 };
                 
@@ -279,6 +280,7 @@ namespace WinVClip
                     0 => currentFilter == (int)ClipboardType.Text,
                     1 => currentFilter == (int)ClipboardType.Image,
                     2 => currentFilter == (int)ClipboardType.FileList,
+                    3 => currentFilter == FilterType.Link,
                     _ => false
                 };
                 
@@ -514,6 +516,8 @@ namespace WinVClip
         private readonly SettingsService _settingsService;
         private readonly System.Timers.Timer _searchDelayTimer;
 
+        private List<ClipboardItem> _filteredLinkItems = new List<ClipboardItem>();
+
         public RangeObservableCollection<ClipboardItem> ClipboardItems { get; } = new RangeObservableCollection<ClipboardItem>();
 
         public string Hotkey => _settingsService.Settings.Hotkey;
@@ -712,13 +716,24 @@ namespace WinVClip
             IsLoading = true;
             _currentOffset = 0;
             HasMoreItems = true;
+            _filteredLinkItems.Clear();
             try
             {
                 List<ClipboardItem> newItems = null;
                 await Task.Run(() =>
                 {
-                    newItems = _databaseService.GetItems(PageSize, _currentOffset, SearchText,
-                        TypeFilter, GroupFilter);
+                    if (TypeFilter == FilterType.Link)
+                {
+                    var allTextItems = _databaseService.GetItems(int.MaxValue, 0, SearchText,
+                        (int)ClipboardType.Text, GroupFilter);
+                    _filteredLinkItems = allTextItems?.Where(item => MainWindow.IsValidUrl(item.Content)).ToList() ?? new List<ClipboardItem>();
+                    newItems = _filteredLinkItems.Take(PageSize).ToList();
+                }
+                    else
+                    {
+                        newItems = _databaseService.GetItems(PageSize, _currentOffset, SearchText,
+                            TypeFilter, GroupFilter);
+                    }
                 });
                 
                 if (newItems == null)
@@ -759,8 +774,15 @@ namespace WinVClip
                 List<ClipboardItem> newItems = null;
                 await Task.Run(() =>
                 {
-                    newItems = _databaseService.GetItems(PageSize, _currentOffset, SearchText,
-                        TypeFilter, GroupFilter);
+                    if (TypeFilter == FilterType.Link)
+                    {
+                        newItems = _filteredLinkItems.Skip(_currentOffset).Take(PageSize).ToList();
+                    }
+                    else
+                    {
+                        newItems = _databaseService.GetItems(PageSize, _currentOffset, SearchText,
+                            TypeFilter, GroupFilter);
+                    }
                 });
                 
                 if (newItems == null || newItems.Count == 0)
@@ -950,6 +972,7 @@ namespace WinVClip
             
             FilterAllButton.ToolTip = Loc.Get("MainWindow.Filter.All", "全部");
             FilterTextButton.ToolTip = Loc.Get("MainWindow.Filter.Text", "文本");
+            FilterLinkButton.ToolTip = Loc.Get("MainWindow.Filter.Link", "链接");
             FilterImageButton.ToolTip = Loc.Get("MainWindow.Filter.Image", "图片");
             FilterFileButton.ToolTip = Loc.Get("MainWindow.Filter.File", "文件");
             
@@ -974,10 +997,8 @@ namespace WinVClip
             EmptyStateText.Text = Loc.Get("MainWindow.Status.Empty", "暂无剪贴板记录");
             LoadingText.Text = Loc.Get("MainWindow.Status.Loading", "加载中...");
             
-            // ClearHistoryButton.Content = Loc.Get("MainWindow.Button.ClearHistory", "清空历史");
-            ClearHistoryButton.ToolTip = Loc.Get("MainWindow.ToolTip.ClearHistory", "清除记录");
-            MenuClearAllHistory.Header = Loc.Get("MainWindow.ContextMenu.ClearAllHistory", "清空所有历史记录");
-            MenuClearUngroupedHistory.Header = Loc.Get("MainWindow.ContextMenu.ClearUngroupedHistory", "清空所有未分组记录");
+
+
 
             PanelToggleButton.ToolTip = Loc.Get("Panel.ToolTip.Toggle", "字符/表情面板");
             RefreshPanelLocalization(_charGroups, CharTabControl, "CharPanel");
@@ -1636,6 +1657,11 @@ namespace WinVClip
             _viewModel.TypeFilter = (int)ClipboardType.Text;
         }
 
+        private void FilterLink_Click(object sender, RoutedEventArgs e)
+        {
+            _viewModel.TypeFilter = FilterType.Link;
+        }
+
         private void FilterImage_Click(object sender, RoutedEventArgs e)
         {
             _viewModel.TypeFilter = (int)ClipboardType.Image;
@@ -1903,20 +1929,18 @@ namespace WinVClip
             return text;
         }
 
-        private bool IsValidUrl(string text)
+        internal static bool IsValidUrl(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
                 return false;
 
             text = text.Trim();
 
-            // 尝试直接解析为Uri
             if (Uri.TryCreate(text, UriKind.Absolute, out Uri uriResult))
             {
                 return uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps;
             }
 
-            // 处理以www.开头的情况
             if (text.StartsWith("www.", StringComparison.OrdinalIgnoreCase))
             {
                 return Uri.TryCreate("http://" + text, UriKind.Absolute, out _);
@@ -2149,34 +2173,6 @@ namespace WinVClip
         {
             if (ClipboardListBox.SelectedItem is ClipboardItem item)
                 DeleteItem(item);
-        }
-
-        private void ClearHistoryButton_Click(object sender, RoutedEventArgs e)
-        {
-            // 打开上下文菜单
-            ClearHistoryContextMenu.PlacementTarget = ClearHistoryButton;
-            ClearHistoryContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
-            ClearHistoryContextMenu.IsOpen = true;
-        }
-
-        private void ClearAllHistoryMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            if (MessageBox.Show(Loc.Get("MainWindow.Message.ConfirmClearAll", "确定要清空所有剪贴板历史记录吗？\n\n此操作将删除所有记录（包括已分组的记录）。"),
-                Loc.Get("Common.OK", "确认"), MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
-            {
-                _databaseService.ClearHistory();
-                _viewModel.LoadItems();
-            }
-        }
-
-        private void ClearUngroupedHistoryMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            if (MessageBox.Show(Loc.Get("MainWindow.Message.ConfirmClearUngrouped", "确定要清空所有未分组的剪贴板历史记录吗？\n\n已分组的记录将保留。"), 
-                Loc.Get("Common.OK", "确认"), MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
-            {
-                _databaseService.ClearUngroupedHistory();
-                _viewModel.LoadItems();
-            }
         }
 
         private void SetClipboardContent(ClipboardItem item, DataObject dataObject = null)
@@ -2792,6 +2788,12 @@ namespace WinVClip
 
         private void PanelToggleButton_Click(object sender, RoutedEventArgs e)
         {
+            if (App.SettingsService.Settings.UseSystemCharPanel)
+            {
+                KeyboardService.SendWinPeriod();
+                return;
+            }
+
             if (_viewModel.IsFilterPanelVisible)
             {
                 _viewModel.IsFilterPanelVisible = false;

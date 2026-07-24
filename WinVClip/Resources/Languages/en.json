@@ -35,6 +35,7 @@
     "MainWindow.Filter.Text": "Text",
     "MainWindow.Filter.Image": "Image",
     "MainWindow.Filter.File": "File",
+    "MainWindow.Filter.Link": "Link",
     "MainWindow.Filter.Group": "Group",
     "MainWindow.Hotkey": "Hotkey: {0}",
     "MainWindow.ContextMenu.PasteWithFormat": "Paste with Format",
@@ -120,6 +121,10 @@
     "Settings.General.Admin.Request": "Get Administrator Privileges",
     "Settings.General.Admin.RunDescription": "Running with administrator privileges allows pasting to all windows",
     "Settings.General.Admin.Hint": "Note: Normal privileges cannot auto-paste to administrator windows (e.g., Admin PowerShell, CMD)",
+    "Settings.General.CharPanel.Title": "Character Panel Button",
+    "Settings.General.CharPanel.UseSystem": "Use system character panel?",
+    "Settings.General.CharPanel.UseSystemDescription": "When checked, clicking the 🔣 button on the main panel will invoke the system character panel (Win+. shortcut)",
+    "Settings.General.CharPanel.UseSystemWarning": "Only available on Windows 10 Version 1709 or later. Do not check on other systems.",
 
     "Settings.Capture.Title": "Capture Settings",
     "Settings.Capture.CardTitle": "Clipboard Capture",
@@ -386,6 +391,15 @@
     "Settings.History.ClearBeforeDays": "Clear history older than specified days",
     "Settings.History.ClearBeforeDaysHint": "Only ungrouped records will be deleted, grouped records will be preserved",
     "Settings.History.ClearBeforeDaysConfirm": "Are you sure you want to clear ungrouped history older than {0} days?\n\nGrouped records will be preserved.",
+    "Settings.History.ClearBeforeDaysConfirmWithType": "Are you sure you want to clear {1} type ungrouped history older than {0} days?\n\nGrouped records will be preserved.",
+    "Settings.History.ClearAllTypeConfirm": "Are you sure you want to clear all ungrouped history records?\n\nGrouped records will be preserved.",
+    "Settings.History.ClearAllTypeConfirmWithType": "Are you sure you want to clear all {0} type ungrouped history records?\n\nGrouped records will be preserved.",
+    "Settings.History.DeleteType.All": "All",
+    "Settings.History.DeleteType.Text": "Text",
+    "Settings.History.DeleteType.RichText": "Rich Text",
+    "Settings.History.DeleteType.Link": "Link",
+    "Settings.History.DeleteType.Image": "Image",
+    "Settings.History.DeleteType.File": "File",
     "Settings.History.Execute": "Execute"
   }
 }

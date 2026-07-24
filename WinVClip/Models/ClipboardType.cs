@@ -7,4 +7,10 @@ namespace WinVClip.Models
         FileList,
         RichText
     }
+
+    public static class FilterType
+    {
+        public const int All = -1;
+        public const int Link = 3;
+    }
 }

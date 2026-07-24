@@ -456,34 +456,92 @@ namespace WinVClip.Services
 
         public void DeleteOldItems(DateTime cutoffDate)
         {
-            using var selectCommand = _connection.CreateCommand();
-            // 查询所有含图片路径的旧记录（图片类型或富文本类型）
-            selectCommand.CommandText = "SELECT Id, ImagePath FROM ClipboardItems WHERE CreatedAt < @Cutoff AND ImagePath IS NOT NULL AND ImagePath != '' AND GroupId IS NULL";
-            selectCommand.Parameters.AddWithValue("@Cutoff", cutoffDate);
-            
-            using var reader = selectCommand.ExecuteReader();
+            DeleteOldItems(cutoffDate, null);
+        }
+
+        public void DeleteOldItems(DateTime cutoffDate, int? typeFilter)
+        {
+            var deleteIds = new List<int>();
             var imagePaths = new List<string>();
-            while (reader.Read())
+
+            if (typeFilter == 4)
             {
-                if (!reader.IsDBNull(1))
+                string whereClause = "WHERE GroupId IS NULL";
+                if (cutoffDate != DateTime.MinValue)
                 {
-                    string imagePath = reader.GetString(1);
-                    imagePaths.Add(imagePath);
+                    whereClause += " AND CreatedAt < @Cutoff";
+                }
+
+                using var selectCommand = _connection.CreateCommand();
+                selectCommand.CommandText = $"SELECT Id, ImagePath, Content FROM ClipboardItems {whereClause} AND (Type = @TextType OR Type = @RichTextType)";
+                if (cutoffDate != DateTime.MinValue)
+                {
+                    selectCommand.Parameters.AddWithValue("@Cutoff", cutoffDate);
+                }
+                selectCommand.Parameters.AddWithValue("@TextType", (int)ClipboardType.Text);
+                selectCommand.Parameters.AddWithValue("@RichTextType", (int)ClipboardType.RichText);
+
+                using var reader = selectCommand.ExecuteReader();
+                while (reader.Read())
+                {
+                    if (!reader.IsDBNull(2))
+                    {
+                        string content = reader.GetString(2);
+                        if (MainWindow.IsValidUrl(content))
+                        {
+                            deleteIds.Add(reader.GetInt32(0));
+                            if (!reader.IsDBNull(1))
+                            {
+                                imagePaths.Add(reader.GetString(1));
+                            }
+                        }
+                    }
                 }
             }
-            
+            else
+            {
+                string whereClause = "WHERE GroupId IS NULL";
+                if (cutoffDate != DateTime.MinValue)
+                {
+                    whereClause += " AND CreatedAt < @Cutoff";
+                }
+                if (typeFilter.HasValue && typeFilter.Value != -1)
+                {
+                    whereClause += " AND Type = @Type";
+                }
+
+                using var selectCommand = _connection.CreateCommand();
+                selectCommand.CommandText = $"SELECT Id, ImagePath FROM ClipboardItems {whereClause}";
+                if (cutoffDate != DateTime.MinValue)
+                {
+                    selectCommand.Parameters.AddWithValue("@Cutoff", cutoffDate);
+                }
+                if (typeFilter.HasValue && typeFilter.Value != -1)
+                {
+                    selectCommand.Parameters.AddWithValue("@Type", typeFilter.Value);
+                }
+
+                using var reader = selectCommand.ExecuteReader();
+                while (reader.Read())
+                {
+                    deleteIds.Add(reader.GetInt32(0));
+                    if (!reader.IsDBNull(1))
+                    {
+                        imagePaths.Add(reader.GetString(1));
+                    }
+                }
+            }
+
             foreach (string imagePath in imagePaths)
             {
                 DeleteImageFile(imagePath);
             }
-            
-            using var deleteCommand = _connection.CreateCommand();
-            deleteCommand.CommandText = "DELETE FROM ClipboardItems WHERE CreatedAt < @Cutoff AND GroupId IS NULL";
-            deleteCommand.Parameters.AddWithValue("@Cutoff", cutoffDate);
-            int deletedCount = deleteCommand.ExecuteNonQuery();
 
-            if (deletedCount > 0)
+            if (deleteIds.Count > 0)
             {
+                using var deleteCommand = _connection.CreateCommand();
+                deleteCommand.CommandText = $"DELETE FROM ClipboardItems WHERE Id IN ({string.Join(",", deleteIds)})";
+                deleteCommand.ExecuteNonQuery();
                 VacuumDatabase();
             }
         }

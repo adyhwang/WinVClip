@@ -6,232 +6,230 @@
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-**A lightweight and powerful Windows clipboard manager**
+**一款轻量级、功能强大的 Windows 剪贴板管理工具**
 
-[Features](#-features) • [Installation](#-installation) • [Usage Guide](#-usage-guide) • [Architecture](#-architecture)
+[功能特性](#功能特性) • [安装使用](#安装使用) • [使用指南](#使用指南) • [技术架构](#技术架构)
 
-[中文文档](README_CN.md)
+[English](README_EN.md)
 
 </div>
 
 ---
 
-## 📖 Introduction
+## 📖 简介
 
-WinVClip is a Windows clipboard manager developed with AI assistance, designed to help users efficiently manage clipboard history. It automatically captures and stores clipboard content, supports multiple data types, and provides convenient search, grouping, and management features.
+WinVClip 是一款使用 AI 辅助开发的 Windows 剪贴板管理工具，旨在帮助用户高效管理剪贴板历史记录。它能够自动捕获和存储剪贴板内容，支持多种数据类型，并提供便捷的搜索、分组和管理功能。
 
-
-<img width="627" height="612" alt="1" src="https://github.com/user-attachments/assets/12638bde-6ccf-46a4-a3c7-568557854fdc" />
-<img width="750" height="620" alt="2" src="https://github.com/user-attachments/assets/7fafce65-8c39-48b4-8c6f-bf06187ce680" />
-<img width="750" height="620" alt="3" src="https://github.com/user-attachments/assets/356505b2-8c43-42ee-a03e-85eea39f2c15" />
-<img width="600" height="500" alt="6" src="https://github.com/user-attachments/assets/c62de8bc-6461-45b7-8a78-f88ad7f118c8" />
-
+<img width="350" height="600" alt="主界面" src="https://github.com/user-attachments/assets/2765372b-064d-4c72-8169-239d3b979ae3" />
+<img width="197" height="164" alt="托盘菜单" src="https://github.com/user-attachments/assets/ef7bd558-4887-4497-a8f3-503d843ea7db" />
+<img width="750" height="620" alt="设置窗口" src="https://github.com/user-attachments/assets/ccbc0794-56ea-4308-ba49-69b3a396300b" />
+<img width="600" height="500" alt="5" src="https://github.com/user-attachments/assets/562efe07-c768-463d-9085-95fa47f96ecb" />
 
 ---
 
-## ✨ Features
+## ✨ 功能特性
 
-### Core Features
+### 核心功能
 
-| Feature | Description |
-|---------|-------------|
-| 🔍 **Multi-type Support** | Supports text, images, file lists, rich text (RTF/HTML), and more clipboard content types |
-| 📋 **History Records** | Automatically saves clipboard history with unlimited storage, easy to review and reuse |
-| ⌨️ **Hotkey Operation** | Global hotkey to quickly show main window, default `Ctrl+Shift+V`, customizable |
-| 🎯 **Smart Deduplication** | Automatically detects and filters duplicate content to avoid history redundancy |
-| 📁 **Group Management** | Organize clipboard items into groups, supports creating, editing, and deleting groups |
-| 🔎 **Search Function** | Built-in search engine for quick retrieval of clipboard content |
-| 🎨 **Theme Switching** | Supports light/dark themes, can automatically follow system settings |
+| 功能 | 描述 |
+|------|------|
+| 🔍 **多类型支持** | 支持文本、图片、文件列表、富文本（RTF/HTML）等多种剪贴板内容类型 |
+| 📋 **历史记录** | 自动保存剪贴板历史，支持无限条目存储，随时回溯和复用 |
+| ⌨️ **快捷键操作** | 全局快捷键快速唤出主界面，默认 `Ctrl+Shift+V`，支持自定义 |
+| 🎯 **智能去重** | 自动检测并过滤重复内容，避免历史记录冗余 |
+| 📁 **分组管理** | 将剪贴板项分组整理，支持创建、编辑、删除分组 |
+| 🔎 **搜索功能** | 内置搜索引擎，快速检索剪贴板内容 |
+| 🎨 **主题切换** | 支持亮色/暗色主题，可跟随系统自动切换 |
 
-### Advanced Features
+### 高级功能
 
-| Feature | Description |
-|---------|-------------|
-| 🧹 **Auto Cleanup** | Set automatic cleanup of expired history records, supports custom retention days and item limits |
-| 🗑️ **Manual Cleanup** | Clear all history, clear ungrouped history, or clear records older than N days |
-| 💾 **Data Backup** | Automatic database backup, supports custom backup frequency and retention count |
-| 📍 **System Tray** | Minimizes to system tray, doesn't occupy taskbar space |
-| 🔒 **Data Persistence** | Uses SQLite database for storage, data is safe and reliable |
-| 🖥️ **Smart Paste** | Automatically detects terminal environment, intelligently chooses `Ctrl+V` or `Shift+Insert` |
-| 📌 **Window Pin** | Supports window always-on-top for convenient comparison operations |
-| 🏷️ **Type Filter** | Filter history records by content type (text/image/file/rich text) |
-| 🔗 **Quick Actions** | Right-click menu supports quick search, open files, visit links, and more |
-| 🔤 **Split Characters** | Split text into individual characters/words for selective insertion |
-| 😀 **Emoji Panel** | Built-in emoji panel with category browsing and quick insertion |
-| 🔣 **Character Panel** | Built-in special character panel for quick access to symbols and characters |
-| 🔠 **Font Size** | Adjustable interface font size (10-30), applies to main window and character picker instantly |
-| 🌐 **Multi-language** | Supports Chinese and English, language changes apply instantly without restart |
-
----
-
-## 🖥️ System Requirements
-
-- **Operating System**: Windows 7 SP1 or higher
-- **Runtime**: .NET Framework 4.8 or higher
+| 功能 | 描述 |
+|------|------|
+| 🧹 **自动删除** | 可设置自动删除过期历史记录，支持自定义保留天数和条目上限 |
+| 🗑️ **手动删除** | 删除所有历史、删除未分组历史、删除指定天数前的历史记录 |
+| 💾 **数据备份** | 自动备份数据库，支持自定义备份频率和保留数量 |
+| 📍 **系统托盘** | 最小化到系统托盘，不占用任务栏空间 |
+| 🔒 **数据持久化** | 使用 SQLite 数据库存储，数据安全可靠 |
+| 🖥️ **智能粘贴** | 自动识别终端环境，智能选择 `Ctrl+V` 或 `Shift+Insert` |
+| 📌 **窗口置顶** | 支持窗口置顶功能，方便对照操作 |
+| 🏷️ **类型筛选** | 按内容类型（文本/图片/文件/富文本）筛选历史记录 |
+| 🔗 **快捷操作** | 右键菜单支持快速搜索、打开文件、访问链接等操作 |
+| 🔤 **拆分选字** | 将文本拆分为单字/单词，选择性插入所需内容 |
+| 😀 **表情面板** | 内置表情面板，支持分类浏览和快速插入 |
+| 🔣 **字符面板** | 内置特殊字符面板，快速访问符号和字符 |
+| 🔠 **字体大小** | 可调整界面字体大小（10-30），主界面和拆分选字界面即时生效 |
+| 🌐 **多语言** | 支持中英文切换，语言修改即时生效无需重启 |
 
 ---
 
-## 📥 Installation
+## 🖥️ 系统要求
 
-### Option 1: Direct Run
+- **操作系统**: Windows 7 SP1 或更高版本
+- **运行时**: .NET Framework 4.8 或更高版本
 
-1. Go to the [Releases](https://github.com/adyhwang/WinVClip/releases) page to download the latest version
-2. Extract the downloaded archive
-3. Double-click to run `WinVClip.exe`
+---
 
-### Option 2: Build from Source
+## 📥 安装使用
+
+### 方式一：直接运行
+
+1. 前往 [Releases](https://github.com/adyhwang/WinVClip/releases) 页面下载最新版本
+2. 解压下载的压缩包
+3. 双击运行 `WinVClip.exe`
+
+### 方式二：从源码编译
 
 ```bash
-# Clone the repository
+# 克隆仓库
 git clone https://github.com/adyhwang/WinVClip.git
 cd WinVClip
 ```
 
-Build with Visual Studio:
+使用 Visual Studio 编译：
 
-1. Open the `WinVClip.sln` solution
-2. Select `Release` configuration
-3. Click `Build` → `Build Solution`
-4. Build output is located in `WinVClip\bin\Release\net48\` directory
-
----
-
-## 📚 Usage Guide
-
-### Hotkeys
-
-| Hotkey | Function |
-|--------|----------|
-| `Ctrl+Shift+V` | Show/hide main window (default, customizable) |
-| `Esc` | Hide main window |
-| `Enter` | Paste selected item and close window |
-| `Right Click` | Open context menu |
-
-### Basic Operations
-
-#### Copy & Capture
-- Use `Ctrl+C` normally to copy content, WinVClip will automatically capture
-- Supports capturing text, images, files, rich text, and more types
-
-#### View & Paste
-- Press hotkey or click tray icon to open main window
-- Click a history item to paste to the current focus position
-
-#### Edit & Manage
-- **Edit Content**: Select "Edit" from context menu
-- **Delete Record**: Select "Delete" from context menu
-- **Batch Operations**: Select "Multi-Select Mode" from context menu, supports batch delete and grouping
-
-#### Search & Filter
-- Enter keywords in the search box for quick search
-- Click filter button to filter by type or group
-
-#### Split Characters
-- Right-click on a text or rich text item and select "Split Characters"
-- The text will be split into individual characters (Chinese) or words (English)
-- Click or drag to select characters you want to insert
-- Selected characters will be concatenated in the text area
-- Click "Insert" to paste the selected content
-
-### Group Management
-
-1. Click main window context menu → "Add to Group"
-2. Select existing group or create new group
-3. Quickly locate content through group filter
-4. Edit or delete groups in Settings → Group Management
-
-### Settings Options
-
-#### General Settings
-- **Hotkey**: Customize global hotkey
-- **Theme**: Light/Dark/Follow System
-- **Paste Method**: Auto select, Ctrl+V, Shift+Insert
-- **Language**: Chinese/English, changes apply instantly
-- **Font Size**: Adjustable from 10 to 30, applies instantly to main window and character picker
-
-#### Capture Settings
-- **Monitor Switch**: Enable/disable clipboard monitoring
-- **Capture Types**: Select content types to capture
-
-#### History Records
-- **Deduplication**: Enable/disable duplicate content filtering
-- **Auto Cleanup**: Set retention days and maximum item count
-- **Manual Cleanup**: Clear all history, clear ungrouped history, or clear records older than N days
-
-#### Storage & Backup
-- **Database Location**: View or change database path
-- **Backup Settings**: Set backup frequency and retention count
-
-#### Search Engine
-- Select default search engine (Bing, Baidu, Google, etc.)
-- Supports adding custom search engines
+1. 打开 `WinVClip.sln` 解决方案
+2. 选择 `Release` 配置
+3. 点击 `生成` → `生成解决方案`
+4. 编译输出位于 `WinVClip\bin\Release\net48\` 目录
 
 ---
 
-## 🏗️ Architecture
+## 📚 使用指南
 
-### Tech Stack
+### 快捷键
 
-| Technology | Usage |
-|------------|-------|
-| **WPF** | User interface framework |
-| **.NET Framework 4.8** | Runtime environment |
-| **SQLite** | Data persistence storage |
-| **Windows API** | System-level functionality |
+| 快捷键 | 功能 |
+|--------|------|
+| `Ctrl+Shift+V` | 显示/隐藏主界面（默认，可自定义） |
+| `Esc` | 隐藏主界面 |
+| `Enter` | 粘贴选中项并关闭窗口 |
+| `Right Click` | 打开右键菜单 |
 
-### Core Dependencies
+### 基本操作
 
-| Package | Version | Usage |
-|---------|---------|-------|
-| Microsoft.Data.Sqlite | 6.0.31 | SQLite database access |
-| System.Text.Json | 6.0.9 | JSON serialization |
-| System.Drawing.Common | 6.0.0 | Image processing |
+#### 复制与捕获
+- 正常使用 `Ctrl+C` 复制内容，WinVClip 会自动捕获
+- 支持捕获文本、图片、文件、富文本等多种类型
 
-### Project Structure
+#### 查看与粘贴
+- 按下快捷键或点击托盘图标打开主界面
+- 单击历史记录项即可粘贴到当前焦点位置
+
+#### 编辑与管理
+- **编辑内容**: 右键菜单选择"编辑"
+- **删除记录**: 右键菜单选择"删除"
+- **批量操作**: 右键菜单选择"多选模式"，支持批量删除和分组
+
+#### 搜索与筛选
+- 在搜索框输入关键词快速查找
+- 点击筛选按钮按类型或分组过滤
+
+#### 拆分选字
+- 右键点击文本或富文本条目，选择"拆分选字"
+- 文本会被拆分为单个汉字或英文单词
+- 点击或拖动选择需要插入的字符
+- 选中的字符会按顺序拼接在文本区
+- 点击"插入"按钮粘贴选中的内容
+
+### 分组管理
+
+1. 点击主界面右键菜单 → "添加到分组"
+2. 选择已有分组或创建新分组
+3. 通过分组筛选快速定位内容
+4. 在设置 → 分组管理中编辑或删除分组
+
+### 设置选项
+
+#### 常规设置
+- **快捷键**: 自定义全局快捷键
+- **主题**: 亮色/暗色/跟随系统
+- **粘贴方式**: 自动选择、Ctrl+V、Shift+Insert
+- **语言**: 中英文切换，修改即时生效
+- **字体大小**: 可调整范围 10-30，主界面和拆分选字界面即时生效
+
+#### 捕获设置
+- **监控开关**: 启用/禁用剪贴板监控
+- **捕获类型**: 选择要捕获的内容类型
+
+#### 历史记录
+- **去重设置**: 开启/关闭重复内容过滤
+- **自动删除**: 设置保留天数和最大条目数
+- **手动删除**: 删除所有历史、删除未分组历史、删除指定天数前的历史记录
+
+#### 存储与备份
+- **数据库位置**: 查看或更改数据库路径
+- **备份设置**: 设置备份频率和保留数量
+
+#### 搜索引擎
+- 选择默认搜索引擎（Bing、百度、Google 等）
+- 支持添加自定义搜索引擎
+
+---
+
+## 🏗️ 技术架构
+
+### 技术栈
+
+| 技术 | 用途 |
+|------|------|
+| **WPF** | 用户界面框架 |
+| **.NET Framework 4.8** | 运行时环境 |
+| **SQLite** | 数据持久化存储 |
+| **Windows API** | 系统级功能实现 |
+
+### 核心依赖
+
+| 包 | 版本 | 用途 |
+|-----|------|------|
+| Microsoft.Data.Sqlite | 6.0.31 | SQLite 数据库访问 |
+| System.Text.Json | 6.0.9 | JSON 序列化 |
+| System.Drawing.Common | 6.0.0 | 图像处理 |
+
+### 项目结构
 
 ```
 WinVClip/
-├── Models/                      # Data model layer
-│   ├── AppSettings.cs          # Application settings model
-│   ├── ClipboardItem.cs        # Clipboard item model
-│   ├── ClipboardType.cs        # Clipboard type enum
-│   ├── Group.cs                # Group model
-│   └── SearchEngine.cs         # Search engine model
+├── Models/                      # 数据模型层
+│   ├── AppSettings.cs          # 应用程序设置模型
+│   ├── ClipboardItem.cs        # 剪贴板条目模型
+│   ├── ClipboardType.cs        # 剪贴板类型枚举
+│   ├── Group.cs                # 分组模型
+│   └── SearchEngine.cs         # 搜索引擎模型
 │
-├── Services/                    # Service layer
-│   ├── ClipboardMonitor.cs     # Clipboard monitoring service
-│   ├── DatabaseService.cs      # Database operation service
-│   ├── SettingsService.cs      # Settings management service
-│   ├── HotkeyService.cs        # Global hotkey service
-│   ├── ThemeService.cs         # Theme management service
-│   ├── TrayService.cs          # System tray service
-│   ├── FocusService.cs         # Window focus tracking service
-│   ├── KeyboardService.cs      # Keyboard simulation service
-│   ├── WindowStateService.cs   # Window state management
-│   ├── BackupService.cs        # Data backup service
-│   ├── CleanupService.cs       # Auto cleanup service
-│   └── LocalizationService.cs  # Multi-language localization service
+├── Services/                    # 服务层
+│   ├── ClipboardMonitor.cs     # 剪贴板监控服务
+│   ├── DatabaseService.cs      # 数据库操作服务
+│   ├── SettingsService.cs      # 设置管理服务
+│   ├── HotkeyService.cs        # 全局快捷键服务
+│   ├── ThemeService.cs         # 主题管理服务
+│   ├── TrayService.cs          # 系统托盘服务
+│   ├── FocusService.cs         # 窗口焦点追踪服务
+│   ├── KeyboardService.cs      # 键盘模拟服务
+│   ├── WindowStateService.cs   # 窗口状态管理
+│   ├── BackupService.cs        # 数据备份服务
+│   ├── CleanupService.cs       # 自动删除服务
+│   └── LocalizationService.cs  # 多语言本地化服务
 │
-├── Windows/                     # Window layer
-│   ├── MainWindow.xaml         # Main window
-│   ├── SettingsWindow.xaml     # Settings window
-│   ├── EditItemWindow.xaml     # Edit window
-│   ├── GroupManageWindow.xaml  # Group management window
-│   └── CharPickerWindow.xaml   # Split characters window
+├── Windows/                     # 窗口层
+│   ├── MainWindow.xaml         # 主窗口
+│   ├── SettingsWindow.xaml     # 设置窗口
+│   ├── EditItemWindow.xaml     # 编辑窗口
+│   ├── GroupManageWindow.xaml  # 分组管理窗口
+│   └── CharPickerWindow.xaml   # 拆分选字窗口
 │
-├── Themes/                      # Theme resources
-│   ├── LightTheme.xaml         # Light theme
-│   ├── DarkTheme.xaml          # Dark theme
-│   └── SharedStyles.xaml       # Shared styles
+├── Themes/                      # 主题资源
+│   ├── LightTheme.xaml         # 亮色主题
+│   ├── DarkTheme.xaml          # 暗色主题
+│   └── SharedStyles.xaml       # 共享样式
 │
-└── App.xaml.cs                  # Application entry point
+└── App.xaml.cs                  # 应用程序入口
 ```
 
-### Architecture Design
+### 架构设计
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      User Interface Layer                   │
+│                        用户界面层                            │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
 │  │MainWindow│  │Settings  │  │EditItem  │  │GroupMgmt │    │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
@@ -239,7 +237,7 @@ WinVClip/
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                        Service Layer                        │
+│                        服务层                                │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
 │  │Clipboard     │  │Database      │  │Settings      │      │
 │  │Monitor       │  │Service       │  │Service       │      │
@@ -252,7 +250,7 @@ WinVClip/
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                        Data Layer                           │
+│                        数据层                                │
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │              SQLite Database                          │  │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐   │  │
@@ -264,66 +262,67 @@ WinVClip/
 
 ---
 
-## 🔧 Core Implementation
+## 🔧 核心实现
 
-### Clipboard Monitoring
+### 剪贴板监控
 
-Uses timer polling mechanism to monitor clipboard changes, supports content signature deduplication:
+使用定时器轮询机制监控剪贴板变化，支持内容签名去重：
 
 ```csharp
-// Check clipboard status every 500ms
+// 每 500ms 检查剪贴板状态
 _timer = new Timer(CheckClipboard, null, 500, 500);
 ```
 
-### Global Hotkey
+### 全局快捷键
 
-Uses Windows API `RegisterHotKey` to register global hotkeys:
+使用 Windows API `RegisterHotKey` 注册全局快捷键：
 
 ```csharp
 [DllImport("user32.dll")]
 private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
 ```
 
-### System Tray
+### 系统托盘
 
-Uses Windows API `Shell_NotifyIcon` to implement system tray functionality:
+使用 Windows API `Shell_NotifyIcon` 实现系统托盘功能：
 
 ```csharp
 [DllImport("shell32.dll")]
 private static extern bool Shell_NotifyIcon(uint dwMessage, ref NotifyIconData data);
 ```
 
-### Theme System
+### 主题系统
 
-Implements following system theme by listening to registry changes:
+通过监听注册表变化实现跟随系统主题：
 
 ```csharp
-// Listen for registry key value changes
+// 监听注册表键值变化
 Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
 ```
 
 ---
 
-## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
 
 ---
 
-## 🙏 Acknowledgments
+## 🙏 致谢
 
-Thanks to the following AI tools for their help during development:
+感谢以下 AI 工具在开发过程中提供的帮助：
 
-- **Trae**
-- **GLM**
-- **Kimi**
-- **DeepSeek**
+- **Trae** 
+- **GLM** 
+- **Kimi** 
+- **DeepSeek** 
 
 ---
 
 <div align="center">
 
-**If this project helps you, please give it a ⭐️ Star!**
+**如果这个项目对你有帮助，请给一个 ⭐️ Star！**
 
 Made with ❤️ by [adyhwang](https://github.com/adyhwang)
 

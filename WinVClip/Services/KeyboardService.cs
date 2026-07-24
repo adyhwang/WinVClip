@@ -230,6 +230,20 @@ namespace WinVClip.Services
             }
         }
 
+        private const int VK_LWIN = 0x5B;
+        private const int VK_OEM_PERIOD = 0xBE;
+
+        public static void SendWinPeriod()
+        {
+            SendKey(VK_LWIN, false);
+            Thread.Sleep(5);
+            SendKey(VK_OEM_PERIOD, false);
+            Thread.Sleep(5);
+            SendKey(VK_OEM_PERIOD, true);
+            Thread.Sleep(5);
+            SendKey(VK_LWIN, true);
+        }
+
         [DllImport("user32.dll")]
         private static extern short GetAsyncKeyState(int vKey);
 
