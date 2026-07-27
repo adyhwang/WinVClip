@@ -72,6 +72,7 @@
     "MainWindow.ContextMenu.ClearAllHistory": "删除所有历史记录",
     "MainWindow.ContextMenu.ClearUngroupedHistory": "删除所有未分组记录",
     "MainWindow.Badge.Image": "图片",
+    "MainWindow.Badge.InvalidFile": "失效",
     "MainWindow.Status.LoadingMore": "加载更多...",
     "MainWindow.Status.Empty": "暂无剪贴板记录",
     "MainWindow.Status.Loading": "加载中...",

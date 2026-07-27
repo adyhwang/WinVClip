@@ -72,6 +72,7 @@
     "MainWindow.ContextMenu.ClearAllHistory": "Clear All History",
     "MainWindow.ContextMenu.ClearUngroupedHistory": "Clear Ungrouped History",
     "MainWindow.Badge.Image": "Image",
+    "MainWindow.Badge.InvalidFile": "Invalid",
     "MainWindow.Status.LoadingMore": "Loading more...",
     "MainWindow.Status.Empty": "No clipboard records",
     "MainWindow.Status.Loading": "Loading...",

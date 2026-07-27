@@ -4,10 +4,23 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Globalization;
-using WinVClip.Models;
 
 namespace WinVClip.Services
 {
+    public class LanguageData
+    {
+        public string Code { get; set; } = "";
+        public string DisplayName { get; set; } = "";
+        public Dictionary<string, string> Strings { get; set; } = new Dictionary<string, string>();
+    }
+
+    public class LanguageInfo
+    {
+        public string Code { get; set; } = "";
+        public string DisplayName { get; set; } = "";
+        public string FileName { get; set; } = "";
+    }
+
     public class LocalizationService
     {
         private static LocalizationService? _instance;

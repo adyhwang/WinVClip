@@ -82,6 +82,12 @@ namespace WinVClip.Services
         {
             if (hwnd == IntPtr.Zero) return;
 
+            IntPtr rootHwnd = GetAncestor(hwnd, GA_ROOT);
+            if (rootHwnd != IntPtr.Zero)
+            {
+                hwnd = rootHwnd;
+            }
+
             lock (_excludedHwnds)
             {
                 if (_excludedHwnds.Contains(hwnd)) return;
@@ -199,7 +205,9 @@ namespace WinVClip.Services
         private static extern IntPtr GetForegroundWindow();
 
         [DllImport("user32.dll")]
-        private static extern bool SetForegroundWindow(IntPtr hWnd);
+        private static extern IntPtr GetAncestor(IntPtr hWnd, uint gaFlags);
+
+        private const uint GA_ROOT = 2;
 
         [DllImport("user32.dll")]
         private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);

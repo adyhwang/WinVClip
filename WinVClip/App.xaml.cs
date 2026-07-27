@@ -119,7 +119,6 @@ namespace WinVClip
             });
 
             _trayService = new TrayService(_settingsService, windowHandle);
-            _trayService.SetMainWindow(_mainWindow);
             _trayService.OnShowWindow += () => Dispatcher.Invoke(() => _mainWindow?.ShowAtCursor());
             _trayService.OnOpenSettings += () => Dispatcher.Invoke(() => ShowSettingsWindow());
             _trayService.OnMonitoringToggled += (enabled) => Dispatcher.Invoke(() => UpdateMonitoring(enabled));
@@ -290,7 +289,6 @@ namespace WinVClip
             {
                 var windowHandle = new System.Windows.Interop.WindowInteropHelper(_mainWindow).Handle;
                 _trayService = new TrayService(_settingsService, windowHandle);
-                _trayService.SetMainWindow(_mainWindow);
                 _trayService.OnShowWindow += () => Current?.Dispatcher.Invoke(() => _mainWindow?.ShowAtCursor());
                 _trayService.OnOpenSettings += () => Current?.Dispatcher.Invoke(() => ShowSettingsWindow());
                 _trayService.OnMonitoringToggled += (enabled) => Current?.Dispatcher.Invoke(() => UpdateMonitoring(enabled));

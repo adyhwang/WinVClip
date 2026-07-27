@@ -20,12 +20,10 @@
 
 WinVClip 是一款使用 AI 辅助开发的 Windows 剪贴板管理工具，旨在帮助用户高效管理剪贴板历史记录。它能够自动捕获和存储剪贴板内容，支持多种数据类型，并提供便捷的搜索、分组和管理功能。
 
-<img width="388" height="600" alt="1" src="https://github.com/user-attachments/assets/4d991e1f-eff8-432d-a8d7-669d6c279b1d" />
-<img width="750" height="620" alt="2" src="https://github.com/user-attachments/assets/855b262d-615f-4dbc-bf80-31b6a8ec63cd" />
-<img width="750" height="620" alt="3" src="https://github.com/user-attachments/assets/036acb39-2af2-4db9-ba06-393aac53e4b6" />
-<img width="750" height="620" alt="4" src="https://github.com/user-attachments/assets/d248273a-726c-4e17-959d-ad56e9ef4d15" />
-<img width="600" height="500" alt="5" src="https://github.com/user-attachments/assets/a6b20891-5e5e-4de3-bba2-219020679729" />
-
+<img width="350" height="600" alt="主界面" src="https://github.com/user-attachments/assets/2765372b-064d-4c72-8169-239d3b979ae3" />
+<img width="197" height="164" alt="托盘菜单" src="https://github.com/user-attachments/assets/ef7bd558-4887-4497-a8f3-503d843ea7db" />
+<img width="750" height="620" alt="设置窗口" src="https://github.com/user-attachments/assets/ccbc0794-56ea-4308-ba49-69b3a396300b" />
+<img width="600" height="500" alt="5" src="https://github.com/user-attachments/assets/562efe07-c768-463d-9085-95fa47f96ecb" />
 
 ---
 
@@ -106,7 +104,6 @@ cd WinVClip
 |--------|------|
 | `Ctrl+Shift+V` | 显示/隐藏主界面（默认，可自定义） |
 | `Esc` | 隐藏主界面 |
-| `Enter` | 粘贴选中项并关闭窗口 |
 | `Right Click` | 打开右键菜单 |
 
 ### 基本操作

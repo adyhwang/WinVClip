@@ -34,32 +34,6 @@ namespace WinVClip.Models
             }
         }
 
-        private int _folderCount = -1;
-        public int FolderCount
-        {
-            get
-            {
-                if (_folderCount == -1)
-                {
-                    _folderCount = ComputeFolderCount();
-                }
-                return _folderCount;
-            }
-        }
-
-        private int _fileCount = -1;
-        public int FileCount
-        {
-            get
-            {
-                if (_fileCount == -1)
-                {
-                    int fc = FolderCount;
-                }
-                return _fileCount;
-            }
-        }
-
         private bool ComputeIsLocalPath()
         {
             if (Type != ClipboardType.Text && Type != ClipboardType.RichText)
@@ -82,23 +56,6 @@ namespace WinVClip.Models
             return false;
         }
 
-        private int ComputeFolderCount()
-        {
-            if (Type == ClipboardType.FileList && FilePaths?.Count > 0)
-            {
-                int folders = 0, files = 0;
-                foreach (var p in FilePaths)
-                {
-                    if (Directory.Exists(p)) folders++;
-                    else files++;
-                }
-                _fileCount = files;
-                return folders;
-            }
-            _fileCount = 0;
-            return 0;
-        }
-
         private static string TrimQuotes(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return text;
@@ -119,6 +76,29 @@ namespace WinVClip.Models
                 _groupName = value;
                 OnPropertyChanged();
             }
+        }
+
+        private bool? _isFileValid;
+        public bool? IsFileValid
+        {
+            get => _isFileValid;
+            set
+            {
+                _isFileValid = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ShowFileInvalidBadge));
+                OnPropertyChanged(nameof(FileItemForeground));
+            }
+        }
+
+        public bool ShowFileInvalidBadge
+        {
+            get => Type == ClipboardType.FileList && IsFileValid == false;
+        }
+
+        public string FileItemForeground
+        {
+            get => IsFileValid == false ? "#EF4444" : null;
         }
 
         private bool _isSelected = false;
@@ -208,8 +188,7 @@ namespace WinVClip.Models
             PreviewText = null;
             FilePaths?.Clear();
             _isLocalPath = null;
-            _folderCount = -1;
-            _fileCount = -1;
+            _isFileValid = null;
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

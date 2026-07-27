@@ -15,7 +15,6 @@ namespace WinVClip.Services
         private readonly IntPtr _windowHandle;
         private readonly SettingsService _settingsService;
         private bool _isMonitoringEnabled = true;
-        private MainWindow? _mainWindow;
         private readonly int _trayIconId;
         private Icon? _icon;
         private bool _disposed;
@@ -182,11 +181,6 @@ namespace WinVClip.Services
             OnMonitoringToggled?.Invoke(_settingsService.Settings.MonitorEnabled);
         }
 
-        public void SetMainWindow(MainWindow window)
-        {
-            _mainWindow = window;
-        }
-
         private void UpdateTrayIcon()
         {
             _icon = LoadIcon();
@@ -239,7 +233,6 @@ namespace WinVClip.Services
         #region Windows API
 
         private const int WM_TRAYICON = 0x0400;
-        private const int WM_LBUTTONDBLCLK = 0x0203;
         private const int WM_LBUTTONUP = 0x0202;
         private const int WM_RBUTTONUP = 0x0205;
         private const int NIM_ADD = 0x00000000;

@@ -71,6 +71,7 @@
     "MainWindow.ContextMenu.ClearAllHistory": "刪除所有記錄",
     "MainWindow.ContextMenu.ClearUngroupedHistory": "刪除未分類的所有記錄",
     "MainWindow.Badge.Image": "圖片",
+    "MainWindow.Badge.InvalidFile": "失效",
     "MainWindow.Status.LoadingMore": "載入更多...",
     "MainWindow.Status.Empty": "尚無剪貼簿記錄",
     "MainWindow.Status.Loading": "載入中...",

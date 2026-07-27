@@ -20,14 +20,6 @@ namespace WinVClip.Services
 
         public event Action<bool>? PinStateChanged;
 
-        public void SetVisible()
-        {
-        }
-
-        public void SetHidden()
-        {
-        }
-
         public void SetPinned(bool pinned)
         {
             bool changed;

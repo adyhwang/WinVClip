@@ -745,29 +745,6 @@ namespace WinVClip.Services
             });
         }
 
-        /// <summary>
-        /// 检查内容是否已存在，返回 (是否存在, 是否已分组)
-        /// </summary>
-        public (bool exists, bool isGrouped) CheckContentExists(string content, int type)
-        {
-            using var command = _connection.CreateCommand();
-            command.CommandText = @"
-                SELECT GroupId IS NOT NULL as IsGrouped 
-                FROM ClipboardItems 
-                WHERE Content = @Content AND Type = @Type
-                LIMIT 1";
-            command.Parameters.AddWithValue("@Content", content);
-            command.Parameters.AddWithValue("@Type", type);
-
-            using var reader = command.ExecuteReader();
-            if (reader.Read())
-            {
-                var isGrouped = reader.GetBoolean(0);
-                return (true, isGrouped);
-            }
-            return (false, false);
-        }
-
         public Dictionary<string, bool> GetExistingTextContents(HashSet<string> contents)
         {
             var result = new Dictionary<string, bool>();
@@ -1118,26 +1095,6 @@ namespace WinVClip.Services
             command.Parameters.AddWithValue("@Content", content);
             command.Parameters.AddWithValue("@PreviewText", content.Length > 100 ? content.Substring(0, 100) : content);
             command.ExecuteNonQuery();
-        }
-
-        public Models.ClipboardItem? GetLatestItemByImageHash(string imageHash)
-        {
-            using var command = _connection.CreateCommand();
-            command.CommandText = @"
-                SELECT c.Id, c.Type, c.Content, c.RichContent, c.RichFormat, c.CsvContent, c.ImagePath, c.ImageHash, c.FilePaths, c.CreatedAt, c.PreviewText, c.GroupId
-                FROM ClipboardItems c
-                WHERE c.ImageHash = @ImageHash
-                ORDER BY c.CreatedAt DESC
-                LIMIT 1
-            ";
-            command.Parameters.AddWithValue("@ImageHash", imageHash);
-
-            using var reader = command.ExecuteReader();
-            if (reader.Read())
-            {
-                return ReadItem(reader);
-            }
-            return null;
         }
 
         public bool TextExistsInDatabase(string content)

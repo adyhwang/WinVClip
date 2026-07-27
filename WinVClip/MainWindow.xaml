@@ -235,7 +235,7 @@
                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                                  ScrollViewer.CanContentScroll="True"
                                  VirtualizingPanel.IsVirtualizing="True"
-                                 VirtualizingPanel.VirtualizationMode="Recycling"
+                                 VirtualizingPanel.VirtualizationMode="Standard"
                                  VirtualizingPanel.ScrollUnit="Pixel"
                                  SelectionMode="Single"
                                  SelectedIndex="0"
@@ -243,6 +243,7 @@
                                  ItemsSource="{Binding ClipboardItems}"
                                  IsSynchronizedWithCurrentItem="False"
 
+                                 PreviewMouseLeftButtonDown="ClipboardListBox_PreviewMouseLeftButtonDown"
                                  PreviewMouseLeftButtonUp="ClipboardListBox_PreviewMouseLeftButtonUp"
                                  PreviewMouseWheel="ClipboardListBox_PreviewMouseWheel"
                                  KeyDown="ClipboardListBox_KeyDown"
@@ -356,7 +357,7 @@
                                         </Grid.ColumnDefinitions>
 
                                         <CheckBox x:Name="MultiSelectCheckBox" Grid.Column="0"
-                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                  IsChecked="{Binding IsSelected, Mode=OneWay}"
                                                   VerticalAlignment="Center"
                                                   Margin="0,0,8,0"
                                                   Style="{DynamicResource MultiSelectCheckBoxStyle}"
@@ -381,7 +382,7 @@
                                                 <RowDefinition Height="Auto"/>
                                             </Grid.RowDefinitions>
                                             
-                                            <TextBlock Grid.Row="0" Text="{Binding PreviewText}"
+                                            <TextBlock x:Name="PreviewTextBlock" Grid.Row="0" Text="{Binding PreviewText}"
                                                        Foreground="{DynamicResource TextForeground}"
                                                        FontSize="12"
                                                        TextTrimming="CharacterEllipsis"
@@ -410,6 +411,14 @@
                                                                Foreground="White"
                                                                FontSize="10"/>
                                                 </Border>
+                                                <Border x:Name="InvalidFileBadge" Background="#EF4444"
+                                                        Padding="4,1,4,1" CornerRadius="3"
+                                                        Margin="0,0,4,0"
+                                                        Visibility="Collapsed">
+                                                    <TextBlock x:Name="InvalidFileBadgeText" Text="{Binding DataContext.InvalidFileBadgeText, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}"
+                                                               Foreground="White"
+                                                               FontSize="10"/>
+                                                </Border>
                                                 <Border Background="{DynamicResource GroupBadgeBackground}"
                                                         Padding="4,1,4,1" CornerRadius="3"
                                                         Visibility="{Binding GroupName, Converter={StaticResource StringToVisibilityConverter}}">
@@ -422,6 +431,11 @@
                                     </Grid>
                                 </Border>
                                 <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding ShowFileInvalidBadge}" Value="True">
+                                        <Setter TargetName="PreviewTextBlock" Property="Foreground" Value="#EF4444"/>
+                                        <Setter TargetName="PreviewTextBlock" Property="TextDecorations" Value="Strikethrough"/>
+                                        <Setter TargetName="InvalidFileBadge" Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
                                     <DataTrigger Binding="{Binding DataContext.IsMultiSelectMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                                         <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource ItemBackground}"/>
                                     </DataTrigger>

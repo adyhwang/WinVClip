@@ -514,6 +514,7 @@ namespace WinVClip
     {
         private readonly DatabaseService _databaseService;
         private readonly SettingsService _settingsService;
+        private readonly FileValidationService _fileValidationService;
         private readonly System.Timers.Timer _searchDelayTimer;
 
         private List<ClipboardItem> _filteredLinkItems = new List<ClipboardItem>();
@@ -523,6 +524,7 @@ namespace WinVClip
         public string Hotkey => _settingsService.Settings.Hotkey;
         
         public string ImageBadgeText => Loc.Get("MainWindow.Badge.Image", "图片");
+        public string InvalidFileBadgeText => Loc.Get("MainWindow.Badge.InvalidFile", "失效");
 
         private bool _isPinned = false;
         public bool IsPinned
@@ -546,7 +548,7 @@ namespace WinVClip
                 OnPropertyChanged();
                 if (!_isMultiSelectMode)
                 {
-                    SelectedItemIds.Clear();
+                    ClearSelection();
                 }
             }
         }
@@ -711,9 +713,21 @@ namespace WinVClip
             {
                 if (IsAnyFilterActive || !string.IsNullOrEmpty(SearchText))
                 {
-                    return Loc.Get("MainWindow.Status.Filtered", ClipboardItems.Count, _totalCount);
+                    return Loc.Get("MainWindow.Status.Filtered", _totalCount, _grandTotalCount);
                 }
                 return Loc.Get("MainWindow.Status.Total", _totalCount);
+            }
+        }
+
+        private int _grandTotalCount;
+        public int GrandTotalCount
+        {
+            get => _grandTotalCount;
+            set
+            {
+                _grandTotalCount = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(StatusText));
             }
         }
 
@@ -759,7 +773,6 @@ namespace WinVClip
 
         private int _currentOffset = 0;
         private const int PageSize = 20;
-        private const int CacheSize = 20;
 
         public event PropertyChangedEventHandler PropertyChanged;
         public event EventHandler ItemAdded;
@@ -773,6 +786,7 @@ namespace WinVClip
         {
             _databaseService = databaseService;
             _settingsService = settingsService;
+            _fileValidationService = new FileValidationService();
             _searchDelayTimer = new System.Timers.Timer(300);
             _searchDelayTimer.AutoReset = false;
             _searchDelayTimer.Elapsed += (s, e) => Application.Current.Dispatcher.Invoke(LoadItems);
@@ -790,6 +804,7 @@ namespace WinVClip
                 List<ClipboardItem> newItems = null;
                 Dictionary<int, int> typeCounts = null;
                 int totalCount = 0;
+                int grandTotalCount = 0;
                 int linkFilterCount = 0;
                 await Task.Run(() =>
                 {
@@ -807,7 +822,8 @@ namespace WinVClip
                             TypeFilter, GroupFilter);
                     }
                     totalCount = _databaseService.GetTotalCount(SearchText, TypeFilter, GroupFilter);
-                    typeCounts = _databaseService.GetItemCountsByType(SearchText, GroupFilter);
+                    grandTotalCount = _databaseService.GetTotalCount(null, null, null);
+                    typeCounts = _databaseService.GetItemCountsByType(null, null);
                 });
                 
                 if (newItems == null)
@@ -818,13 +834,17 @@ namespace WinVClip
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
+                    ClipboardItems.ReplaceAll(newItems);
+
                     foreach (var item in newItems)
                     {
                         item.IsSelected = SelectedItemIds.Contains(item.Id);
                     }
-                    ClipboardItems.ReplaceAll(newItems);
+
                     OnPropertyChanged(nameof(HasItems));
                     OnPropertyChanged(nameof(IsEmpty));
+
+                    _fileValidationService.ValidateItems(newItems);
 
                     if (TypeFilter == FilterType.Link)
                     {
@@ -834,6 +854,7 @@ namespace WinVClip
                     {
                         TotalCount = totalCount;
                     }
+                    GrandTotalCount = grandTotalCount;
                     if (typeCounts != null)
                     {
                         TextCount = typeCounts.ContainsKey((int)ClipboardType.Text) ? typeCounts[(int)ClipboardType.Text] : 0;
@@ -841,7 +862,6 @@ namespace WinVClip
                         FileCount = typeCounts.ContainsKey((int)ClipboardType.FileList) ? typeCounts[(int)ClipboardType.FileList] : 0;
                         RichTextCount = typeCounts.ContainsKey((int)ClipboardType.RichText) ? typeCounts[(int)ClipboardType.RichText] : 0;
                     }
-                    OnPropertyChanged(nameof(StatusText));
                 });
             }
             catch (Exception)
@@ -887,11 +907,14 @@ namespace WinVClip
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
+                    ClipboardItems.AddRange(newItems);
+
                     foreach (var item in newItems)
                     {
                         item.IsSelected = SelectedItemIds.Contains(item.Id);
                     }
-                    ClipboardItems.AddRange(newItems);
+
+                    _fileValidationService.ValidateItems(newItems);
                 });
             }
             catch (Exception)
@@ -904,17 +927,9 @@ namespace WinVClip
             }
         }
 
-        public void TrimCache()
+        public void ReValidateAllFiles()
         {
-            if (ClipboardItems.Count > CacheSize)
-            {
-                while (ClipboardItems.Count > CacheSize)
-                {
-                    ClipboardItems.RemoveAt(ClipboardItems.Count - 1);
-                }
-                _currentOffset = CacheSize;
-                HasMoreItems = true;
-            }
+            _fileValidationService.ReValidateAll(ClipboardItems);
         }
 
         public void ReleaseMemory()
@@ -993,6 +1008,9 @@ namespace WinVClip
             }
             OnPropertyChanged(nameof(StatusText));
 
+            if (item.Type == ClipboardType.FileList)
+                _fileValidationService.ValidateItem(item);
+
             ItemAdded?.Invoke(this, EventArgs.Empty);
         }
 
@@ -1038,6 +1056,8 @@ namespace WinVClip
         private ClipboardItem _currentTooltipItem;
         private Border _currentTooltipBorder;
         private bool _isPasting = false;
+        private IntPtr _lastFocusHwndWhenShow = IntPtr.Zero;
+        private IntPtr _capturedTargetHwnd = IntPtr.Zero;
 
         private System.Threading.Timer _backgroundGcTimer;
 
@@ -1164,7 +1184,13 @@ namespace WinVClip
 
         private void OnLanguageChanged()
         {
-            Dispatcher.Invoke(() => ApplyLocalization());
+            Dispatcher.Invoke(() =>
+            {
+                ApplyLocalization();
+                _viewModel.OnPropertyChanged(nameof(MainViewModel.ImageBadgeText));
+                _viewModel.OnPropertyChanged(nameof(MainViewModel.InvalidFileBadgeText));
+                _viewModel.OnPropertyChanged(nameof(MainViewModel.StatusText));
+            });
         }
 
         private void MainWindow_SourceInitialized(object sender, EventArgs e)
@@ -1174,6 +1200,17 @@ namespace WinVClip
             _hwndSource.AddHook(WndProc);
 
             DisableMaximizeAndAeroSnap(handle);
+
+            var focusService = App.GetFocusService();
+            if (focusService != null)
+            {
+                focusService.FocusChanged += OnFocusServiceFocusChanged;
+            }
+        }
+
+        private void OnFocusServiceFocusChanged(IntPtr hwnd)
+        {
+            _lastFocusHwndWhenShow = hwnd;
         }
 
         private void DisableMaximizeAndAeroSnap(IntPtr handle)
@@ -1212,6 +1249,8 @@ namespace WinVClip
             var hMonitor = MonitorFromPoint(mousePosDevice, MONITOR_DEFAULTTONEAREST);
             var screen = GetScreenFromPoint(mousePosDevice);
             
+            _lastFocusHwndWhenShow = GetForegroundWindow();
+            
             // 将设备像素（物理像素）转换为 WPF 逻辑像素
             var mousePos = DevicePixelsToLogicalPixels(mousePosDevice, hMonitor);
             var workingArea = DevicePixelsToLogicalPixels(screen.WorkingArea, hMonitor);
@@ -1230,12 +1269,12 @@ namespace WinVClip
             _backgroundGcTimer?.Dispose();
             _backgroundGcTimer = null;
             
-            App.GetWindowStateService()?.SetVisible();
-            
             SavePosition();
             
             _viewModel.LoadItems();
             ClipboardListBox.SelectedIndex = 0;
+
+            _viewModel.ReValidateAllFiles();
             
             if (_charPanelBuilt && CharTabControl.SelectedItem is TabItem charTab)
                 LoadGroupContent(_charGroups.FirstOrDefault(g => g.Id == charTab.Tag as string) ?? _charGroups.FirstOrDefault(), CharContentPanel, "CharPanel", false);
@@ -1418,6 +1457,29 @@ namespace WinVClip
 
         [DllImport("user32.dll")]
         private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, IntPtr lpdwProcessId);
+
+        [DllImport("kernel32.dll")]
+        private static extern uint GetCurrentThreadId();
+
+        [DllImport("user32.dll")]
+        private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+
+        [DllImport("user32.dll")]
+        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+        private const uint KEYEVENTF_KEYUP = 0x0002;
+        private const byte VK_MENU = 0x12;
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetAncestor(IntPtr hWnd, uint gaFlags);
+
+        private const uint GA_ROOT = 2;
 
         [DllImport("kernel32.dll")]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
@@ -1731,7 +1793,6 @@ namespace WinVClip
         {
             HideAndSave();
             _viewModel.IsPinned = false;
-            App.GetWindowStateService()?.SetHidden();
         }
 
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -1948,6 +2009,16 @@ namespace WinVClip
             _listBoxScrollViewer.BeginAnimation(ScrollViewerBehavior.VerticalOffsetProperty, _currentScrollAnimation);
         }
 
+        private void ClipboardListBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (IsControlElement(e.OriginalSource))
+                return;
+
+            _capturedTargetHwnd = _lastFocusHwndWhenShow != IntPtr.Zero
+                ? _lastFocusHwndWhenShow
+                : (App.GetFocusService()?.LastFocusHwnd ?? IntPtr.Zero);
+        }
+
         private void ClipboardListBox_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             if (IsControlElement(e.OriginalSource))
@@ -1971,12 +2042,6 @@ namespace WinVClip
         {
             switch (e.Key)
             {
-                case Key.Enter:
-                    if (ClipboardListBox.SelectedItem is ClipboardItem item)
-                    {
-                        PasteItem(item);
-                    }
-                    break;
                 case Key.Delete:
                     if (ClipboardListBox.SelectedItem is ClipboardItem deleteItem)
                     {
@@ -2543,22 +2608,78 @@ namespace WinVClip
 
         private void ActivateAndPaste(IntPtr windowHandle)
         {
+            IntPtr targetHwnd = IntPtr.Zero;
+
             if (windowHandle != IntPtr.Zero)
             {
-                SetForegroundWindow(windowHandle);
-                Thread.Sleep(20);
-                var pasteMode = App.SettingsService?.GetPasteShortcutMode() ?? Services.PasteShortcutMode.Auto;
-                KeyboardService.SimulatePaste(pasteMode);
+                targetHwnd = GetAncestor(windowHandle, GA_ROOT);
+                if (targetHwnd == IntPtr.Zero)
+                    targetHwnd = windowHandle;
             }
             else
             {
-                var desktopHwnd = GetDesktopWindow();
-                if (desktopHwnd != IntPtr.Zero)
+                targetHwnd = GetDesktopWindow();
+            }
+
+            if (targetHwnd == IntPtr.Zero) return;
+
+            BringWindowToForeground(targetHwnd);
+
+            // 等待目标窗口真正成为前台窗口，最多等待 150ms
+            int waitCount = 0;
+            while (waitCount < 15)
+            {
+                IntPtr currentForeground = GetForegroundWindow();
+                IntPtr currentRoot = GetAncestor(currentForeground, GA_ROOT);
+                if (currentRoot == targetHwnd || currentForeground == targetHwnd)
                 {
-                    SetForegroundWindow(desktopHwnd);
-                    Thread.Sleep(20);
-                    KeyboardService.SimulatePaste(PasteShortcutMode.CtrlV);
+                    break;
                 }
+                Thread.Sleep(10);
+                waitCount++;
+            }
+
+            // 额外等待 30ms 让目标窗口完成输入队列准备
+            Thread.Sleep(30);
+
+            var pasteMode = App.SettingsService?.GetPasteShortcutMode() ?? Services.PasteShortcutMode.Auto;
+            KeyboardService.SimulatePaste(pasteMode);
+        }
+
+        private static void BringWindowToForeground(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero) return;
+
+            IntPtr rootHwnd = GetAncestor(hWnd, GA_ROOT);
+            if (rootHwnd != IntPtr.Zero)
+            {
+                hWnd = rootHwnd;
+            }
+
+            uint foregroundThreadId = GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero);
+            uint currentThreadId = GetCurrentThreadId();
+
+            if (foregroundThreadId != currentThreadId && foregroundThreadId != 0)
+            {
+                AttachThreadInput(currentThreadId, foregroundThreadId, true);
+            }
+
+            SetForegroundWindow(hWnd);
+
+            if (foregroundThreadId != currentThreadId && foregroundThreadId != 0)
+            {
+                AttachThreadInput(currentThreadId, foregroundThreadId, false);
+            }
+
+            IntPtr newForeground = GetForegroundWindow();
+            IntPtr newRoot = GetAncestor(newForeground, GA_ROOT);
+            if (newRoot != hWnd && newForeground != hWnd)
+            {
+                // SetForegroundWindow 可能因 Windows 前台窗口限制而失败，
+                // 使用模拟 Alt 键按下/释放的方式触发系统允许前台切换的机制。
+                keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
+                SetForegroundWindow(hWnd);
+                keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
             }
         }
 
@@ -2590,20 +2711,42 @@ namespace WinVClip
                 _viewModel.LoadItems();
             }
 
-            var targetHwnd = overrideTargetHwnd ?? (App.GetFocusService()?.LastFocusHwnd ?? IntPtr.Zero);
-
-            var windowStateService = App.GetWindowStateService();
-            if (windowStateService != null && !windowStateService.IsPinned)
+            // 解析目标窗口句柄：优先使用调用方显式指定的，其次使用 PreviewMouseDown 时捕获的，
+            // 最后回退到 FocusService 实时记录的。
+            IntPtr targetHwnd = IntPtr.Zero;
+            if (overrideTargetHwnd.HasValue && overrideTargetHwnd.Value != IntPtr.Zero)
             {
-                HideWindow();
-                Thread.Sleep(50);
+                targetHwnd = overrideTargetHwnd.Value;
+            }
+            else if (_capturedTargetHwnd != IntPtr.Zero)
+            {
+                targetHwnd = _capturedTargetHwnd;
+            }
+            else if (_lastFocusHwndWhenShow != IntPtr.Zero)
+            {
+                targetHwnd = _lastFocusHwndWhenShow;
             }
             else
             {
-                Thread.Sleep(30);
+                targetHwnd = App.GetFocusService()?.LastFocusHwnd ?? IntPtr.Zero;
             }
 
-            ActivateAndPaste(targetHwnd);
+            // ★ 关键修复：先隐藏 WinVClip 窗口，让操作系统恢复目标窗口的前台焦点。
+            // 否则 WinVClip 占据前台时 SetForegroundWindow 会被 Windows 拒绝。
+            var windowStateService = App.GetWindowStateService();
+            bool shouldHide = windowStateService != null && !windowStateService.IsPinned;
+
+            if (shouldHide)
+            {
+                HideWindow();
+            }
+
+            // 使用 BeginInvoke 延迟执行粘贴逻辑，确保 WinVClip 已完全隐藏、
+            // 目标窗口已重新获得前台焦点后再进行窗口激活和按键注入。
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                ActivateAndPaste(targetHwnd);
+            }), System.Windows.Threading.DispatcherPriority.Input);
         }
 
         [DllImport("user32.dll")]

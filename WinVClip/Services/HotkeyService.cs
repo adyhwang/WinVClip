@@ -67,40 +67,6 @@ namespace WinVClip.Services
             }
         }
 
-        public bool UnregisterHotkey(string hotkey)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(hotkey))
-                    return false;
-
-                var normalizedHotkey = NormalizeHotkey(hotkey);
-
-                if (_hotkeyToId.TryGetValue(normalizedHotkey, out var id))
-                {
-                    UnregisterHotKey(_windowHandle, id);
-                    _hotkeyActions.Remove(id);
-                    _hotkeyToId.Remove(normalizedHotkey);
-                    return true;
-                }
-
-                return false;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        public bool IsHotkeyRegistered(string hotkey)
-        {
-            if (string.IsNullOrWhiteSpace(hotkey))
-                return false;
-
-            var normalizedHotkey = NormalizeHotkey(hotkey);
-            return _hotkeyToId.ContainsKey(normalizedHotkey);
-        }
-
         public void UnregisterAll()
         {
             foreach (var id in _hotkeyActions.Keys.ToList())
