@@ -106,7 +106,9 @@ Build with Visual Studio:
 |--------|----------|
 | `Ctrl+Shift+V` | Show/hide main window (default, customizable) |
 | `Esc` | Hide main window |
-| `Right Click` | Open context menu |
+| `Ctrl/Shift+Left mouse button` | Paste as plain text, only applies to text and rich text |
+| `Ctrl+Shift+Left mouse button` or `Middle mouse button` | Paste as plain text (remove newlines), only applies to text and rich text |
+| `Right mouse button` | Open context menu |
 
 ### Basic Operations
 
@@ -117,6 +119,7 @@ Build with Visual Studio:
 #### View & Paste
 - Press hotkey or click tray icon to open main window
 - Click a history item to paste to the current focus position
+- **Middle-click** on text or rich text items to paste as plain text (newlines automatically removed)
 
 #### Edit & Manage
 - **Edit Content**: Select "Edit" from context menu
