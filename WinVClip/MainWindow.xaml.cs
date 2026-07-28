@@ -1473,6 +1473,11 @@ namespace WinVClip
         [DllImport("user32.dll")]
         private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
+        [DllImport("user32.dll")]
+        private static extern bool SystemParametersInfo(uint uiAction, uint uiParam, IntPtr pvParam, uint fWinIni);
+
+        private const uint SPI_SETFOREGROUNDLOCKTIMEOUT = 0x2001;
+
         private const uint KEYEVENTF_KEYUP = 0x0002;
         private const byte VK_MENU = 0x12;
 
@@ -1666,6 +1671,25 @@ namespace WinVClip
             SetWindowActivateStyle(true);
             e.Handled = false;
             DeactivateWindowDeferred();
+
+            if (e.ChangedButton == MouseButton.Middle)
+            {
+                _capturedTargetHwnd = _lastFocusHwndWhenShow != IntPtr.Zero
+                    ? _lastFocusHwndWhenShow
+                    : (App.GetFocusService()?.LastFocusHwnd ?? IntPtr.Zero);
+            }
+        }
+
+        private void ItemBorder_PreviewMouseUp(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Middle &&
+                sender is Border border &&
+                border.DataContext is ClipboardItem item &&
+                (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText))
+            {
+                e.Handled = true;
+                PasteItemAsPlainTextRemoveNewlines(item);
+            }
         }
 
         private void ShowWithoutActivation()
@@ -2563,10 +2587,12 @@ namespace WinVClip
             try
             {
                 _isPasting = true;
-                string text = (item.Content ?? "").Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ");
+                string text = (item.Content ?? "").Replace("\r\n", "").Replace("\n", "").Replace("\r", "");
                 while (text.Contains("  "))
                     text = text.Replace("  ", " ");
-                Clipboard.SetText(text.Trim());
+
+                text = text.Trim();
+                Clipboard.SetText(text);
                 PostPasteFlow(pasteHashText: text, moveTopItem: item);
             }
             catch (Exception ex)
@@ -2625,25 +2651,30 @@ namespace WinVClip
 
             BringWindowToForeground(targetHwnd);
 
-            // 等待目标窗口真正成为前台窗口，最多等待 150ms
-            int waitCount = 0;
-            while (waitCount < 15)
+            // 自适应等待：检测到窗口激活立即继续，超时才等待
+            WaitForWindowActivated(targetHwnd);
+
+            var pasteMode = App.SettingsService?.GetPasteShortcutMode() ?? Services.PasteShortcutMode.Auto;
+            KeyboardService.SimulatePaste(pasteMode);
+        }
+
+        private static void WaitForWindowActivated(IntPtr targetHwnd, int maxWaitMs = 200)
+        {
+            int waited = 0;
+            while (waited < maxWaitMs)
             {
                 IntPtr currentForeground = GetForegroundWindow();
                 IntPtr currentRoot = GetAncestor(currentForeground, GA_ROOT);
                 if (currentRoot == targetHwnd || currentForeground == targetHwnd)
                 {
-                    break;
+                    return;
                 }
                 Thread.Sleep(10);
-                waitCount++;
+                waited += 10;
             }
 
-            // 额外等待 30ms 让目标窗口完成输入队列准备
+            // 未检测到激活，保底等待让目标窗口完成输入队列准备
             Thread.Sleep(30);
-
-            var pasteMode = App.SettingsService?.GetPasteShortcutMode() ?? Services.PasteShortcutMode.Auto;
-            KeyboardService.SimulatePaste(pasteMode);
         }
 
         private static void BringWindowToForeground(IntPtr hWnd)
@@ -2656,21 +2687,33 @@ namespace WinVClip
                 hWnd = rootHwnd;
             }
 
+            // 先放宽 Windows 前台窗口锁定超时限制，
+            // 这是 CopyQ 等成熟客户端的通用做法，大幅提升 SetForegroundWindow 成功率。
+            SystemParametersInfo(SPI_SETFOREGROUNDLOCKTIMEOUT, 0, IntPtr.Zero, 0);
+
             uint foregroundThreadId = GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero);
             uint currentThreadId = GetCurrentThreadId();
 
+            bool attached = false;
             if (foregroundThreadId != currentThreadId && foregroundThreadId != 0)
             {
                 AttachThreadInput(currentThreadId, foregroundThreadId, true);
+                attached = true;
             }
 
-            SetForegroundWindow(hWnd);
-
-            if (foregroundThreadId != currentThreadId && foregroundThreadId != 0)
+            try
             {
-                AttachThreadInput(currentThreadId, foregroundThreadId, false);
+                SetForegroundWindow(hWnd);
+            }
+            finally
+            {
+                if (attached)
+                {
+                    AttachThreadInput(currentThreadId, foregroundThreadId, false);
+                }
             }
 
+            // 验证窗口是否已成为前台
             IntPtr newForeground = GetForegroundWindow();
             IntPtr newRoot = GetAncestor(newForeground, GA_ROOT);
             if (newRoot != hWnd && newForeground != hWnd)
@@ -2712,8 +2755,10 @@ namespace WinVClip
             }
 
             // 解析目标窗口句柄：优先使用调用方显式指定的，其次使用 PreviewMouseDown 时捕获的，
-            // 最后回退到 FocusService 实时记录的。
+            // 再使用 ShowAtCursor 时的快照，接着 FocusService 实时记录，最后回退到窗口栈。
             IntPtr targetHwnd = IntPtr.Zero;
+            var focusService = App.GetFocusService();
+
             if (overrideTargetHwnd.HasValue && overrideTargetHwnd.Value != IntPtr.Zero)
             {
                 targetHwnd = overrideTargetHwnd.Value;
@@ -2726,9 +2771,17 @@ namespace WinVClip
             {
                 targetHwnd = _lastFocusHwndWhenShow;
             }
-            else
+            else if (focusService != null)
             {
-                targetHwnd = App.GetFocusService()?.LastFocusHwnd ?? IntPtr.Zero;
+                targetHwnd = focusService.LastFocusHwnd;
+                if (targetHwnd == IntPtr.Zero)
+                {
+                    targetHwnd = focusService.GetPreviousFocusHwnd(1);
+                }
+                if (targetHwnd == IntPtr.Zero)
+                {
+                    targetHwnd = focusService.GetPreviousFocusHwnd(2);
+                }
             }
 
             // ★ 关键修复：先隐藏 WinVClip 窗口，让操作系统恢复目标窗口的前台焦点。

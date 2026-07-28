@@ -340,6 +340,7 @@
                                       Margin="5,5"
                                       MouseMove="ItemGrid_MouseMove"
                                       PreviewMouseDown="ItemBorder_PreviewMouseDown"
+                                      PreviewMouseUp="ItemBorder_PreviewMouseUp"
                                       MouseEnter="ItemBorder_MouseEnter"
                                       MouseLeave="ItemBorder_MouseLeave"
                                       Background="{DynamicResource ItemBackground}"

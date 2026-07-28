@@ -108,9 +108,10 @@ namespace WinVClip
             _windowStateService = WindowStateService;
 
             _mainWindow = new MainWindow(_databaseService, _settingsService);
-            _mainWindow.Show();
             
-            var windowHandle = new System.Windows.Interop.WindowInteropHelper(_mainWindow).Handle;
+            var windowInteropHelper = new System.Windows.Interop.WindowInteropHelper(_mainWindow);
+            windowInteropHelper.EnsureHandle();
+            var windowHandle = windowInteropHelper.Handle;
             _focusService.AddExcludedHwnd(windowHandle);
             _hotkeyService = new HotkeyService(windowHandle);
             var hotkeyRegistered = _hotkeyService.RegisterHotkey(_settingsService.Settings.Hotkey, () => 
@@ -175,7 +176,7 @@ namespace WinVClip
                 _cleanupService.Start(_settingsService.Settings.RetentionDays);
             }
 
-            _mainWindow.Hide();
+            _mainWindow.HideWindow();
 
             Dispatcher.BeginInvoke(new Action(() =>
             {
