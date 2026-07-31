@@ -20,11 +20,11 @@
 
 WinVClip is a Windows clipboard manager developed with AI assistance, designed to help users efficiently manage clipboard history. It automatically captures and stores clipboard content, supports multiple data types, and provides convenient search, grouping, and management features.
 
-<img width="388" height="600" alt="1e" src="https://github.com/user-attachments/assets/991f7b6d-d451-446d-90bc-7ce33c690e72" />
-<img width="750" height="620" alt="2e" src="https://github.com/user-attachments/assets/160dd5a8-ef8d-4760-a954-b0f0e85164db" />
-<img width="750" height="620" alt="3e" src="https://github.com/user-attachments/assets/f5ee72af-3ff1-4fcf-a0f6-a4b024f73578" />
-<img width="750" height="620" alt="4e" src="https://github.com/user-attachments/assets/644414b0-c82e-4eb4-9c79-2666f6a27068" />
-<img width="600" height="500" alt="5e" src="https://github.com/user-attachments/assets/8d6fe202-cca4-4a11-aa0f-dc3f2b783424" />
+
+<img width="627" height="612" alt="1" src="https://github.com/user-attachments/assets/12638bde-6ccf-46a4-a3c7-568557854fdc" />
+<img width="750" height="620" alt="2" src="https://github.com/user-attachments/assets/7fafce65-8c39-48b4-8c6f-bf06187ce680" />
+<img width="750" height="620" alt="3" src="https://github.com/user-attachments/assets/356505b2-8c43-42ee-a03e-85eea39f2c15" />
+<img width="600" height="500" alt="6" src="https://github.com/user-attachments/assets/c62de8bc-6461-45b7-8a78-f88ad7f118c8" />
 
 
 ---
@@ -58,9 +58,11 @@ WinVClip is a Windows clipboard manager developed with AI assistance, designed t
 | 🏷️ **Type Filter** | Filter history records by content type (text/image/file/rich text/link) |
 | 🔗 **Quick Actions** | Right-click menu supports quick search, open files, visit links, and more |
 | 🔤 **Split Characters** | Split text into individual characters/words for selective insertion |
-| 😀 **Emoji Panel** | Built-in emoji panel with category browsing and quick insertion |
 | 🔣 **Character Panel** | Built-in special character panel for quick access to symbols and characters |
 | 🔠 **Font Size** | Adjustable interface font size (10-30), applies to main window and character picker instantly |
+| ⚙️ **Quick Commands** | Custom text processing rule chains, supporting regex replacement, extraction, formatting, etc. |
+| 🎹 **Global Hotkeys** | Custom global keyboard shortcuts to quickly access history records and perform actions |
+| 🖱️ **Main UI Shortcuts** | Custom "modifier + mouse" combinations to perform quick actions on clipboard items |
 | 🌐 **Multi-language** | Supports Chinese and English, language changes apply instantly without restart |
 | ⚡ **Memory Optimization** | Background automatic memory cleanup, auto releases memory when minimized, lower resource usage |
 
@@ -106,9 +108,10 @@ Build with Visual Studio:
 |--------|----------|
 | `Ctrl+Shift+V` | Show/hide main window (default, customizable) |
 | `Esc` | Hide main window |
-| `Ctrl/Shift+Left mouse button` | Paste as plain text, only applies to text and rich text |
-| `Ctrl+Shift+Left mouse button` or `Middle mouse button` | Paste as plain text (remove newlines), only applies to text and rich text |
-| `Right mouse button` | Open context menu |
+| `Ctrl+Left Click` | Paste as plain text (in main UI, customizable) |
+| `Shift+Left Click` | Paste as plain text (remove newlines, in main UI, customizable) |
+| `Middle Click` | Paste as plain text (remove newlines, in main UI, customizable) |
+| `Right Click` | Open context menu |
 
 ### Basic Operations
 
@@ -147,13 +150,27 @@ Build with Visual Studio:
 ### Settings Options
 
 #### General Settings
-- **Hotkey**: Customize global hotkey
+- **Hotkey**: Customize global hotkey (show/hide main window)
 - **Theme**: Light/Dark/Follow System
 - **Paste Method**: Auto select, Ctrl+V, Shift+Insert
 - **Language**: Chinese/English, changes apply instantly
 - **Font Size**: Adjustable from 10 to 30, applies instantly to main window and character picker
 - **Auto Startup**: Auto launch program on system boot
 - **Window Always On Top**: Main window stays on top of all windows
+
+#### Global Hotkeys
+- **Function**: Custom global keyboard shortcuts to quickly operate without opening the main window
+- **Configuration**: Set shortcut combination (Ctrl/Shift/Alt/Win + key), specify which history item (1-N) to act on
+- **Supported Actions**: Direct paste, paste as plain text, execute quick command, etc.
+
+#### Main UI Shortcuts
+- **Function**: Perform quick actions on clipboard items through "modifier + mouse" combinations when main UI is open
+- **Default Mappings**: 
+  - `Ctrl + Left Click`: Paste as plain text
+  - `Shift + Left Click`: Paste without newlines
+  - `Middle Click`: Paste without newlines
+  - `Alt + Middle Click`: Open in browser
+- **Customizable Actions**: Split characters, edit, delete, group, generate QR code, execute quick command, etc.
 
 #### Capture Settings
 - **Monitor Switch**: Enable/disable clipboard monitoring
@@ -171,6 +188,12 @@ Build with Visual Studio:
 #### Search Engine
 - Select default search engine (Bing, Baidu, Google, etc.)
 - Supports adding custom search engines
+
+#### Quick Commands
+- **Function**: Custom text processing rule chains for batch processing clipboard text
+- **Supported Operations**: String replacement, regex replacement, regex extraction, case conversion, whitespace removal, newline removal, line deduplication, etc.
+- **Use Cases**: Extract phone numbers/emails/links, format text, clean up data, etc.
+- **How to Trigger**: Via main UI context menu, main UI shortcuts, or global hotkeys
 
 ---
 
@@ -202,8 +225,11 @@ WinVClip/
 │   ├── CharGroupData.cs        # Character group data model
 │   ├── ClipboardItem.cs        # Clipboard item model
 │   ├── ClipboardType.cs        # Clipboard type enum
+│   ├── GlobalHotkey.cs         # Global hotkey model
 │   ├── Group.cs                # Group model
 │   ├── LanguageModel.cs        # Language model
+│   ├── QuickCommand.cs         # Quick command model
+│   ├── QuickPasteShortcut.cs   # Main UI shortcut model
 │   ├── RangeObservableCollection.cs  # Range observable collection
 │   └── SearchEngine.cs         # Search engine model
 │
@@ -236,7 +262,6 @@ WinVClip/
 │
 ├── Resources/                   # Resource files
 │   ├── Characters/             # Special character data
-│   ├── Emoji/                  # Emoji data
 │   └── Languages/              # Multi-language resources
 │
 └── App.xaml.cs                  # Application entry point

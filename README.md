@@ -20,11 +20,10 @@
 
 WinVClip 是一款使用 AI 辅助开发的 Windows 剪贴板管理工具，旨在帮助用户高效管理剪贴板历史记录。它能够自动捕获和存储剪贴板内容，支持多种数据类型，并提供便捷的搜索、分组和管理功能。
 
-<img width="388" height="600" alt="1" src="https://github.com/user-attachments/assets/4d991e1f-eff8-432d-a8d7-669d6c279b1d" />
-<img width="750" height="620" alt="2" src="https://github.com/user-attachments/assets/855b262d-615f-4dbc-bf80-31b6a8ec63cd" />
-<img width="750" height="620" alt="3" src="https://github.com/user-attachments/assets/036acb39-2af2-4db9-ba06-393aac53e4b6" />
-<img width="750" height="620" alt="4" src="https://github.com/user-attachments/assets/d248273a-726c-4e17-959d-ad56e9ef4d15" />
-<img width="600" height="500" alt="5" src="https://github.com/user-attachments/assets/a6b20891-5e5e-4de3-bba2-219020679729" />
+<img width="350" height="600" alt="主界面" src="https://github.com/user-attachments/assets/2765372b-064d-4c72-8169-239d3b979ae3" />
+<img width="197" height="164" alt="托盘菜单" src="https://github.com/user-attachments/assets/ef7bd558-4887-4497-a8f3-503d843ea7db" />
+<img width="750" height="620" alt="设置窗口" src="https://github.com/user-attachments/assets/ccbc0794-56ea-4308-ba49-69b3a396300b" />
+<img width="600" height="500" alt="5" src="https://github.com/user-attachments/assets/562efe07-c768-463d-9085-95fa47f96ecb" />
 
 ---
 
@@ -57,9 +56,11 @@ WinVClip 是一款使用 AI 辅助开发的 Windows 剪贴板管理工具，旨�
 | 🏷️ **类型筛选** | 按内容类型（文本/图片/文件/富文本/链接）筛选历史记录 |
 | 🔗 **快捷操作** | 右键菜单支持快速搜索、打开文件、访问链接等操作 |
 | 🔤 **拆分选字** | 将文本拆分为单字/单词，选择性插入所需内容 |
-| 😀 **表情面板** | 内置表情面板，支持分类浏览和快速插入 |
 | 🔣 **字符面板** | 内置特殊字符面板，快速访问符号和字符 |
 | 🔠 **字体大小** | 可调整界面字体大小（10-30），主界面和拆分选字界面即时生效 |
+| ⚙️ **快捷命令** | 自定义文本处理规则链，支持正则替换、提取、格式化等功能 |
+| 🎹 **全局快捷键** | 自定义全局键盘快捷键，一键访问历史记录并执行操作 |
+| 🖱️ **主界面快捷键** | 自定义"修饰键+鼠标"组合，对剪贴板条目执行快速操作 |
 | 🌐 **多语言** | 支持中英文切换，语言修改即时生效无需重启 |
 | ⚡ **内存优化** | 后台自动内存回收，最小化后自动释放内存，资源占用更低 |
 
@@ -105,8 +106,9 @@ cd WinVClip
 |--------|------|
 | `Ctrl+Shift+V` | 显示/隐藏主界面（默认，可自定义） |
 | `Esc` | 隐藏主界面 |
-| `Ctrl或Shift+鼠标左键` | 纯文本粘贴，仅对文本和富文本类型生效 |
-| `Ctrl+Shift+鼠标左键` 或者 `鼠标中键` | 纯文本粘贴（去除换行），仅对文本和富文本类型生效 |
+| `Ctrl+鼠标左键` | 纯文本粘贴（主界面内，自定义） |
+| `Shift+鼠标左键` | 纯文本粘贴（去除换行，主界面内，自定义） |
+| `鼠标中键` | 纯文本粘贴（去除换行，主界面内，自定义） |
 | `鼠标右键` | 打开右键菜单 |
 
 ### 基本操作
@@ -146,13 +148,27 @@ cd WinVClip
 ### 设置选项
 
 #### 常规设置
-- **快捷键**: 自定义全局快捷键
+- **快捷键**: 自定义全局快捷键（显示/隐藏主界面）
 - **主题**: 亮色/暗色/跟随系统
 - **粘贴方式**: 自动选择、Ctrl+V、Shift+Insert
 - **语言**: 中英文切换，修改即时生效
 - **字体大小**: 可调整范围 10-30，主界面和拆分选字界面即时生效
 - **开机自启**: 开机自动启动程序
 - **窗口置顶**: 主窗口始终显示在最前方
+
+#### 全局快捷键
+- **功能**: 自定义全局键盘快捷键，无需打开主界面即可快速操作
+- **配置**: 设置快捷键组合（Ctrl/Shift/Alt/Win + 按键），指定作用于剪贴板历史的第几项
+- **支持的操作**: 直接粘贴、纯文本粘贴、执行快捷命令等
+
+#### 主界面快捷键
+- **功能**: 在主界面打开时，通过"修饰键+鼠标"组合对剪贴板条目执行快速操作
+- **默认映射**: 
+  - `Ctrl + 左键`: 纯文本粘贴
+  - `Shift + 左键`: 去换行符粘贴
+  - `鼠标中键`: 去换行符粘贴
+  - `Alt + 中键`: 在浏览器打开
+- **可自定义操作**: 拆分选字、编辑、删除、分组、生成二维码、执行快捷命令等
 
 #### 捕获设置
 - **监控开关**: 启用/禁用剪贴板监控
@@ -170,6 +186,12 @@ cd WinVClip
 #### 搜索引擎
 - 选择默认搜索引擎（Bing、百度、Google 等）
 - 支持添加自定义搜索引擎
+
+#### 快捷命令
+- **功能**: 自定义文本处理规则链，对剪贴板文本执行批量处理
+- **支持的操作**: 字符串替换、正则替换、正则提取、转大小写、去空白、去换行、行去重等
+- **使用场景**: 提取手机号/邮箱/链接、格式化文本、清理数据等
+- **调用方式**: 通过主界面右键菜单、主界面快捷键或全局快捷键触发
 
 ---
 
@@ -201,8 +223,11 @@ WinVClip/
 │   ├── CharGroupData.cs        # 字符分组数据模型
 │   ├── ClipboardItem.cs        # 剪贴板条目模型
 │   ├── ClipboardType.cs        # 剪贴板类型枚举
+│   ├── GlobalHotkey.cs         # 全局快捷键模型
 │   ├── Group.cs                # 分组模型
 │   ├── LanguageModel.cs        # 语言模型
+│   ├── QuickCommand.cs         # 快捷命令模型
+│   ├── QuickPasteShortcut.cs   # 主界面快捷键模型
 │   ├── RangeObservableCollection.cs  # 范围可观察集合
 │   └── SearchEngine.cs         # 搜索引擎模型
 │
@@ -235,7 +260,6 @@ WinVClip/
 │
 ├── Resources/                   # 资源文件
 │   ├── Characters/             # 特殊字符数据
-│   ├── Emoji/                  # 表情数据
 │   └── Languages/              # 多语言资源
 │
 └── App.xaml.cs                  # 应用程序入口
