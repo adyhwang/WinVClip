@@ -117,15 +117,20 @@ namespace WinVClip.Services
 
         private void ShowContextMenu()
         {
+            // 使用微软官方推荐的模式 (KB 135788)：
+            // 在显示托盘菜单前调用 SetForegroundWindow，让隐藏的主窗口获得前台状态，
+            // 这样 WPF ContextMenu 才能正确追踪外部点击事件来自动关闭菜单。
+            SetForegroundWindow(_windowHandle);
+            
             var menu = new System.Windows.Controls.ContextMenu();
             menu.Style = Application.Current.TryFindResource("ContextMenuStyle") as Style;
             
             // 显示主界面
-            var showItem = CreateMenuItem("📋 " + Loc.Get("Tray.Show", "显示主界面"), Loc.Get("Tray.Show", "显示 WinVClip 主窗口"), () => OnShowWindow?.Invoke());
+            var showItem = CreateMenuItem(Loc.Get("Tray.Show", "显示主界面"), "📋", Loc.Get("Tray.Show", "显示 WinVClip 主窗口"), () => OnShowWindow?.Invoke());
             menu.Items.Add(showItem);
             
             // 设置
-            var settingsItem = CreateMenuItem("⚙️ " + Loc.Get("Tray.Settings", "设置"), Loc.Get("Tray.Settings", "打开设置窗口"), () => OnOpenSettings?.Invoke());
+            var settingsItem = CreateMenuItem(Loc.Get("Tray.Settings", "设置"), "⚙️", Loc.Get("Tray.Settings", "打开设置窗口"), () => OnOpenSettings?.Invoke());
             menu.Items.Add(settingsItem);
             
             // 分隔线
@@ -134,7 +139,8 @@ namespace WinVClip.Services
             // 监控开关
             var monitoringItem = new System.Windows.Controls.MenuItem 
             { 
-                Header = _settingsService.Settings.MonitorEnabled ? "⛔︎ " + Loc.Get("Tray.MonitoringDisabled", "禁用监听") : "👁︎ " + Loc.Get("Tray.MonitoringEnabled", "启用监听"),
+                Header = _settingsService.Settings.MonitorEnabled ? Loc.Get("Tray.MonitoringDisabled", "禁用监听") : Loc.Get("Tray.MonitoringEnabled", "启用监听"),
+                Icon = _settingsService.Settings.MonitorEnabled ? "⛔︎" : "👁︎",
                 ToolTip = Loc.Get("Tray.ToggleMonitoring", "切换剪贴板监控状态")
             };
             monitoringItem.Style = Application.Current.TryFindResource("MenuItemStyle") as Style;
@@ -145,20 +151,24 @@ namespace WinVClip.Services
             menu.Items.Add(CreateSeparator());
             
             // 退出
-            var exitItem = CreateMenuItem("❌ " + Loc.Get("Tray.Exit", "退出"), Loc.Get("Tray.Exit", "退出 WinVClip"), () => OnExit?.Invoke());
+            var exitItem = CreateMenuItem(Loc.Get("Tray.Exit", "退出"), "❌", Loc.Get("Tray.Exit", "退出 WinVClip"), () => OnExit?.Invoke());
             menu.Items.Add(exitItem);
             
             // 在鼠标位置显示菜单
             menu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
             menu.PlacementTarget = Application.Current.MainWindow;
             menu.IsOpen = true;
+            
+            // 菜单显示后发送 WM_NULL，确保窗口消息队列继续正常处理
+            PostMessage(_windowHandle, WM_NULL, IntPtr.Zero, IntPtr.Zero);
         }
 
-        private System.Windows.Controls.MenuItem CreateMenuItem(string header, string tooltip, Action onClick)
+        private System.Windows.Controls.MenuItem CreateMenuItem(string header, string icon, string tooltip, Action onClick)
         {
             var item = new System.Windows.Controls.MenuItem 
             { 
                 Header = header,
+                Icon = icon,
                 ToolTip = tooltip
             };
             item.Style = Application.Current.TryFindResource("MenuItemStyle") as Style;
@@ -235,6 +245,7 @@ namespace WinVClip.Services
         private const int WM_TRAYICON = 0x0400;
         private const int WM_LBUTTONUP = 0x0202;
         private const int WM_RBUTTONUP = 0x0205;
+        private const int WM_NULL = 0x0000;
         private const int NIM_ADD = 0x00000000;
         private const int NIM_DELETE = 0x00000002;
         private const int NIM_MODIFY = 0x00000001;
@@ -267,6 +278,12 @@ namespace WinVClip.Services
 
         [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
         private static extern bool Shell_NotifyIcon(int dwMessage, ref NotifyIconData lpData);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool PostMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
 
         #endregion
     }

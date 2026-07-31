@@ -1097,6 +1097,28 @@ namespace WinVClip.Services
             command.ExecuteNonQuery();
         }
 
+        /// <summary>
+        /// 富文本保存为纯文本时使用：同时更新 Type 为 Text，清空 RichContent/RichFormat，
+        /// 并写入新的 Content/PreviewText。
+        /// </summary>
+        public void UpdateItemAsText(long itemId, string content)
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = @"
+                UPDATE ClipboardItems 
+                SET Type = @Type,
+                    Content = @Content, 
+                    RichContent = NULL,
+                    RichFormat = NULL,
+                    PreviewText = @PreviewText 
+                WHERE Id = @Id";
+            command.Parameters.AddWithValue("@Id", itemId);
+            command.Parameters.AddWithValue("@Type", (int)Models.ClipboardType.Text);
+            command.Parameters.AddWithValue("@Content", content);
+            command.Parameters.AddWithValue("@PreviewText", content.Length > 100 ? content.Substring(0, 100) : content);
+            command.ExecuteNonQuery();
+        }
+
         public bool TextExistsInDatabase(string content)
         {
             return ExecuteScalarWithRetry<int>(

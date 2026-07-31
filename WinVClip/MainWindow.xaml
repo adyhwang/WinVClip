@@ -31,7 +31,7 @@
                             <TextBlock Text="{Binding Content, Converter={StaticResource TextPreviewConverter}}"
                                        Foreground="{DynamicResource TextForeground}"
                                        FontSize="13"
-                                       TextWrapping="NoWrap"
+                                       TextWrapping="Wrap"
                                        FontFamily="Consolas"/>
                         </Grid>
                     </DataTemplate>
@@ -52,7 +52,7 @@
                             <TextBlock Text="{Binding FilePaths, Converter={StaticResource FileListPreviewConverter}}"
                                        Foreground="{DynamicResource TextForeground}"
                                        FontSize="13"
-                                       TextWrapping="NoWrap"
+                                       TextWrapping="Wrap"
                                        FontFamily="Consolas"/>
                         </Grid>
                     </DataTemplate>
@@ -118,7 +118,7 @@
                         </Button.Style>
                     </Button>
                     <Button x:Name="PanelToggleButton" Width="32" Height="32" Margin="2,0"
-                            Content="🔣"
+                            Content=";-)"
                             Click="PanelToggleButton_Click"
                             PreviewMouseDown="Button_PreviewMouseDown">
                         <Button.Style>
@@ -235,13 +235,14 @@
                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                                  ScrollViewer.CanContentScroll="True"
                                  VirtualizingPanel.IsVirtualizing="True"
-                                 VirtualizingPanel.VirtualizationMode="Standard"
+                                 VirtualizingPanel.VirtualizationMode="Recycling"
                                  VirtualizingPanel.ScrollUnit="Pixel"
+                                 VirtualizingPanel.CacheLength="2,2"
+                                 VirtualizingPanel.CacheLengthUnit="Page"
                                  SelectionMode="Single"
                                  SelectedIndex="0"
                                  ItemContainerStyle="{DynamicResource ClipboardItemContainerStyle}"
                                  ItemsSource="{Binding ClipboardItems}"
-                                 IsSynchronizedWithCurrentItem="False"
 
                                  PreviewMouseLeftButtonDown="ClipboardListBox_PreviewMouseLeftButtonDown"
                                  PreviewMouseLeftButtonUp="ClipboardListBox_PreviewMouseLeftButtonUp"
@@ -255,46 +256,29 @@
                         </ListBox.Resources>
 
                         <ListBox.ContextMenu>
-                            <ContextMenu x:Name="ItemContextMenu" Style="{DynamicResource ContextMenuStyle}" Opened="ContextMenu_Opened">
-                                <MenuItem x:Name="MenuPasteWithFormat" Header="带格式粘贴" Icon="📋" Click="PasteWithFormat_Click"
-                                          Style="{DynamicResource MenuItemStyle}"
-                                          Visibility="{Binding ., Converter={local:IsRichTextConverter}}"
-                                          DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                <MenuItem x:Name="MenuPasteAsText" Header="纯文本粘贴" Icon="📝" Click="PasteAsText_Click"
-                                          Style="{DynamicResource MenuItemStyle}"
-                                          Visibility="{Binding ., Converter={local:IsRichTextConverter}}"
-                                          DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                            <ContextMenu x:Name="ItemContextMenu" Style="{DynamicResource ContextMenuStyle}" Opened="ContextMenu_Opened">                                
                                 <MenuItem x:Name="MenuPasteAsImage" Header="图片粘贴" Icon="🖼️" Click="PasteAsImage_Click"
-                                          Style="{DynamicResource MenuItemStyle}"
-                                          Visibility="{Binding ., Converter={local:RichTextHasImageConverter}}"
-                                          DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                <MenuItem x:Name="MenuCharPicker" Header="拆分选字" Icon="🔤" Click="CharPicker_Click" Loaded="MenuCharPicker_Loaded"
-                                          Style="{DynamicResource MenuItemStyle}"
-                                          Visibility="{Binding ., Converter={local:IsTextOrRichTextConverter}}"
-                                          DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                        Style="{DynamicResource MenuItemStyle}"
+                                        Visibility="{Binding ., Converter={local:RichTextHasImageConverter}}"
+                                        DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                 <MenuItem x:Name="MenuImagePaste" Header="图片粘贴" Icon="🖼️" Click="ImagePaste_Click"
-                                          Style="{DynamicResource MenuItemStyle}"
-                                          Visibility="{Binding ., Converter={local:IsImageConverter}}"
-                                          DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                        Style="{DynamicResource MenuItemStyle}"
+                                        Visibility="{Binding ., Converter={local:IsImageConverter}}"
+                                        DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                 <MenuItem x:Name="MenuImageFilePaste" Header="图片文件粘贴" Icon="📂" Click="ImageFilePaste_Click"
-                                          Style="{DynamicResource MenuItemStyle}"
-                                          Visibility="{Binding ., Converter={local:IsImageConverter}}"
-                                          DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                <Separator Style="{DynamicResource SeparatorStyle}"
-                                          Visibility="{Binding ., Converter={local:IsRichTextConverter}}"
-                                          DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                <MenuItem x:Name="MenuOpenInBrowser" Header="在浏览器打开" Icon="🌐" Click="OpenInBrowserMenuItem_Click"
-                                          Style="{DynamicResource MenuItemStyle}"
-                                          Visibility="{Binding ., Converter={local:ItemTypeToUrlVisibilityConverter}}"
-                                          DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                <MenuItem x:Name="MenuGenerateQRCode" Header="生成二维码" Icon="📱" Click="GenerateQRCode_Click" Loaded="MenuGenerateQRCode_Loaded"
-                                          Style="{DynamicResource MenuItemStyle}"
-                                          Visibility="{Binding ., Converter={local:IsTextOrRichTextConverter}}"
-                                          DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                        Style="{DynamicResource MenuItemStyle}"
+                                        Visibility="{Binding ., Converter={local:IsImageConverter}}"
+                                        DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                 <MenuItem x:Name="MenuOpenFolder" Header="打开文件夹" Icon="📂" Click="OpenFolderMenuItem_Click"
                                           Style="{DynamicResource MenuItemStyle}"
                                           Visibility="{Binding ., Converter={local:ItemTypeToFolderVisibilityConverter}}"
                                           DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                <MenuItem x:Name="MenuCopy" Header="复制" Icon="📋" Click="CopyMenuItem_Click"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}, ConverterParameter=Invert}"/>
+                                <MenuItem x:Name="MenuGroup" Header="分组" Icon="📁" Click="GroupMenuItem_Click"
+                                          Style="{DynamicResource MenuItemStyle}"
+                                          Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}, ConverterParameter=Invert}"/>
                                 <MenuItem x:Name="MenuEdit" Header="编辑" Icon="✏️" Click="EditMenuItem_Click"
                                           Style="{DynamicResource MenuItemStyle}">
                                     <MenuItem.Visibility>
@@ -304,12 +288,6 @@
                                         </MultiBinding>
                                     </MenuItem.Visibility>
                                 </MenuItem>
-                                <MenuItem x:Name="MenuCopy" Header="复制" Icon="📋" Click="CopyMenuItem_Click"
-                                          Style="{DynamicResource MenuItemStyle}"
-                                          Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}, ConverterParameter=Invert}"/>
-                                <MenuItem x:Name="MenuGroup" Header="分组" Icon="📁" Click="GroupMenuItem_Click"
-                                          Style="{DynamicResource MenuItemStyle}"
-                                          Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}, ConverterParameter=Invert}"/>
                                 <MenuItem x:Name="MenuDelete" Header="删除" Icon="🗑️" Click="DeleteMenuItem_Click"
                                           Style="{DynamicResource MenuItemStyle}"
                                           Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}, ConverterParameter=Invert}"/>
@@ -332,6 +310,36 @@
                                 <MenuItem x:Name="MenuExitMultiSelectMode" Header="返回常规模式" Icon="🔄" Click="ExitMultiSelectMode_Click"
                                           Style="{DynamicResource MenuItemStyle}"
                                           Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}}"/>
+                                <!-- 快捷命令二级菜单：鼠标悬停自动向右展开（MenuItemWithSubmenuStyle 支持子菜单弹出） -->
+                                <MenuItem x:Name="MenuQuickCommands" Header="快捷命令" Icon="⚡"
+                                          Style="{DynamicResource MenuItemWithSubmenuStyle}">
+                                    <MenuItem x:Name="MenuPasteWithFormat" Header="带格式粘贴" Icon="📋" Click="PasteWithFormat_Click"
+                                              Style="{DynamicResource MenuItemStyle}"
+                                              Visibility="{Binding ., Converter={local:IsRichTextConverter}}"
+                                              DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    <MenuItem x:Name="MenuPasteAsText" Header="纯文本粘贴" Icon="📝" Click="PasteAsText_Click"
+                                              Style="{DynamicResource MenuItemStyle}"
+                                              Visibility="{Binding ., Converter={local:IsRichTextConverter}}"
+                                              DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    <MenuItem x:Name="MenuPasteRemoveNewlines" Header="纯文本去换行粘贴" Icon="📑" Click="PasteRemoveNewlines_Click"
+                                              Style="{DynamicResource MenuItemStyle}"
+                                              Visibility="{Binding ., Converter={local:IsRichTextConverter}}"
+                                              DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    <MenuItem x:Name="MenuCharPicker" Header="拆分选字" Icon="🔤" Click="CharPicker_Click" Loaded="MenuCharPicker_Loaded"
+                                              Style="{DynamicResource MenuItemStyle}"
+                                              Visibility="{Binding ., Converter={local:IsTextOrRichTextConverter}}"
+                                              DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    <MenuItem x:Name="MenuOpenInBrowser" Header="在浏览器打开" Icon="🌐" Click="OpenInBrowserMenuItem_Click"
+                                              Style="{DynamicResource MenuItemStyle}"
+                                              Visibility="{Binding ., Converter={local:ItemTypeToUrlVisibilityConverter}}"
+                                              DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    <MenuItem x:Name="MenuGenerateQRCode" Header="生成二维码" Icon="📱" Click="GenerateQRCode_Click" Loaded="MenuGenerateQRCode_Loaded"
+                                              Style="{DynamicResource MenuItemStyle}"
+                                              Visibility="{Binding ., Converter={local:IsTextOrRichTextConverter}}"
+                                              DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    <Separator x:Name="MenuQuickCommandsSeparator" Style="{DynamicResource SeparatorStyle}" Tag="__QC_SEP__"/>
+                                    <!-- 动态 QC 菜单项会在 ContextMenu_Opened 时追加到此二级菜单末尾 -->
+                                </MenuItem>
                             </ContextMenu>
                         </ListBox.ContextMenu>
                         <ListBox.ItemTemplate>
@@ -558,29 +566,6 @@
                     </ScrollViewer>
                 </Grid>
 
-                <!-- Emoji面板 -->
-                <Grid x:Name="EmojiPanel" Grid.ColumnSpan="2" Visibility="Collapsed">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <TabControl x:Name="EmojiTabControl"
-                                Grid.Column="0"
-                                Style="{DynamicResource CharTabControlStyle}"
-                                SelectionChanged="EmojiTabControl_SelectionChanged">
-                    </TabControl>
-
-                    <ScrollViewer x:Name="EmojiScrollViewer" Grid.Column="1"
-                                  VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled"
-                                  Margin="0,0,-8,0">
-                        <ScrollViewer.Resources>
-                            <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBarStyle}"/>
-                        </ScrollViewer.Resources>
-                        <StackPanel x:Name="EmojiContentPanel"/>
-                    </ScrollViewer>
-                </Grid>
             </Grid>
 
             <Grid Grid.Row="3" Margin="10,4,10,0">

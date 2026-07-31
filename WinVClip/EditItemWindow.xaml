@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="编辑内容" Height="400" Width="500"
+        Title="编辑内容" Height="460" Width="560"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResize">
     
@@ -16,6 +16,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             
@@ -35,8 +36,30 @@
                      AcceptsReturn="True"
                      VerticalScrollBarVisibility="Auto"
                      HorizontalScrollBarVisibility="Auto"/>
+
+            <!-- 快捷命令区域 -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,12,0,0">
+                <TextBlock x:Name="ActionLabel" Text="快捷命令"
+                           Foreground="{DynamicResource TextForeground}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"/>
+                <ComboBox x:Name="ActionComboBox"
+                          MinWidth="180"
+                          Height="32"
+                          Margin="0,0,8,0"
+                          DisplayMemberPath="Name"
+                          Background="{DynamicResource InputBackground}"
+                          Foreground="{DynamicResource TextForeground}"
+                          BorderBrush="{DynamicResource InputBorderBrush}"/>
+                <Button x:Name="ExecuteButton" Height="32" MinWidth="70" Margin="0,0,8,0"
+                        Style="{DynamicResource PrimaryButtonStyle}"
+                        Click="ExecuteButton_Click"/>
+                <Button x:Name="ResetButton" Height="32" MinWidth="70"
+                        Style="{DynamicResource SecondaryButtonStyle}"
+                        Click="ResetButton_Click"/>
+            </StackPanel>
             
-            <StackPanel Grid.Row="2" Orientation="Horizontal" 
+            <StackPanel Grid.Row="3" Orientation="Horizontal" 
                         HorizontalAlignment="Right" Margin="0,16,0,0">
                 <Button x:Name="CancelButton" Content="取消" Width="80" Height="32" Margin="0,0,8,0"
                         Style="{DynamicResource SecondaryButtonStyle}"

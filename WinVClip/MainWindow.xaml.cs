@@ -772,7 +772,7 @@ namespace WinVClip
         }
 
         private int _currentOffset = 0;
-        private const int PageSize = 20;
+        private const int PageSize = 30;
 
         public event PropertyChangedEventHandler PropertyChanged;
         public event EventHandler ItemAdded;
@@ -834,7 +834,13 @@ namespace WinVClip
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    ClipboardItems.ReplaceAll(newItems);
+                    // 空列表：走 AddRange（批量 Add 通知），避免 ReplaceAll 触发的
+                    // Reset 通知 → 容器重建 → 闪烁。
+                    // 非空列表（筛选/搜索变化）：用 ReplaceAll，确保旧项被清除。
+                    if (ClipboardItems.Count == 0)
+                        ClipboardItems.AddRange(newItems);
+                    else
+                        ClipboardItems.ReplaceAll(newItems);
 
                     foreach (var item in newItems)
                     {
@@ -944,6 +950,40 @@ namespace WinVClip
             SelectedItemIds.Clear();
         }
 
+        /// <summary>隐藏时的内存修剪（非破坏性）——只清图片等大对象，保留文本数据缓存。
+        /// 下次显示窗口时直接复用缓存，避免重新加载引发的列表闪烁。</summary>
+        public void TrimLargeObjects()
+        {
+            foreach (var item in ClipboardItems)
+            {
+                item.TrimLargeObjects();
+            }
+        }
+
+        /// <summary>当前列表中是否已有可复用的缓存数据（即隐藏时未清空）。</summary>
+        public bool HasCachedItems => ClipboardItems.Count > 0 || _currentOffset != 0;
+
+        /// <summary>检查缓存是否仍然有效（筛选未变、记录总数未变），无效则需重新加载。
+        /// 隐藏窗口时我们保留了轻量文本数据缓存，显示时借此判断能否直接复用。</summary>
+        public bool IsCacheValid()
+        {
+            if (!HasCachedItems) return false;
+            // 有搜索关键字或筛选：不能依赖缓存（捕获的新项可能正好匹配或不匹配筛选）
+            if (!string.IsNullOrWhiteSpace(SearchText)) return false;
+            if (TypeFilter != null) return false;
+            if (GroupFilter != null) return false;
+            try
+            {
+                // 快速查询数据库总数，避免重新加载整个列表
+                int actualTotal = _databaseService.GetTotalCount(null, null, null);
+                return actualTotal == GrandTotalCount;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         public void LoadItems()
         {
             _ = LoadItemsAsync();
@@ -978,9 +1018,9 @@ namespace WinVClip
 
         public void AddItem(ClipboardItem item)
         {
-            if (!_isWindowVisible)
-                return;
-
+            // 窗口隐藏时也同步写入集合与计数：保证下次 Show 时 ListBox 直接已是最新，
+            // 不需要等用户点过滤/分组才触发 LoadItems。集合操作很轻且有 200 条上限，
+            // 与「隐藏时保留文本缓存、Show 时复用」的抗闪烁策略兼容。
             ClipboardItems.Insert(0, item);
             if (ClipboardItems.Count > 200)
             {
@@ -990,6 +1030,7 @@ namespace WinVClip
             OnPropertyChanged(nameof(IsEmpty));
 
             TotalCount++;
+            GrandTotalCount++;
             switch (item.Type)
             {
                 case ClipboardType.Text:
@@ -1058,6 +1099,7 @@ namespace WinVClip
         private bool _isPasting = false;
         private IntPtr _lastFocusHwndWhenShow = IntPtr.Zero;
         private IntPtr _capturedTargetHwnd = IntPtr.Zero;
+        private List<Models.QuickPasteShortcut> _quickPasteShortcuts = new List<Models.QuickPasteShortcut>();
 
         private System.Threading.Timer _backgroundGcTimer;
 
@@ -1067,9 +1109,7 @@ namespace WinVClip
 
         private int _panelState = 0;
         private List<CharGroupData> _charGroups = new List<CharGroupData>();
-        private List<CharGroupData> _emojiGroups = new List<CharGroupData>();
         private bool _charPanelBuilt = false;
-        private bool _emojiPanelBuilt = false;
 
         public bool IsPanelActive
         {
@@ -1101,7 +1141,6 @@ namespace WinVClip
             ApplyLocalization();
             ApplyFontSize();
             _charGroups = LoadPanelDataRaw("Characters", "characters.json", "WinVClip.Resources.Characters.characters.json") ?? new List<CharGroupData>();
-            _emojiGroups = LoadPanelDataRaw("Emoji", "emoji.json", "WinVClip.Resources.Emoji.emoji.json") ?? new List<CharGroupData>();
             _viewModel.LoadGroups();
 
             _savedLeft = Left;
@@ -1111,6 +1150,14 @@ namespace WinVClip
             _settingsService.SettingsChanged += OnSettingsChanged;
             _viewModel.ItemAdded += OnItemAdded;
             LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
+            LoadQuickPasteShortcuts();
+        }
+
+        /// <summary>从设置加载主界面快捷键配置到内存缓存。</summary>
+        private void LoadQuickPasteShortcuts()
+        {
+            _quickPasteShortcuts = _settingsService.Settings.QuickPasteShortcuts?
+                .Select(s => s.Clone()).ToList() ?? new List<Models.QuickPasteShortcut>();
         }
 
         private void ApplyLocalization()
@@ -1128,12 +1175,14 @@ namespace WinVClip
             
             MenuPasteWithFormat.Header = Loc.Get("MainWindow.ContextMenu.PasteWithFormat", "带格式粘贴");
             MenuPasteAsText.Header = Loc.Get("MainWindow.ContextMenu.PasteAsText", "纯文本粘贴");
+            MenuPasteRemoveNewlines.Header = Loc.Get("MainWindow.ContextMenu.PasteRemoveNewlines", "纯文本去换行粘贴");
             MenuPasteAsImage.Header = Loc.Get("MainWindow.ContextMenu.PasteAsImage", "图片粘贴");
             MenuImagePaste.Header = Loc.Get("MainWindow.ContextMenu.ImagePaste", "图片粘贴");
             MenuImageFilePaste.Header = Loc.Get("MainWindow.ContextMenu.ImageFilePaste", "图片文件粘贴");
             MenuOpenInBrowser.Header = Loc.Get("MainWindow.ContextMenu.OpenInBrowser", "在浏览器打开");
             MenuOpenFolder.Header = Loc.Get("MainWindow.ContextMenu.OpenFolder", "打开文件夹");
             MenuEdit.Header = Loc.Get("MainWindow.ContextMenu.Edit", "编辑");
+            MenuQuickCommands.Header = Loc.Get("MainWindow.ContextMenu.QuickCommands", "快捷命令");
             MenuCopy.Header = Loc.Get("MainWindow.ContextMenu.Copy", "复制");
             MenuGroup.Header = Loc.Get("MainWindow.ContextMenu.Group", "分组");
             MenuDelete.Header = Loc.Get("MainWindow.ContextMenu.Delete", "删除");
@@ -1150,9 +1199,8 @@ namespace WinVClip
 
 
 
-            PanelToggleButton.ToolTip = Loc.Get("Panel.ToolTip.Toggle", "字符/表情面板");
+            PanelToggleButton.ToolTip = Loc.Get("Panel.ToolTip.Toggle", "字符面板");
             RefreshPanelLocalization(_charGroups, CharTabControl, "CharPanel");
-            RefreshPanelLocalization(_emojiGroups, EmojiTabControl, "EmojiPanel");
         }
 
         private void ApplyFontSize()
@@ -1180,6 +1228,7 @@ namespace WinVClip
         {
             _viewModel.OnPropertyChanged(nameof(MainViewModel.Hotkey));
             ApplyFontSize();
+            LoadQuickPasteShortcuts();
         }
 
         private void OnLanguageChanged()
@@ -1227,7 +1276,9 @@ namespace WinVClip
             const int WM_SHOWMAINWINDOW = 0x0401;
             if (msg == WM_HOTKEY)
             {
-                App.ToggleMainWindow();
+                // wParam 为注册热键时分配的 id，统一交由 HotkeyService 按注册回调分发：
+                // 显示/隐藏主界面、全局快捷键均通过此路径触发对应动作。
+                App.ProcessHotkey(wParam.ToInt32());
                 handled = true;
                 return (IntPtr)1;
             }
@@ -1270,22 +1321,42 @@ namespace WinVClip
             _backgroundGcTimer = null;
             
             SavePosition();
-            
-            _viewModel.LoadItems();
-            ClipboardListBox.SelectedIndex = 0;
+
+            // 优先复用隐藏时保留的缓存（文本数据、容器、选中状态）——
+            // 不重新加载数据 → 列表直接显示，完全避免"清空→加载→重建"的闪烁。
+            // 缓存校验：筛选未变 + 数据库总数与 GrandTotalCount 一致 → 有效 → 直接复用。
+            bool cacheValid = _viewModel.IsCacheValid();
+            if (!cacheValid)
+            {
+                _viewModel.LoadItems();
+            }
+
+            // 复用缓存时：图片缩略图已被 Trim 清空，异步触发可见区域内图片项的懒加载重绘。
+            if (cacheValid)
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    var scroll = _listBoxScrollViewer;
+                    if (scroll != null)
+                    {
+                        // 轻触一下滚动位置：触发 VirtualizingStackPanel 重新测量可见项，
+                        // 让可见项的 Image 绑定重新读取 ImageThumbnail（触发懒加载）。
+                        var offset = scroll.VerticalOffset;
+                        scroll.ScrollToVerticalOffset(offset > 0 ? offset - 1 : offset + 1);
+                        scroll.ScrollToVerticalOffset(offset);
+                    }
+                }), System.Windows.Threading.DispatcherPriority.Background);
+            }
+
+            // 若没有任何项被选中则默认选中首项；避免每次显示都强制重置选中项。
+            if (ClipboardListBox.SelectedItem == null && _viewModel.ClipboardItems.Count > 0)
+                ClipboardListBox.SelectedIndex = 0;
 
             _viewModel.ReValidateAllFiles();
-            
+
             if (_charPanelBuilt && CharTabControl.SelectedItem is TabItem charTab)
-                LoadGroupContent(_charGroups.FirstOrDefault(g => g.Id == charTab.Tag as string) ?? _charGroups.FirstOrDefault(), CharContentPanel, "CharPanel", false);
-            if (_emojiPanelBuilt && EmojiTabControl.SelectedItem is TabItem emojiTab)
-                LoadGroupContent(_emojiGroups.FirstOrDefault(g => g.Id == emojiTab.Tag as string) ?? _emojiGroups.FirstOrDefault(), EmojiContentPanel, "EmojiPanel", true);
-            
-            if (_listBoxScrollViewer != null)
-            {
-                _listBoxScrollViewer.ScrollToVerticalOffset(0);
-            }
-            
+                LoadGroupContent(_charGroups.FirstOrDefault(g => g.Id == charTab.Tag as string) ?? _charGroups.FirstOrDefault(), CharContentPanel, "CharPanel");
+
             // 设置全局鼠标钩子以检测外部点击
             SetGlobalMouseHook();
         }
@@ -1569,13 +1640,13 @@ namespace WinVClip
             HideCustomTooltip();
             _tooltipTimer?.Stop();
             
-            _viewModel.ReleaseMemory();
+            // 仅修剪图片缩略图等大对象，保留文本数据缓存——下次显示直接复用，避免列表刷新闪烁。
+            // 符合内存清理约束（GC/Compact/WorkingSet 照常执行），数据占用内存可忽略（<几 MB）。
+            _viewModel.TrimLargeObjects();
             ImageCache.Clear();
             
             if (_charPanelBuilt)
                 CharContentPanel.Children.Clear();
-            if (_emojiPanelBuilt)
-                EmojiContentPanel.Children.Clear();
             
             GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true);
             GC.WaitForPendingFinalizers();
@@ -1672,7 +1743,8 @@ namespace WinVClip
             e.Handled = false;
             DeactivateWindowDeferred();
 
-            if (e.ChangedButton == MouseButton.Middle)
+            // 左键/中键按下时捕获目标窗口句柄（供粘贴类操作使用）
+            if (e.ChangedButton == MouseButton.Left || e.ChangedButton == MouseButton.Middle)
             {
                 _capturedTargetHwnd = _lastFocusHwndWhenShow != IntPtr.Zero
                     ? _lastFocusHwndWhenShow
@@ -1682,13 +1754,31 @@ namespace WinVClip
 
         private void ItemBorder_PreviewMouseUp(object sender, MouseButtonEventArgs e)
         {
-            if (e.ChangedButton == MouseButton.Middle &&
-                sender is Border border &&
-                border.DataContext is ClipboardItem item &&
-                (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText))
+            if (sender is Border border && border.DataContext is ClipboardItem item)
             {
-                e.Handled = true;
-                PasteItemAsPlainTextRemoveNewlines(item);
+                if (e.ChangedButton == MouseButton.Middle)
+                {
+                    // 优先匹配主界面快捷键配置
+                    if (TryMatchQuickPasteShortcut(item, Models.QuickPasteMouseButton.Middle, out var matched))
+                    {
+                        e.Handled = true;
+                        ExecuteQuickPasteAction(item, matched.Action, matched.QuickCommandName);
+                        return;
+                    }
+                    // 未匹配配置：维持原有「中键纯文本粘贴（去换行）」行为（向后兼容）
+                    if (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText)
+                    {
+                        e.Handled = true;
+                        PasteItemAsPlainTextRemoveNewlines(item);
+                    }
+                }
+                else if (e.ChangedButton == MouseButton.Left)
+                {
+                    // 左键快捷键匹配已移至 ClipboardListBox_PreviewMouseLeftButtonUp 处理。
+                    // 原因：PreviewMouseUp 与 PreviewMouseLeftButtonUp 是不同的路由事件，
+                    // 此处 e.Handled 无法阻断 ListBox 级别的 PreviewMouseLeftButtonUp 默认粘贴，
+                    // 会导致快捷键操作被默认粘贴覆盖。
+                }
             }
         }
 
@@ -1699,6 +1789,31 @@ namespace WinVClip
             var handle = new WindowInteropHelper(this).Handle;
             SetWindowPos(handle, (IntPtr)(-1), 0, 0, 0, 0, 
                 SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
+        }
+
+        /// <summary>
+        /// 预热窗口：以透明、无激活方式完成 WPF 首次布局/渲染，
+        /// 避免首次快捷键弹出主界面时因 JIT 编译、样式实例化、模板构建导致的卡顿。
+        /// 同时触发 WPF 自动绑定 Application.MainWindow，使托盘右键菜单可正常弹出。
+        /// </summary>
+        public void PreheatRender()
+        {
+            var savedOpacity = Opacity;
+            try
+            {
+                Opacity = 0;
+                SetWindowActivateStyle(false);
+                Show();
+                UpdateLayout();
+            }
+            catch
+            {
+            }
+            finally
+            {
+                try { Hide(); } catch { }
+                Opacity = savedOpacity;
+            }
         }
 
         private void SetGlobalMouseHook()
@@ -1924,8 +2039,7 @@ namespace WinVClip
             var menu = new ContextMenu { Style = TryFindResource("ContextMenuStyle") as Style };
             menu.PlacementTarget = placementTarget;
             menu.Opened += ContextMenu_Opened;
-            menu.Loaded += (s, args) => SetContextMenuTopmost(menu);
-            
+            menu.Loaded += (s, args) => SetContextMenuTopmost(menu);            
             
             // 添加分组菜单项
             AddGroupMenuItem(menu, Loc.Get("Common.All", "全部"), null, currentGroupId, onSelect);
@@ -1988,12 +2102,40 @@ namespace WinVClip
 
         private void ClipboardListBox_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
+            // 主界面快捷键：悬停项上滚轮触发对应操作，禁用列表滚动
+            var wheelButton = e.Delta > 0 ? Models.QuickPasteMouseButton.WheelUp : Models.QuickPasteMouseButton.WheelDown;
+            var hoverItem = GetHoveredClipboardItem();
+            if (hoverItem != null && TryMatchQuickPasteShortcut(hoverItem, wheelButton, out var matched))
+            {
+                e.Handled = true;
+                ExecuteQuickPasteAction(hoverItem, matched.Action, matched.QuickCommandName);
+                return;
+            }
+
             if (_listBoxScrollViewer != null)
             {
                 double targetOffset = _listBoxScrollViewer.VerticalOffset - e.Delta;
                 AnimateScrollTo(targetOffset);
                 e.Handled = true;
             }
+        }
+
+        /// <summary>获取当前鼠标悬停的剪贴板项（通过可视化树查找 ItemBorder.DataContext）。</summary>
+        private ClipboardItem GetHoveredClipboardItem()
+        {
+            try
+            {
+                var pos = Mouse.GetPosition(ClipboardListBox);
+                var hit = ClipboardListBox.InputHitTest(pos) as DependencyObject;
+                while (hit != null && hit != ClipboardListBox)
+                {
+                    if (hit is FrameworkElement fe && fe.DataContext is ClipboardItem item)
+                        return item;
+                    hit = VisualTreeHelper.GetParent(hit);
+                }
+            }
+            catch { }
+            return null;
         }
 
         private void AnimateScrollTo(double targetOffset)
@@ -2050,6 +2192,16 @@ namespace WinVClip
 
             if (ClipboardListBox.SelectedItem is ClipboardItem item)
             {
+                // 优先匹配主界面快捷键配置（左键）
+                // 注意：PreviewMouseLeftButtonUp 与 ItemBorder 的 PreviewMouseUp 是不同的路由事件，
+                // e.Handled 不会互相阻断，因此必须在此处优先检查并拦截默认粘贴
+                if (TryMatchQuickPasteShortcut(item, Models.QuickPasteMouseButton.Left, out var matched))
+                {
+                    e.Handled = true;
+                    ExecuteQuickPasteAction(item, matched.Action, matched.QuickCommandName);
+                    return;
+                }
+                // 未匹配配置：维持原有默认左键行为
                 if (_viewModel.IsMultiSelectMode)
                     _viewModel.ToggleSelection(item);
                 else
@@ -2178,11 +2330,35 @@ namespace WinVClip
                 return;
             }
 
+            var wasRichText = item.Type == ClipboardType.RichText;
             var editWindow = new EditItemWindow(item) { Owner = this };
-            if (editWindow.ShowDialog() == true)
+
+            // 编辑窗口弹出期间按下 PinButton，确保主窗口置顶以便对照编辑
+            var wasPinnedBefore = _viewModel.IsPinned;
+            _viewModel.IsPinned = true;
+            Topmost = true;
+
+            try
             {
-                _databaseService.UpdateItemContent(item.Id, item.Content);
-                _viewModel.LoadItems();
+                if (editWindow.ShowDialog() == true)
+                {
+                    if (wasRichText && item.Type == ClipboardType.Text)
+                    {
+                        // 富文本经编辑后转换为纯文本：清空富文本字段并修改类型
+                        _databaseService.UpdateItemAsText(item.Id, item.Content);
+                    }
+                    else
+                    {
+                        _databaseService.UpdateItemContent(item.Id, item.Content);
+                    }
+                    _viewModel.LoadItems();
+                }
+            }
+            finally
+            {
+                // 编辑窗口关闭后恢复 PinButton 原来的状态
+                _viewModel.IsPinned = wasPinnedBefore;
+                Topmost = wasPinnedBefore;
             }
         }
 
@@ -2238,6 +2414,19 @@ namespace WinVClip
             if (string.IsNullOrEmpty(text))
                 return;
 
+            // 创建窗口前检查内容是否超出二维码容量上限，超限则直接提示，不弹空白窗口
+            if (QRCodeWindow.IsContentTooLarge(text))
+            {
+                var byteCount = System.Text.Encoding.UTF8.GetByteCount(text);
+                var msg = string.Format(
+                    Loc.Get("QRCode.Error.TooLarge",
+                        "内容过长，超出二维码容量上限（最多 {0} 字节，约 {1} 个汉字），生成失败。\n当前内容：{2} 字节（{3} 字符）"),
+                    QRCodeWindow.MaxQrBytes, QRCodeWindow.MaxQrBytes / 3, byteCount, text.Length);
+                MessageBox.Show(msg,
+                    Loc.Get("Common.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             var qrWindow = new QRCodeWindow(text);
             qrWindow.Closed += (_, _) =>
             {
@@ -2248,12 +2437,6 @@ namespace WinVClip
             };
             this.Hide();
             qrWindow.Show();
-        }
-
-        private void MenuGenerateQRCode_Loaded(object sender, RoutedEventArgs e)
-        {
-            if (sender is System.Windows.Controls.MenuItem menuItem)
-                menuItem.Header = Loc.Get("MainWindow.ContextMenu.GenerateQRCode", "生成二维码");
         }
 
         private void StatusTextTip_Loaded(object sender, RoutedEventArgs e)
@@ -2286,6 +2469,12 @@ namespace WinVClip
                 menuItem.Header = Loc.Get("MainWindow.ContextMenu.CharPicker", "拆分选字");
         }
 
+        private void MenuGenerateQRCode_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.MenuItem menuItem)
+                menuItem.Header = Loc.Get("MainWindow.ContextMenu.GenerateQRCode", "生成二维码");
+        }
+
         private void PasteWithFormat_Click(object sender, RoutedEventArgs e)
         {
             if (ClipboardListBox.SelectedItem is ClipboardItem item)
@@ -2296,6 +2485,13 @@ namespace WinVClip
         {
             if (ClipboardListBox.SelectedItem is ClipboardItem item)
                 PasteItemAsPlainText(item);
+        }
+
+        /// <summary>纯文本粘贴并移除换行符。</summary>
+        private void PasteRemoveNewlines_Click(object sender, RoutedEventArgs e)
+        {
+            if (ClipboardListBox.SelectedItem is ClipboardItem item)
+                PasteItemAsPlainTextRemoveNewlines(item);
         }
 
         private void PasteAsImage_Click(object sender, RoutedEventArgs e)
@@ -2386,13 +2582,118 @@ namespace WinVClip
                 _isContextMenuOpen = true;
                 _openMenus.Add(contextMenu);
                 contextMenu.Closed += ContextMenu_Closed;
-                
+
+                // 动态刷新「快捷命令」二级菜单末尾的自定义快捷命令列表 + 过滤 + 隐藏空菜单
+                RefreshQuickCommandSubmenu(contextMenu);
+                UpdateQuickCommandsTopLevelVisibility(contextMenu);
+
                 if (_viewModel.IsPinned)
                 {
                     Topmost = false;
                 }
-                
+
                 EnsureContextMenuTopmost(contextMenu);
+            }
+        }
+
+        /// <summary>
+        /// 计算「快捷命令」是否有任何可见的二级菜单项。如果没有，则将一级菜单项本身隐藏。
+        /// 可见判定：Visibility == Visible 且 不是 Separator 且不是 __QC_EMPTY__ 占位。
+        /// </summary>
+        private void UpdateQuickCommandsTopLevelVisibility(ContextMenu contextMenu)
+        {
+            if (MenuQuickCommands == null) return;
+            bool hasVisibleItem = false;
+            foreach (var item in MenuQuickCommands.Items)
+            {
+                if (item is FrameworkElement fe)
+                {
+                    if (fe.Visibility != Visibility.Visible) continue;
+                    if (fe is System.Windows.Controls.Separator) continue;
+                    if (fe is System.Windows.Controls.MenuItem mi && mi.Tag as string == "__QC_EMPTY__") continue;
+                    hasVisibleItem = true;
+                    break;
+                }
+            }
+            MenuQuickCommands.Visibility = hasVisibleItem ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        /// <summary>
+        /// 刷新「快捷命令」二级菜单：
+        ///   1. 找到 Separator（Tag=__QC_SEP__）位置
+        ///   2. 移除该 Separator 之后的所有动态项（Tag 以 "QC:" 开头 或 Tag="__QC_EMPTY__"）
+        ///   3. 追加当前 AppSettings.QuickCommands 列表里的**适用当前 item 类型**的快捷命令菜单项
+        /// </summary>
+        private void RefreshQuickCommandSubmenu(ContextMenu contextMenu)
+        {
+            if (contextMenu == null || MenuQuickCommands == null) return;
+            var parent = MenuQuickCommands.Items;
+            if (parent == null) return;
+
+            // 当前选中的剪贴板 item：QC 只对 文本/富文本 生效；过滤条件：qc.ClipboardType==-1 或 qc.ClipboardType==(int)curItem.Type
+            var curItem = contextMenu.PlacementTarget is System.Windows.Controls.ListBox lb ? lb.SelectedItem as ClipboardItem : null;
+            int curType = curItem != null ? (int)curItem.Type : -1;
+            bool canApplyToItem = curItem != null && (curItem.Type == ClipboardType.Text || curItem.Type == ClipboardType.RichText);
+
+            // 1. 找到 Separator 的索引，之后的都是动态项
+            int sepIdx = -1;
+            for (int i = 0; i < parent.Count; i++)
+            {
+                if (parent[i] is FrameworkElement fe && fe.Tag as string == "__QC_SEP__")
+                {
+                    sepIdx = i;
+                    break;
+                }
+            }
+            if (sepIdx < 0) return;
+
+            // 2. 从后往前清掉 Separator 之后的所有动态项
+            for (int i = parent.Count - 1; i > sepIdx; i--)
+                parent.RemoveAt(i);
+
+            var list = App.SettingsService?.Settings?.QuickCommands;
+            bool anyUser = false;
+            if (list != null)
+            {
+                // 3. 追加每个快捷命令（按当前 item 类型过滤）
+                foreach (var qc in list)
+                {
+                    var name = (qc.Name ?? "").Trim();
+                    if (name.Length == 0) continue;
+                    if (!qc.Enabled) continue;
+                    if (curItem != null && !Models.QuickCommand.TypeIncludes(qc.ClipboardType, (int)curItem.Type)) continue;
+                    var mi = new System.Windows.Controls.MenuItem
+                    {
+                        Tag = "QC:" + name,
+                        Header = name,
+                        Icon = "✨",
+                        IsEnabled = canApplyToItem,
+                        Style = TryFindResource("MenuItemStyle") as System.Windows.Style
+                    };
+                    var captured = qc;
+                    mi.Click += (s, args) =>
+                    {
+                        if (ClipboardListBox.SelectedItem is ClipboardItem item)
+                        {
+                            PasteWithCustomRegex(item, captured.Rules);
+                        }
+                    };
+                    parent.Add(mi);
+                    anyUser = true;
+                }
+            }
+            if (!anyUser)
+            {
+                var empty = new System.Windows.Controls.MenuItem
+                {
+                    Tag = "__QC_EMPTY__",
+                    IsEnabled = false,
+                    Header = "(" + Loc.Get("Settings.Hotkey.QuickPaste.QcEmpty", "暂无，请在「快捷命令」tab 添加") + ")",
+                    Foreground = TryFindResource("SecondaryTextForeground") as System.Windows.Media.Brush
+                                 ?? System.Windows.Media.Brushes.Gray,
+                    Style = TryFindResource("MenuItemStyle") as System.Windows.Style
+                };
+                parent.Add(empty);
             }
         }
         
@@ -2542,9 +2843,9 @@ namespace WinVClip
 
         private void PasteItemWithKeyboardModifiers(ClipboardItem item)
         {
-            var modifiers = Keyboard.Modifiers;
-            bool isCtrlShift = (modifiers & ModifierKeys.Control) != 0 && (modifiers & ModifierKeys.Shift) != 0;
-            bool isCtrlOrShift = (modifiers & (ModifierKeys.Control | ModifierKeys.Shift)) != 0;
+            var (ctrl, _, shift, _) = KeyboardService.GetModifierKeysState();
+            bool isCtrlShift = ctrl && shift;
+            bool isCtrlOrShift = ctrl || shift;
 
             if (isCtrlShift && (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText))
             {
@@ -2604,6 +2905,267 @@ namespace WinVClip
                 _isPasting = false;
             }
         }
+
+        #region 主界面快捷键
+
+        /// <summary>
+        /// 尝试匹配主界面快捷键配置。
+        /// 匹配条件：鼠标按键相同 && 修饰键组合相同 && (配置类型为所有类型 || 配置类型 == 项类型)。
+        /// </summary>
+        private bool TryMatchQuickPasteShortcut(ClipboardItem item, Models.QuickPasteMouseButton button, out Models.QuickPasteShortcut matched)
+        {
+            matched = null;
+            if (_quickPasteShortcuts == null || _quickPasteShortcuts.Count == 0)
+                return false;
+
+            // 隐藏/失焦后卡住导致误匹配主界面快捷键（详见 PasteItemWithKeyboardModifiers 注释）。
+            var (ctrl, alt, shift, _) = KeyboardService.GetModifierKeysState();
+
+            foreach (var sc in _quickPasteShortcuts)
+            {
+                if (!sc.Enabled) continue;
+                if (sc.MouseButton != button) continue;
+                if (sc.Ctrl != ctrl || sc.Shift != shift || sc.Alt != alt) continue;
+                if (!Models.QuickCommand.TypeIncludes(sc.ClipboardType, (int)item.Type)) continue;
+                matched = sc;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>根据操作类型执行对应操作（复用现有函数）。</summary>
+        private void ExecuteQuickPasteAction(ClipboardItem item, Models.QuickPasteAction action, string quickCommandName = null)
+        {
+            // 统一以 item 为操作对象；部分事件处理类函数依赖 SelectedItem，故先选中
+            ClipboardListBox.SelectedItem = item;
+            switch (action)
+            {
+                case Models.QuickPasteAction.PasteAsPlainText:
+                    PasteItemAsPlainText(item);
+                    break;
+                case Models.QuickPasteAction.PasteRemoveNewlines:
+                    PasteItemAsPlainTextRemoveNewlines(item);
+                    break;
+                case Models.QuickPasteAction.Edit:
+                    EditMenuItem_Click(null, null);
+                    break;
+                case Models.QuickPasteAction.Copy:
+                    CopyMenuItem_Click(null, null);
+                    break;
+                case Models.QuickPasteAction.Delete:
+                    DeleteItem(item);
+                    break;
+                case Models.QuickPasteAction.Split:
+                    CharPicker_Click(null, null);
+                    break;
+                case Models.QuickPasteAction.OpenInBrowser:
+                    OpenInBrowserMenuItem_Click(null, null);
+                    break;
+                case Models.QuickPasteAction.GenerateQRCode:
+                    GenerateQRCode_Click(null, null);
+                    break;
+                case Models.QuickPasteAction.Group:
+                    GroupMenuItem_Click(null, null);
+                    break;
+                case Models.QuickPasteAction.CustomRegex:
+                    // 使用 quickCommandName 到设置里查找用户配置的快捷命令（规则链）
+                    if (!string.IsNullOrEmpty(quickCommandName))
+                    {
+                        var qc = App.SettingsService?.Settings?.QuickCommands?
+                            .FirstOrDefault(x => string.Equals(x.Name?.Trim(), quickCommandName.Trim(), StringComparison.Ordinal));
+                        if (qc != null)
+                        {
+                            PasteWithCustomRegex(item, qc.Rules);
+                            break;
+                        }
+                    }
+                    // 未找到配置：按 PasteRemoveNewlines（安全默认）处理，丢弃已废弃的 regexPattern 参数
+                    PasteItemAsPlainTextRemoveNewlines(item);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 全局快捷键动作执行：根据 <see cref="GlobalHotkey"/> 配置，对当前列表中第 N 项剪贴板条目
+        /// （ItemIndex 为 1 基索引）执行指定操作。窗口处于隐藏状态时也能工作——粘贴类操作通过
+        /// FocusService 解析用户当前前台窗口作为粘贴目标。
+        /// </summary>
+        public void ExecuteGlobalHotkeyAction(GlobalHotkey gh)
+        {
+            if (gh == null) return;
+
+            int idx = gh.ItemIndex - 1;
+            if (idx < 0) idx = 0;
+
+            // 确保列表已加载：窗口隐藏期间集合仍维护最近 200 条，可直接取用。
+            var items = _viewModel?.ClipboardItems;
+            if (items == null || items.Count == 0)
+            {
+                _viewModel?.LoadItems();
+                items = _viewModel?.ClipboardItems;
+            }
+            if (items == null || idx >= items.Count) return;
+
+            var item = items[idx];
+            if (item == null) return;
+
+            // 复用既有动作分发逻辑；粘贴类动作内部会通过 FocusService 定位目标窗口。
+            ExecuteQuickPasteAction(item, gh.Action, gh.QuickCommandName);
+        }
+
+        /// <summary>
+        /// 快捷命令规则链执行：按顺序依次对文本应用规则列表中 Enabled=true 的条目，
+        /// 每条规则执行时单独捕获异常并弹窗提示，最后把结果设置回剪贴板并粘贴。
+        /// </summary>
+        /// <param name="item">剪贴板条目（必须是 Text 或 RichText）。</param>
+        /// <param name="rules">规则列表。</param>
+        private void PasteWithCustomRegex(ClipboardItem item,
+            System.Collections.Generic.IEnumerable<Models.QuickCommandRule> rules)
+        {
+            if (_isPasting) return;
+            if (item.Type != ClipboardType.Text && item.Type != ClipboardType.RichText) return;
+            if (rules == null) return;
+
+            try
+            {
+                _isPasting = true;
+                string current = item.Content ?? "";
+
+                int stepIndex = 0;
+                foreach (var rawRule in rules)
+                {
+                    stepIndex++;
+                    if (rawRule == null || !rawRule.Enabled) continue;
+
+                    var rule = rawRule;
+                    string fnName = rule.Function.ToString();
+                    bool firstOnly = false;
+                    string p1 = rule.Param1 ?? "";
+                    string p2 = rule.Param2 ?? "";
+
+                    try
+                    {
+                        current = ApplyQuickCommandRule(current, rule.Function, p1, p2, firstOnly);
+                    }
+                    catch (Exception ruleEx)
+                    {
+                        string err = string.Format(
+                            Loc.Get("MainWindow.Message.QcRuleFailed", "快捷命令执行失败：规则 #{0} [{1}] 报错：{2}"),
+                            stepIndex, fnName, ruleEx.Message);
+                        MessageBox.Show(err, Loc.Get("Message.Error", "错误"),
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+                }
+
+                Clipboard.SetText(current ?? "");
+                PostPasteFlow(pasteHashText: current ?? "", moveTopItem: item);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message),
+                    Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isPasting = false;
+            }
+        }
+
+        /// <summary>对一段文本执行单个快捷命令函数。</summary>
+        private static string ApplyQuickCommandRule(string input,
+            Models.QuickCommandFunction func, string param1, string param2, bool firstOnly)
+        {
+            if (input == null) input = "";
+            switch (func)
+            {
+                case Models.QuickCommandFunction.StringReplace:
+                    if (string.IsNullOrEmpty(param1)) return input;
+                    if (firstOnly)
+                    {
+                        int idx = input.IndexOf(param1, StringComparison.Ordinal);
+                        if (idx < 0) return input;
+                        return input.Substring(0, idx) + (param2 ?? "") +
+                               input.Substring(idx + param1.Length);
+                    }
+                    return input.Replace(param1, param2 ?? "");
+
+                case Models.QuickCommandFunction.RegexReplace:
+                    if (string.IsNullOrEmpty(param1)) return input;
+                    var rr = new System.Text.RegularExpressions.Regex(param1);
+                    if (firstOnly) return rr.Replace(input, param2 ?? "", 1);
+                    return rr.Replace(input, param2 ?? "");
+
+                case Models.QuickCommandFunction.RegexMatches:
+                    // 语义：从文本中提取所有 Pattern 匹配的片段。
+                    //   Param1 = Pattern
+                    //   Param2 = 分隔符（空或 null => 直接拼接；非空 => 用指定分隔符连接多个 Match.Value）
+                    // Pattern 为空 或 匹配不到 => 返回空串（绝不返回原文，避免误导性"去空格后原文还在"。
+                    if (string.IsNullOrEmpty(param1)) return "";
+                    var rm2 = new System.Text.RegularExpressions.Regex(param1);
+                    var mc2 = rm2.Matches(input);
+                    if (mc2.Count == 0) return "";
+                    if (string.IsNullOrEmpty(param2))
+                    {
+                        var sb2 = new System.Text.StringBuilder();
+                        foreach (System.Text.RegularExpressions.Match m in mc2)
+                            sb2.Append(m.Value);
+                        return sb2.ToString();
+                    }
+                    // Param2 作为分隔符连接
+                    var list = new System.Collections.Generic.List<string>(mc2.Count);
+                    foreach (System.Text.RegularExpressions.Match m2 in mc2)
+                        list.Add(m2.Value);
+                    return string.Join(param2, list);
+
+                case Models.QuickCommandFunction.RegexEscape:
+                    return System.Text.RegularExpressions.Regex.Escape(input);
+
+                case Models.QuickCommandFunction.StringTrim:
+                    return input.Trim();
+
+                case Models.QuickCommandFunction.StringToUpper:
+                    return input.ToUpperInvariant();
+
+                case Models.QuickCommandFunction.StringToLower:
+                    return input.ToLowerInvariant();
+
+                case Models.QuickCommandFunction.RegexSplit:
+                    if (string.IsNullOrEmpty(param1)) return input;
+                    var parts = System.Text.RegularExpressions.Regex.Split(input, param1);
+                    return string.Join(Environment.NewLine, parts);
+
+                case Models.QuickCommandFunction.DistinctRemoveDuplicate:
+                    // 按行去重：统一换行 → 拆分 → 保留首次出现顺序 → 用原换行风格拼回
+                    string newLine = "\n";
+                    if (input.Contains("\r\n")) newLine = "\r\n";
+                    else if (input.Contains("\r")) newLine = "\r";
+                    string[] lines = input.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+                    var seen = new System.Collections.Generic.HashSet<string>();
+                    var unique = new System.Collections.Generic.List<string>();
+                    foreach (var line in lines)
+                    {
+                        if (seen.Add(line)) unique.Add(line);
+                    }
+                    return string.Join(newLine, unique);
+
+                case Models.QuickCommandFunction.RemoveWhiteSpace:
+                    var nosp = new System.Text.StringBuilder(input.Length);
+                    foreach (char c in input)
+                    {
+                        if (!char.IsWhiteSpace(c)) nosp.Append(c);
+                    }
+                    return nosp.ToString();
+
+                case Models.QuickCommandFunction.RemoveNewLines:
+                    return input.Replace("\r", "").Replace("\n", "");
+
+                default:
+                    return input;
+            }
+        }
+
+        #endregion
 
         private void PasteItem(ClipboardItem item)
         {
@@ -2786,8 +3348,9 @@ namespace WinVClip
 
             // ★ 关键修复：先隐藏 WinVClip 窗口，让操作系统恢复目标窗口的前台焦点。
             // 否则 WinVClip 占据前台时 SetForegroundWindow 会被 Windows 拒绝。
+            // 全局快捷键触发时窗口通常已隐藏，此时无需重复执行 HideWindow（避免冗余的清理与 GC）。
             var windowStateService = App.GetWindowStateService();
-            bool shouldHide = windowStateService != null && !windowStateService.IsPinned;
+            bool shouldHide = _isVisible && windowStateService != null && !windowStateService.IsPinned;
 
             if (shouldHide)
             {
@@ -3167,7 +3730,14 @@ namespace WinVClip
         {
             if (App.SettingsService.Settings.UseSystemCharPanel)
             {
-                KeyboardService.SendWinPeriod();
+                // 先隐藏主窗口，再延时 100ms 弹出系统字符面板，
+                // 避免 WinVClip 窗口抢占焦点导致系统字符面板闪退或无法正常输入。
+                HideWindow();
+                System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    System.Threading.Thread.Sleep(100);
+                    Dispatcher.BeginInvoke(new Action(() => KeyboardService.SendWinPeriod()));
+                });
                 return;
             }
 
@@ -3176,7 +3746,7 @@ namespace WinVClip
                 _viewModel.IsFilterPanelVisible = false;
                 _viewModel.TypeFilter = null;
             }
-            _panelState = (_panelState + 1) % 3;
+            _panelState = (_panelState + 1) % 2;
             UpdatePanelState();
         }
 
@@ -3187,22 +3757,13 @@ namespace WinVClip
                 case 0:
                     ClipboardPanel.Visibility = Visibility.Visible;
                     CharPanel.Visibility = Visibility.Collapsed;
-                    EmojiPanel.Visibility = Visibility.Collapsed;
                     PanelToggleButton.Content = "🔣";
                     break;
                 case 1:
                     ClipboardPanel.Visibility = Visibility.Collapsed;
                     CharPanel.Visibility = Visibility.Visible;
-                    EmojiPanel.Visibility = Visibility.Collapsed;
                     PanelToggleButton.Content = "🔣";
                     LoadCharacterData();
-                    break;
-                case 2:
-                    ClipboardPanel.Visibility = Visibility.Collapsed;
-                    CharPanel.Visibility = Visibility.Collapsed;
-                    EmojiPanel.Visibility = Visibility.Visible;
-                    PanelToggleButton.Content = "😀";
-                    LoadEmojiData();
                     break;
             }
             OnPropertyChanged(nameof(IsPanelActive));
@@ -3212,14 +3773,7 @@ namespace WinVClip
         {
             if (_charPanelBuilt) return;
             _charPanelBuilt = true;
-            BuildPanel(_charGroups, CharTabControl, CharContentPanel, "CharPanel", false);
-        }
-
-        private void LoadEmojiData()
-        {
-            if (_emojiPanelBuilt) return;
-            _emojiPanelBuilt = true;
-            BuildPanel(_emojiGroups, EmojiTabControl, EmojiContentPanel, "EmojiPanel", true);
+            BuildPanel(_charGroups, CharTabControl, CharContentPanel, "CharPanel");
         }
 
         private List<CharGroupData> LoadPanelDataRaw(string subDir, string fileName, string embeddedResourceName)
@@ -3255,7 +3809,7 @@ namespace WinVClip
         }
 
         private void BuildPanel(List<CharGroupData> groups, TabControl tabControl, StackPanel contentPanel,
-            string locPrefix, bool isEmoji)
+            string locPrefix)
         {
             tabControl.Items.Clear();
             contentPanel.Children.Clear();
@@ -3286,7 +3840,7 @@ namespace WinVClip
                 tabControl.SelectedIndex = 0;
         }
 
-        private void LoadGroupContent(CharGroupData group, StackPanel contentPanel, string locPrefix, bool isEmoji)
+        private void LoadGroupContent(CharGroupData group, StackPanel contentPanel, string locPrefix)
         {
             contentPanel.Children.Clear();
 
@@ -3325,24 +3879,13 @@ namespace WinVClip
                     Tag = ch,
                     Cursor = Cursors.Hand,
                     Style = (Style)FindResource("CharButtonStyle"),
-                    Margin = new Thickness(1)
+                    Margin = new Thickness(1),
+                    Content = ch,
+                    Width = 32,
+                    Height = 32,
+                    FontSize = 14,
+                    ToolTip = new TextBlock { Text = ch, FontSize = 42, TextAlignment = TextAlignment.Center }
                 };
-
-                if (isEmoji)
-                {
-                    btn.Content = new Emoji.Wpf.TextBlock { Text = ch, FontSize = 18, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-                    btn.Width = 36;
-                    btn.Height = 36;
-                    btn.ToolTip = new Emoji.Wpf.TextBlock { Text = ch, FontSize = 54, TextAlignment = TextAlignment.Center };
-                }
-                else
-                {
-                    btn.Content = ch;
-                    btn.Width = 32;
-                    btn.Height = 32;
-                    btn.FontSize = 14;
-                    btn.ToolTip = new TextBlock { Text = ch, FontSize = 42, TextAlignment = TextAlignment.Center };
-                }
 
                 btn.Click += CharButton_Click;
                 wrapPanel.Children.Add(btn);
@@ -3373,14 +3916,14 @@ namespace WinVClip
         }
 
         private void PanelTabControl_SelectionChanged(TabControl tabControl, List<CharGroupData> groups,
-            StackPanel contentPanel, string locPrefix, bool isEmoji)
+            StackPanel contentPanel, string locPrefix)
         {
             if (tabControl.SelectedItem is TabItem tabItem && tabItem.Tag is string groupId)
             {
                 var group = groups.FirstOrDefault(g => g.Id == groupId);
                 if (group != null)
                 {
-                    LoadGroupContent(group, contentPanel, locPrefix, isEmoji);
+                    LoadGroupContent(group, contentPanel, locPrefix);
                 }
             }
         }
@@ -3422,12 +3965,7 @@ namespace WinVClip
 
         private void CharTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            PanelTabControl_SelectionChanged(CharTabControl, _charGroups, CharContentPanel, "CharPanel", false);
-        }
-
-        private void EmojiTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            PanelTabControl_SelectionChanged(EmojiTabControl, _emojiGroups, EmojiContentPanel, "EmojiPanel", true);
+            PanelTabControl_SelectionChanged(CharTabControl, _charGroups, CharContentPanel, "CharPanel");
         }
 
         private static T FindVisualChild<T>(DependencyObject parent) where T : DependencyObject

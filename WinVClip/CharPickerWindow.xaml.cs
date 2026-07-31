@@ -452,7 +452,8 @@ namespace WinVClip
                     e.Handled = true;
                     return;
                 }
-                if (Keyboard.Modifiers == ModifierKeys.Shift && _lastClickedIndex >= 0)
+                var (modCtrl, modAlt, modShift, modWin) = KeyboardService.GetModifierKeysState();
+                if (modShift && !modCtrl && !modAlt && !modWin && _lastClickedIndex >= 0)
                 {
                     SelectRange(_lastClickedIndex, index);
                     _lastClickedIndex = index;

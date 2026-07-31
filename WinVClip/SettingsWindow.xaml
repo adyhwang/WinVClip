@@ -55,6 +55,12 @@
                         <RadioButton x:Name="NavGeneral" Content="常规" GroupName="SettingsNav"
                                      Style="{DynamicResource NavRadioButtonStyle}" IsChecked="True"
                                      Tag="General" Checked="NavRadioButton_Checked"/>
+                        <RadioButton x:Name="NavHotkey" Content="快捷键" GroupName="SettingsNav"
+                                     Style="{DynamicResource NavRadioButtonStyle}"
+                                     Tag="Hotkey" Checked="NavRadioButton_Checked"/>
+                        <RadioButton x:Name="NavQuickCommand" Content="快捷命令" GroupName="SettingsNav"
+                                     Style="{DynamicResource NavRadioButtonStyle}"
+                                     Tag="QuickCommand" Checked="NavRadioButton_Checked"/>
                         <RadioButton x:Name="NavCapture" Content="捕获设置" GroupName="SettingsNav"
                                      Style="{DynamicResource NavRadioButtonStyle}"
                                      Tag="Capture" Checked="NavRadioButton_Checked"/>
@@ -104,75 +110,6 @@
                                     <ComboBox x:Name="LanguageComboBox" 
                                               Style="{DynamicResource ModernComboBoxStyle}" Width="200" HorizontalAlignment="Left"
                                               SelectionChanged="LanguageComboBox_SelectionChanged"/>
-                                </StackPanel>
-                            </Border>
-
-                            <!-- 快捷键卡片 -->
-                            <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                                        <TextBlock Text="&#xE765;" FontFamily="Segoe MDL2 Assets" FontSize="18" 
-                                                   Foreground="{DynamicResource AccentColor}" Margin="0,0,10,0"/>
-                                        <TextBlock x:Name="HotkeyCardTitle" Text="快捷键" FontSize="16" FontWeight="SemiBold" 
-                                                   Foreground="{DynamicResource TextForeground}"/>
-                                    </StackPanel>
-                                    
-                                    <TextBlock x:Name="HotkeyShowHideText" Text="显示/隐藏主界面" Foreground="{DynamicResource SecondaryTextForeground}" 
-                                               FontSize="13" Margin="0,0,0,8"/>
-                                    <Border Background="{DynamicResource InputBackground}" 
-                                            BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1"
-                                            CornerRadius="6" Padding="12,10" Margin="0,0,0,12">
-                                        <Grid>
-                                            <TextBox x:Name="HotkeyTextBox" 
-                                                     Text="{Binding Hotkey, Mode=OneWay}"
-                                                     IsReadOnly="True"
-                                                     GotFocus="HotkeyTextBox_GotFocus"
-                                                     LostFocus="HotkeyTextBox_LostFocus"
-                                                     PreviewKeyDown="HotkeyTextBox_PreviewKeyDown"
-                                                     Background="Transparent"
-                                                     BorderThickness="0"
-                                                     Foreground="{DynamicResource TextForeground}"
-                                                     FontSize="14" FontWeight="SemiBold"/>
-                                            <TextBlock x:Name="HotkeyPlaceholderText" Text="点击输入快捷键" Foreground="{DynamicResource SecondaryTextForeground}"
-                                                       FontSize="13" VerticalAlignment="Center" IsHitTestVisible="False">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding ElementName=HotkeyTextBox, Path=Text}" Value="">
-                                                                <Setter Property="Visibility" Value="Visible"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
-                                        </Grid>
-                                    </Border>
-                                    
-                                    <TextBlock x:Name="CommonShortcutsText" Text="常用快捷键" Foreground="{DynamicResource SecondaryTextForeground}" 
-                                               FontSize="12" Margin="0,0,0,8"/>
-                                    <WrapPanel Margin="0,0,0,8">
-                                        <Button Content="Win+V" Margin="0,0,8,6" Padding="12,6" 
-                                                Style="{DynamicResource TagButtonStyle}"
-                                                Click="QuickHotkeyButton_Click" Tag="Win+V"/>
-                                        <Button Content="Ctrl+Shift+V" Margin="0,0,8,6" Padding="12,6" 
-                                                Style="{DynamicResource TagButtonStyle}"
-                                                Click="QuickHotkeyButton_Click" Tag="Ctrl+Shift+V"/>
-                                        <Button Content="Shift+Space" Margin="0,0,8,6" Padding="12,6" 
-                                                Style="{DynamicResource TagButtonStyle}"
-                                                Click="QuickHotkeyButton_Click" Tag="Shift+Space"/>
-                                        <Button Content="F1" Margin="0,0,8,6" Padding="12,6" 
-                                                Style="{DynamicResource TagButtonStyle}"
-                                                Click="QuickHotkeyButton_Click" Tag="F1"/>
-                                        <Button Content="F2" Margin="0,0,8,6" Padding="12,6" 
-                                                Style="{DynamicResource TagButtonStyle}"
-                                                Click="QuickHotkeyButton_Click" Tag="F2"/>
-                                    </WrapPanel>
-                                    <Button x:Name="RestoreSystemWinVButton" Content="还原系统 Win+V" Padding="12,6" 
-                                            Style="{DynamicResource LinkButtonStyle}" HorizontalAlignment="Left"
-                                            Click="RestoreSystemWinV_Click"/>
-
-                                            
                                 </StackPanel>
                             </Border>
 
@@ -299,6 +236,170 @@
                                     <TextBlock x:Name="UseSystemCharPanelWarning" Text="仅Windows 10 Version 1709以上版本可用，其他系统请勿勾选。" 
                                                Foreground="#E57373" 
                                                FontSize="11" Margin="28,0,0,0" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- 快捷键设置 -->
+                        <StackPanel x:Name="PanelHotkey" Visibility="Collapsed">
+                            <TextBlock x:Name="HotkeyTitleText" Text="快捷键" FontSize="24" FontWeight="SemiBold" 
+                                       Foreground="{DynamicResource TextForeground}" Margin="0,0,0,20"/>
+
+                            <!-- 全局快捷键卡片 -->
+                            <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                        <TextBlock Text="&#xE765;" FontFamily="Segoe MDL2 Assets" FontSize="18" 
+                                                   Foreground="{DynamicResource AccentColor}" Margin="0,0,10,0"/>
+                                        <TextBlock x:Name="HotkeyCardTitle" Text="全局快捷键" FontSize="16" FontWeight="SemiBold" 
+                                                   Foreground="{DynamicResource TextForeground}"/>
+                                    </StackPanel>
+
+                                    <TextBlock x:Name="HotkeyShowHideText" Text="显示/隐藏主界面" Foreground="{DynamicResource SecondaryTextForeground}" 
+                                               FontSize="13" Margin="0,0,0,8"/>
+                                    <!-- 显示/隐藏主界面：包裹带边框颜色的 Border，与下方全局快捷键条目视觉一致 -->
+                                    <Border BorderBrush="{DynamicResource AccentColor}" BorderThickness="1"
+                                            CornerRadius="6" Padding="10" Margin="0,0,0,12"
+                                            Background="{DynamicResource InputBackground}">
+                                        <StackPanel>
+                                            <Border Background="{DynamicResource InputBackground}" 
+                                                    BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1"
+                                                    CornerRadius="6" Padding="12,10" Margin="0,0,0,8">
+                                                <Grid>
+                                                    <TextBox x:Name="HotkeyTextBox" 
+                                                             Text="{Binding Hotkey, Mode=OneWay}"
+                                                             IsReadOnly="True"
+                                                             GotFocus="HotkeyTextBox_GotFocus"
+                                                             LostFocus="HotkeyTextBox_LostFocus"
+                                                             PreviewKeyDown="HotkeyTextBox_PreviewKeyDown"
+                                                             Background="Transparent"
+                                                             BorderThickness="0"
+                                                             Foreground="{DynamicResource TextForeground}"
+                                                             FontSize="14" FontWeight="SemiBold"/>
+                                                    <TextBlock x:Name="HotkeyPlaceholderText" Text="点击输入快捷键" Foreground="{DynamicResource SecondaryTextForeground}"
+                                                               FontSize="13" VerticalAlignment="Center" IsHitTestVisible="False">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding ElementName=HotkeyTextBox, Path=Text}" Value="">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Grid>
+                                            </Border>
+
+                                            <TextBlock x:Name="CommonShortcutsText" Text="常用快捷键" Foreground="{DynamicResource SecondaryTextForeground}" 
+                                                       FontSize="12" Margin="0,0,0,8"/>
+                                            <WrapPanel Margin="0,0,0,8">
+                                                <Button Content="Win+V" Margin="0,0,8,6" Padding="12,6" 
+                                                        Style="{DynamicResource TagButtonStyle}"
+                                                        Click="QuickHotkeyButton_Click" Tag="Win+V"/>
+                                                <Button Content="Ctrl+Shift+V" Margin="0,0,8,6" Padding="12,6" 
+                                                        Style="{DynamicResource TagButtonStyle}"
+                                                        Click="QuickHotkeyButton_Click" Tag="Ctrl+Shift+V"/>
+                                                <Button Content="Shift+Space" Margin="0,0,8,6" Padding="12,6" 
+                                                        Style="{DynamicResource TagButtonStyle}"
+                                                        Click="QuickHotkeyButton_Click" Tag="Shift+Space"/>
+                                                <Button Content="F1" Margin="0,0,8,6" Padding="12,6" 
+                                                        Style="{DynamicResource TagButtonStyle}"
+                                                        Click="QuickHotkeyButton_Click" Tag="F1"/>
+                                                <Button Content="F2" Margin="0,0,8,6" Padding="12,6" 
+                                                        Style="{DynamicResource TagButtonStyle}"
+                                                        Click="QuickHotkeyButton_Click" Tag="F2"/>
+                                            </WrapPanel>
+                                            <Button x:Name="RestoreSystemWinVButton" Content="还原系统 Win+V" Padding="12,6" 
+                                                    Style="{DynamicResource LinkButtonStyle}" HorizontalAlignment="Left"
+                                                    Click="RestoreSystemWinV_Click"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- 动态全局快捷键条目容器（每条全局快捷键在代码中构建） -->
+                                    <StackPanel x:Name="GlobalHotkeyEntriesPanel" Margin="0,4,0,0"/>
+                                    <Button x:Name="AddGlobalHotkeyButton" Margin="0,4,0,0"
+                                            Style="{DynamicResource SecondaryButtonStyle}" HorizontalAlignment="Left"
+                                            Click="AddGlobalHotkeyEntry_Click"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 主界面快捷键卡片 -->
+                            <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
+                                <StackPanel>
+                                    <DockPanel LastChildFill="True" Margin="0,0,0,8">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="18" 
+                                                       Foreground="{DynamicResource AccentColor}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="QuickPasteCardTitle" Text="主界面快捷键" FontSize="16" FontWeight="SemiBold" 
+                                                       Foreground="{DynamicResource TextForeground}" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                    <TextBlock x:Name="QuickPasteDescription" Text="为不同类型的剪贴板项配置鼠标快捷操作（修饰键 + 鼠标按键 → 操作）" 
+                                               Foreground="{DynamicResource SecondaryTextForeground}" 
+                                               FontSize="13" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                                    <!-- 动态条目容器（每条主界面快捷键在代码中构建） -->
+                                    <StackPanel x:Name="QuickPasteEntriesPanel" Margin="0,4,0,0"/>
+                                    <Button x:Name="AddQuickPasteButton" Margin="0,4,0,0"
+                                            Style="{DynamicResource SecondaryButtonStyle}" HorizontalAlignment="Left"
+                                            Click="AddQuickPasteEntry_Click"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- 快捷命令设置 -->
+                        <StackPanel x:Name="PanelQuickCommand" Visibility="Collapsed">
+                            <TextBlock x:Name="QuickCommandTitleText" Text="快捷命令" FontSize="24" FontWeight="SemiBold" 
+                                       Foreground="{DynamicResource TextForeground}" Margin="0,0,0,20"/>
+
+                            <!-- 快捷命令卡片 -->
+                            <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
+                                <StackPanel>
+                                    <DockPanel LastChildFill="True" Margin="0,0,0,8">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="18" 
+                                                       Foreground="{DynamicResource AccentColor}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="QuickCommandCardTitle" Text="文本快捷命令" FontSize="16" FontWeight="SemiBold" 
+                                                       Foreground="{DynamicResource TextForeground}" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                    <TextBlock x:Name="QuickCommandDescription" 
+                                               Text="配置自定义文本处理命令：正则或字面匹配文本 → 替换或提取后粘贴。适用于文本与富文本类型。" 
+                                               Foreground="{DynamicResource SecondaryTextForeground}" 
+                                               FontSize="13" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                                    <!-- 动态条目容器（每条快捷命令在代码中构建） -->
+                                    <StackPanel x:Name="QuickCommandEntriesPanel" Margin="0,4,0,0"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <Button x:Name="AddQuickCommandButton"
+                                                Style="{DynamicResource SecondaryButtonStyle}" HorizontalAlignment="Left"
+                                                Click="AddQuickCommandEntry_Click"/>
+                                        <Button x:Name="QuickCommandTemplateButton" Content="💡" Width="32" Height="32" Margin="8,0,0,0"
+                                                Padding="0" FontSize="18" Cursor="Hand"
+                                                Click="QuickCommandTemplateButton_Click">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextForeground}"/>
+                                                    <Setter Property="Background" Value="Transparent"/>
+                                                    <Setter Property="BorderThickness" Value="0"/>
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border Background="Transparent">
+                                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                </Border>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource AccentColor}"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -507,7 +608,7 @@
                                                        Foreground="{DynamicResource TextForeground}"
                                                        FontSize="13" TextTrimming="CharacterEllipsis"/>
                                         </Border>
-                                        <Button Grid.Column="1" Content="浏览" 
+                                        <Button x:Name="BrowseDatabasePathButton" Grid.Column="1" Content="浏览" 
                                                 Style="{DynamicResource SecondaryButtonStyle}"
                                                 Margin="8,0,0,0" Padding="16,10"
                                                 Click="BrowseDatabasePath_Click"/>

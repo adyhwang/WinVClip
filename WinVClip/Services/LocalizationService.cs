@@ -53,7 +53,7 @@ namespace WinVClip.Services
 
         private LocalizationService()
         {
-            _languageFolderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "language");
+            _languageFolderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources\\Languages");
         }
 
         public void Initialize(string? preferredLanguageCode = null)

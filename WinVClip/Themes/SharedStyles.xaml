@@ -259,26 +259,26 @@
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{DynamicResource TextForeground}"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="Padding" Value="4,4"/>
         <Setter Property="FontSize" Value="12"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="MenuItem">
-                    <Border x:Name="Border" 
-                            Background="{TemplateBinding Background}" 
+                    <Border x:Name="Border"
+                            Background="{TemplateBinding Background}"
                             Padding="{TemplateBinding Padding}"
                             CornerRadius="3">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="18"/>
                                 <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            
-                            <Border Grid.Column="0" 
-                                    Width="16" Height="16"
-                                    Margin="0,0,8,0"
+
+                            <Border Grid.Column="0"
+                                    Width="14" Height="14"
+                                    Margin="0,0,4,0"
                                     VerticalAlignment="Center"
                                     BorderBrush="{DynamicResource BorderBrush}"
                                     BorderThickness="1"
@@ -293,17 +293,18 @@
                                       Stretch="Uniform"
                                       Margin="2"/>
                             </Border>
-                            
-                            <ContentPresenter Grid.Column="1" 
+
+                            <ContentPresenter Grid.Column="1"
                                              Content="{TemplateBinding Icon}"
-                                             Margin="0,0,8,0"
+                                             HorizontalAlignment="Center"
                                              VerticalAlignment="Center"/>
-                            
-                            <ContentPresenter Grid.Column="2" 
+
+                            <ContentPresenter Grid.Column="2"
                                              Content="{TemplateBinding Header}"
+                                             Margin="4,0,0,0"
                                              VerticalAlignment="Center"/>
-                            
-                            <ContentPresenter Grid.Column="3" 
+
+                            <ContentPresenter Grid.Column="3"
                                              Content="{TemplateBinding InputGestureText}"
                                              Margin="8,0,0,0"
                                              VerticalAlignment="Center">
@@ -317,6 +318,106 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Border" Property="Background" Value="{DynamicResource HoverBackground}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextForeground}"/>
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsCheckable" Value="True"/>
+                                <Condition Property="IsChecked" Value="True"/>
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                        </MultiTrigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Border" Property="BorderBrush" Value="#007ACC"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- 带子菜单的菜单项样式：与 MenuItemStyle 相同的图标/文字对齐，额外支持子菜单弹出与箭头 -->
+    <Style x:Key="MenuItemWithSubmenuStyle" TargetType="MenuItem">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextForeground}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="4,4"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="MenuItem">
+                    <Border x:Name="Border"
+                            Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}"
+                            CornerRadius="3">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="18"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0"
+                                    Width="14" Height="14"
+                                    Margin="0,0,4,0"
+                                    VerticalAlignment="Center"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="2"
+                                    Background="{DynamicResource InputBackground}"
+                                    Visibility="{TemplateBinding IsCheckable, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <Path x:Name="CheckMark"
+                                      Stroke="{DynamicResource TextForeground}"
+                                      StrokeThickness="2"
+                                      Data="M 3 7 L 6 10 L 13 3"
+                                      Visibility="Collapsed"
+                                      Stretch="Uniform"
+                                      Margin="2"/>
+                            </Border>
+
+                            <ContentPresenter Grid.Column="1"
+                                             Content="{TemplateBinding Icon}"
+                                             HorizontalAlignment="Center"
+                                             VerticalAlignment="Center"/>
+
+                            <ContentPresenter Grid.Column="2"
+                                             Content="{TemplateBinding Header}"
+                                             Margin="4,0,0,0"
+                                             VerticalAlignment="Center"/>
+
+                            <Path Grid.Column="3"
+                                  Data="M 0 0 L 5 4 L 0 8 Z"
+                                  Fill="{TemplateBinding Foreground}"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  Margin="8,0,0,0"/>
+
+                            <Popup x:Name="PART_Popup"
+                                   IsOpen="{TemplateBinding IsSubmenuOpen}"
+                                   Placement="Right"
+                                   HorizontalOffset="-2"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   PopupAnimation="Fade">
+                                <Border Background="{DynamicResource WindowBackground}"
+                                        BorderBrush="{DynamicResource BorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        Padding="4">
+                                    <ItemsPresenter/>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Border" Property="Background" Value="{DynamicResource HoverBackground}"/>
+                        </Trigger>
+                        <Trigger Property="IsSubmenuOpen" Value="True">
                             <Setter TargetName="Border" Property="Background" Value="{DynamicResource HoverBackground}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">

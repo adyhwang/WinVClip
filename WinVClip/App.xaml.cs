@@ -108,16 +108,17 @@ namespace WinVClip
             _windowStateService = WindowStateService;
 
             _mainWindow = new MainWindow(_databaseService, _settingsService);
+            // 显式绑定 Application.MainWindow：窗口启动时从未 Show()，
+            // WPF 不会自动设置该属性，导致托盘右键菜单的 PlacementTarget 为 null 无法弹出。
+            Application.Current.MainWindow = _mainWindow;
             
             var windowInteropHelper = new System.Windows.Interop.WindowInteropHelper(_mainWindow);
             windowInteropHelper.EnsureHandle();
             var windowHandle = windowInteropHelper.Handle;
             _focusService.AddExcludedHwnd(windowHandle);
             _hotkeyService = new HotkeyService(windowHandle);
-            var hotkeyRegistered = _hotkeyService.RegisterHotkey(_settingsService.Settings.Hotkey, () => 
-            {
-                Dispatcher.Invoke(() => _mainWindow?.ToggleVisibility());
-            });
+            // 启动时注册全部热键（显示/隐藏主界面 + 全局快捷键），返回显示/隐藏热键是否注册成功
+            var hotkeyRegistered = RegisterAllHotkeys();
 
             _trayService = new TrayService(_settingsService, windowHandle);
             _trayService.OnShowWindow += () => Dispatcher.Invoke(() => _mainWindow?.ShowAtCursor());
@@ -148,22 +149,23 @@ namespace WinVClip
             _clipboardMonitor = new ClipboardMonitor(_databaseService, _settingsService);
             _clipboardMonitor.OnClipboardChanged += item => 
             {
-                if (_mainWindow?.ViewModel?.IsWindowVisible == true)
+                // 主窗口显示与否都把 item 写入 ViewModel：
+                // - 显示时：立即插入列表顶部。
+                // - 隐藏时：同步更新集合与计数，保证再次 Show 时数据已是最新，
+                //   无需依赖用户点过滤/分组才触发 LoadItems 刷新。
+                Dispatcher.Invoke(() =>
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        if (_mainWindow?.ViewModel?.IsWindowVisible == true)
-                            _mainWindow.ViewModel.AddItem(item);
-                    });
-                }
+                    if (_mainWindow?.ViewModel != null)
+                        _mainWindow.ViewModel.AddItem(item);
+                });
             };
-            _clipboardMonitor.OnDuplicateUpdated += () =>
+            _clipboardMonitor.OnDuplicateUpdated += () => 
             {
-                if (_mainWindow?.ViewModel?.IsWindowVisible == true)
+                if (_mainWindow?.ViewModel != null)
                 {
                     Dispatcher.Invoke(() =>
                     {
-                        if (_mainWindow?.ViewModel?.IsWindowVisible == true)
+                        if (_mainWindow?.ViewModel != null)
                             _mainWindow.ViewModel.LoadItems();
                     });
                 }
@@ -175,6 +177,11 @@ namespace WinVClip
             {
                 _cleanupService.Start(_settingsService.Settings.RetentionDays);
             }
+
+            // 预热首次渲染：窗口启动时仅通过 EnsureHandle 创建了 HWND，从未真正 Show()，
+            // 首次快捷键弹出时 WPF 需要完成首次布局、样式实例化、模板构建及 JIT 编译，导致明显卡顿。
+            // 此处以透明无激活方式提前完成预热，消除首次弹出卡顿。
+            _mainWindow.PreheatRender();
 
             _mainWindow.HideWindow();
 
@@ -228,13 +235,56 @@ namespace WinVClip
             }
         }
 
+        /// <summary>
+        /// 重新注册全部热键：先注销所有，再依次注册「显示/隐藏主界面」热键与全部「全局快捷键」。
+        /// 返回显示/隐藏主界面热键是否注册成功（用于启动通知）。
+        /// </summary>
+        public static bool RegisterAllHotkeys()
+        {
+            if (_hotkeyService == null) return false;
+            _hotkeyService.UnregisterAll();
+
+            bool showHideOk = false;
+            var settings = _settingsService?.Settings;
+            if (settings != null)
+            {
+                // 1. 显示/隐藏主界面
+                var hk = settings.Hotkey;
+                if (!string.IsNullOrWhiteSpace(hk))
+                {
+                    showHideOk = _hotkeyService.RegisterHotkey(hk, () =>
+                        Current.Dispatcher.Invoke(() => _mainWindow?.ToggleVisibility()));
+                }
+
+                // 2. 全局快捷键：修饰键+按键 → 对第 N 项剪贴板条目执行操作
+                var list = settings.GlobalHotkeys;
+                if (list != null)
+                {
+                    foreach (var gh in list)
+                    {
+                        if (gh == null) continue;
+                        if (!gh.Enabled) continue;
+                        var captured = gh;
+                        var hotkeyStr = gh.ToHotkeyString();
+                        if (string.IsNullOrWhiteSpace(hotkeyStr)) continue;
+                        _hotkeyService.RegisterHotkey(hotkeyStr, () =>
+                            Current.Dispatcher.Invoke(() => _mainWindow?.ExecuteGlobalHotkeyAction(captured)));
+                    }
+                }
+            }
+            return showHideOk;
+        }
+
+        /// <summary>WndProc 收到 WM_HOTKEY 时调用，按注册的 id 分发到对应动作。</summary>
+        public static void ProcessHotkey(int id)
+        {
+            _hotkeyService?.ProcessHotkey(id);
+        }
+
+        /// <summary>兼容旧调用：显示/隐藏主界面热键变更时，统一重新注册全部热键。</summary>
         public static void UpdateHotkey(string hotkey)
         {
-            _hotkeyService?.UnregisterAll();
-            _hotkeyService?.RegisterHotkey(hotkey, () => 
-            {
-                Current?.Dispatcher.Invoke(() => _mainWindow?.ToggleVisibility());
-            });
+            RegisterAllHotkeys();
         }
 
         public static void UpdateMonitoring(bool enabled)
@@ -274,11 +324,6 @@ namespace WinVClip
         public static FocusService? GetFocusService() => _focusService;
 
         public static WindowStateService? GetWindowStateService() => _windowStateService;
-
-        public static void ToggleMainWindow()
-        {
-            _mainWindow?.ToggleVisibility();
-        }
 
         public static void RecreateTrayIcon()
         {

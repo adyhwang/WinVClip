@@ -14,6 +14,15 @@ namespace WinVClip
         private readonly string _content;
         private BitmapSource _qrCodeBitmap;
 
+        /// <summary>QR 码 Version 40 + ECC Level M + Byte 编码模式上限为 2331 字节</summary>
+        public const int MaxQrBytes = 2331;
+
+        /// <summary>检查内容是否超出二维码容量上限。</summary>
+        public static bool IsContentTooLarge(string content)
+        {
+            return System.Text.Encoding.UTF8.GetByteCount(content ?? "") > MaxQrBytes;
+        }
+
         public QRCodeWindow(string content)
         {
             InitializeComponent();
@@ -36,6 +45,20 @@ namespace WinVClip
 
         private void GenerateQRCode()
         {
+            // 安全兜底：正常流程已在 MainWindow.GenerateQRCode_Click 中预检查，此处以防直接构造
+            var byteCount = System.Text.Encoding.UTF8.GetByteCount(_content);
+
+            if (byteCount > MaxQrBytes)
+            {
+                var msg = string.Format(
+                    Loc.Get("QRCode.Error.TooLarge",
+                        "内容过长，超出二维码容量上限（最多 {0} 字节，约 {1} 个汉字），生成失败。\n当前内容：{2} 字节（{3} 字符）"),
+                    MaxQrBytes, MaxQrBytes / 3, byteCount, _content.Length);
+                MessageBox.Show(msg,
+                    Loc.Get("Common.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             try
             {
                 var generator = new QRCodeGenerator();
