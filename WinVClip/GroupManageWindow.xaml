@@ -1,0 +1,183 @@
+<Window x:Class="WinVClip.GroupManageWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WinVClip"
+        mc:Ignorable="d"
+        Title="管理分组" Height="450" Width="450"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        MouseDown="Window_MouseDown">
+    
+    <Window.Resources>
+        <Style x:Key="GroupItemContainerStyle" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <ContentPresenter/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <local:DefaultGroupVisibilityConverter x:Key="DefaultGroupVisibilityConverter"/>
+    </Window.Resources>
+    
+    <Border Background="{DynamicResource WindowBackground}" 
+            BorderBrush="{DynamicResource BorderBrush}" 
+            BorderThickness="1" 
+            CornerRadius="12">
+        <Grid Margin="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" 
+                    Background="{DynamicResource HeaderBackground}" 
+                    BorderBrush="{DynamicResource BorderBrush}" 
+                    BorderThickness="0,0,0,1"
+                    CornerRadius="12,12,0,0" 
+                    Padding="20,16"
+                    Margin="-20,0,-20,20">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" 
+                               x:Name="TitleText"
+                               Text="管理分组" 
+                               FontSize="20" 
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextForeground}"
+                               VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" 
+                            x:Name="CloseButton" 
+                            Content="&#xE711;" 
+                            FontFamily="Segoe MDL2 Assets"
+                            Style="{DynamicResource IconButtonStyle}" 
+                            FontSize="16"
+                            Click="CloseButton_Click" 
+                            ToolTip="关闭"/>
+                </Grid>
+            </Border>
+
+            <ListBox Grid.Row="1" x:Name="GroupsListBox"
+                     Background="Transparent" BorderThickness="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     SelectionMode="Single"
+                     ItemsSource="{Binding Groups}"
+                     ItemContainerStyle="{StaticResource GroupItemContainerStyle}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Border x:Name="GroupItemBorder" 
+                                Background="{DynamicResource ItemBackground}" 
+                                Padding="16,12" 
+                                CornerRadius="8"
+                                Effect="{x:Null}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0" 
+                                           Foreground="{DynamicResource TextForeground}"
+                                           FontSize="15"
+                                           VerticalAlignment="Center">
+                                    <Run Text="{Binding Icon, Mode=OneWay}"/><Run Text=" "/><Run Text="{Binding Name, Mode=OneWay}"/>
+                                </TextBlock>
+
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0"
+                                            Visibility="{Binding Name, Converter={StaticResource DefaultGroupVisibilityConverter}}">
+                                    <Button Content="✏️" Width="32" Height="32" Margin="0"
+                                            Style="{DynamicResource ToolButtonStyle}"
+                                            ToolTip="{Binding DataContext.EditButtonTooltip, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            Click="EditButton_Click"/>
+                                    <Button Content="🗑️" Width="32" Height="32" Margin="8,0,0,0"
+                                            Style="{DynamicResource ToolButtonStyle}"
+                                            ToolTip="{Binding DataContext.DeleteButtonTooltip, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            Click="DeleteButton_Click"/>
+                                </StackPanel>
+                            </Grid>
+                            <Border.Triggers>
+                                <EventTrigger RoutedEvent="MouseEnter">
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <ThicknessAnimation Storyboard.TargetProperty="Padding" 
+                                                                From="16,12" To="14,10" 
+                                                                Duration="0:0:0.2"/>
+                                            <DoubleAnimation Storyboard.TargetProperty="Opacity" 
+                                                             From="1" To="0.95" 
+                                                             Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                                <EventTrigger RoutedEvent="MouseLeave">
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <ThicknessAnimation Storyboard.TargetProperty="Padding" 
+                                                                From="14,10" To="16,12" 
+                                                                Duration="0:0:0.2"/>
+                                            <DoubleAnimation Storyboard.TargetProperty="Opacity" 
+                                                             From="0.95" To="1" 
+                                                             Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Border.Triggers>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <Border Grid.Row="2" Margin="0,20,0,0"
+                    Background="{DynamicResource ItemBackground}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBox Grid.Column="0" x:Name="NewGroupIconTextBox"
+                             Height="40"
+                             Style="{DynamicResource InputTextBoxStyle}"
+                             VerticalAlignment="Center"
+                             HorizontalAlignment="Stretch"
+                             Text="🌟"
+                             MaxLength="2"
+                             TextAlignment="Center"
+                             FontSize="16"/>
+
+                    <TextBox Grid.Column="1" x:Name="NewGroupNameTextBox"
+                             Height="40"
+                             Style="{DynamicResource InputTextBoxStyle}"
+                             VerticalAlignment="Center"
+                             HorizontalAlignment="Stretch"
+                             Margin="8,0,12,0"
+                             KeyDown="NewGroupNameTextBox_KeyDown"/>
+
+                    <Button Grid.Column="2" 
+                            x:Name="AddButton"
+                            Content="添加分组" 
+                            Width="120" Height="40"
+                            Style="{DynamicResource PrimaryButtonStyle}"
+                            Click="AddButton_Click"/>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

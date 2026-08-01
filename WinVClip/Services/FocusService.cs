@@ -1,0 +1,281 @@
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Text;
+
+namespace WinVClip.Services
+{
+    public class FocusService : IDisposable
+    {
+        private IntPtr _winEventHook;
+        private IntPtr _lastFocusHwnd;
+        private readonly HashSet<IntPtr> _excludedHwnds = new HashSet<IntPtr>();
+        private bool _isMonitoring;
+        private bool _disposed;
+        private readonly object _lock = new object();
+
+        private const int MaxFocusHistorySize = 10;
+        private readonly List<IntPtr> _focusHistory = new List<IntPtr>();
+
+        private delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd,
+            int idObject, int idChild, uint idEventThread, uint dwmsEventTime);
+
+        private WinEventDelegate _winEventDelegate;
+
+        private const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+        private const uint WINEVENT_OUTOFCONTEXT = 0x0000;
+
+        public IntPtr LastFocusHwnd => _lastFocusHwnd;
+        public int FocusHistoryCount => _focusHistory.Count;
+        public event Action<IntPtr>? FocusChanged;
+
+        public IntPtr GetFocusHistory(int index)
+        {
+            if (index < 0 || index >= _focusHistory.Count)
+                return IntPtr.Zero;
+            return _focusHistory[index];
+        }
+
+        public IntPtr GetPreviousFocusHwnd(int steps = 1)
+        {
+            int index = _focusHistory.Count - 1 - steps;
+            if (index < 0 || index >= _focusHistory.Count)
+                return IntPtr.Zero;
+            return _focusHistory[index];
+        }
+
+        public void ClearFocusHistory()
+        {
+            _focusHistory.Clear();
+        }
+
+        public FocusService()
+        {
+            _winEventDelegate = WinEventProc;
+            _lastFocusHwnd = IntPtr.Zero;
+        }
+
+        public void StartMonitoring()
+        {
+            if (_isMonitoring) return;
+
+            lock (_lock)
+            {
+                if (_isMonitoring) return;
+
+                _winEventHook = SetWinEventHook(
+                    EVENT_SYSTEM_FOREGROUND,
+                    EVENT_SYSTEM_FOREGROUND,
+                    IntPtr.Zero,
+                    _winEventDelegate,
+                    0, 0,
+                    WINEVENT_OUTOFCONTEXT);
+
+                _isMonitoring = _winEventHook != IntPtr.Zero;
+            }
+        }
+
+        public void StopMonitoring()
+        {
+            if (!_isMonitoring) return;
+
+            lock (_lock)
+            {
+                if (!_isMonitoring) return;
+
+                if (_winEventHook != IntPtr.Zero)
+                {
+                    UnhookWinEvent(_winEventHook);
+                    _winEventHook = IntPtr.Zero;
+                }
+
+                _isMonitoring = false;
+            }
+        }
+
+        public void AddExcludedHwnd(IntPtr hwnd)
+        {
+            lock (_excludedHwnds)
+            {
+                _excludedHwnds.Add(hwnd);
+            }
+        }
+
+        private void WinEventProc(IntPtr hWinEventHook, uint eventType, IntPtr hwnd,
+            int idObject, int idChild, uint idEventThread, uint dwmsEventTime)
+        {
+            if (hwnd == IntPtr.Zero) return;
+
+            IntPtr rootHwnd = GetAncestor(hwnd, GA_ROOT);
+            if (rootHwnd != IntPtr.Zero)
+            {
+                hwnd = rootHwnd;
+            }
+
+            lock (_excludedHwnds)
+            {
+                if (_excludedHwnds.Contains(hwnd)) return;
+            }
+
+            if (IsSystemWindow(hwnd)) return;
+
+            if (_lastFocusHwnd != IntPtr.Zero && _lastFocusHwnd != hwnd)
+            {
+                lock (_focusHistory)
+                {
+                    // 记录上一个焦点窗口到历史栈
+                    if (_focusHistory.Count == 0 || _focusHistory[_focusHistory.Count - 1] != _lastFocusHwnd)
+                    {
+                        _focusHistory.Add(_lastFocusHwnd);
+                        if (_focusHistory.Count > MaxFocusHistorySize)
+                        {
+                            _focusHistory.RemoveAt(0);
+                        }
+                    }
+                }
+            }
+
+            _lastFocusHwnd = hwnd;
+            FocusChanged?.Invoke(hwnd);
+        }
+
+        private readonly StringBuilder _cachedClassName = new StringBuilder(256);
+        private readonly StringBuilder _cachedWindowText = new StringBuilder(256);
+
+        private bool IsSystemWindow(IntPtr hwnd)
+        {
+            _cachedClassName.Clear();
+            GetClassName(hwnd, _cachedClassName, 256);
+            string classNameStr = _cachedClassName.ToString();
+
+            _cachedWindowText.Clear();
+            GetWindowText(hwnd, _cachedWindowText, 256);
+            string windowTextStr = _cachedWindowText.ToString();
+
+            if (classNameStr == "Shell_TrayWnd" ||
+                classNameStr == "Shell_SecondaryTrayWnd" ||
+                classNameStr == "NotifyIconOverflowWindow" ||
+                classNameStr == "TopLevelWindowForOverflowXamlIsland" ||
+                classNameStr.StartsWith("Windows.UI.") ||
+                classNameStr == "#32768" ||
+                classNameStr == "DropDown" ||
+                classNameStr == "Xaml_WindowedPopupClass")
+            {
+                return true;
+            }
+
+            if (windowTextStr == "WinVClip" || windowTextStr == "菜单")
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        public ForegroundAppInfo? GetForegroundAppInfo()
+        {
+            IntPtr hwnd = GetForegroundWindow();
+            if (hwnd == IntPtr.Zero) return null;
+
+            uint pid;
+            GetWindowThreadProcessId(hwnd, out pid);
+            if (pid == 0) return null;
+
+            StringBuilder titleBuf = new StringBuilder(512);
+            GetWindowText(hwnd, titleBuf, 512);
+            string windowTitle = titleBuf.ToString();
+
+            string processPath = string.Empty;
+            string processName = string.Empty;
+
+            IntPtr hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid);
+            if (hProcess != IntPtr.Zero)
+            {
+                StringBuilder pathBuf = new StringBuilder(260);
+                if (GetModuleFileNameEx(hProcess, IntPtr.Zero, pathBuf, 260) > 0)
+                {
+                    processPath = pathBuf.ToString();
+                    processName = System.IO.Path.GetFileName(processPath);
+                }
+                CloseHandle(hProcess);
+            }
+
+            if (string.IsNullOrEmpty(processName))
+            {
+                hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+                if (hProcess != IntPtr.Zero)
+                {
+                    StringBuilder pathBuf = new StringBuilder(260);
+                    if (GetModuleFileNameEx(hProcess, IntPtr.Zero, pathBuf, 260) > 0)
+                    {
+                        processPath = pathBuf.ToString();
+                        processName = System.IO.Path.GetFileName(processPath);
+                    }
+                    CloseHandle(hProcess);
+                }
+            }
+
+            if (string.IsNullOrEmpty(processName)) return null;
+
+            return new ForegroundAppInfo
+            {
+                ProcessName = processName,
+                ProcessPath = processPath,
+                WindowTitle = windowTitle
+            };
+        }
+
+        public void Dispose()
+        {
+            if (!_disposed)
+            {
+                StopMonitoring();
+                _disposed = true;
+            }
+        }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc,
+            WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
+
+        [DllImport("user32.dll")]
+        private static extern bool UnhookWinEvent(IntPtr hWinEventHook);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetAncestor(IntPtr hWnd, uint gaFlags);
+
+        private const uint GA_ROOT = 2;
+
+        [DllImport("user32.dll")]
+        private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+        [DllImport("user32.dll")]
+        private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, uint dwProcessId);
+
+        [DllImport("kernel32.dll")]
+        private static extern bool CloseHandle(IntPtr hObject);
+
+        [DllImport("psapi.dll")]
+        private static extern uint GetModuleFileNameEx(IntPtr hProcess, IntPtr hModule, StringBuilder lpFilename, int nSize);
+
+        private const uint PROCESS_QUERY_INFORMATION = 0x0400;
+        private const uint PROCESS_VM_READ = 0x0010;
+        private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+    }
+
+    public class ForegroundAppInfo
+    {
+        public string ProcessName { get; set; } = string.Empty;
+        public string ProcessPath { get; set; } = string.Empty;
+        public string WindowTitle { get; set; } = string.Empty;
+    }
+}
