@@ -19,6 +19,12 @@ namespace WinVClip.Services
         private Icon? _icon;
         private bool _disposed;
 
+        // explorer 重启后任务栏重建消息（RegisterWindowMessage("TaskbarCreated")）
+        private readonly uint _taskbarCreatedMessage;
+        // 防抖定时器：合并短时间内可能多次到达的 TaskbarCreated 广播
+        private System.Windows.Threading.DispatcherTimer? _recreateTimer;
+        private const int RecreateDebounceMs = 500;
+
         public bool IsMonitoringEnabled
         {
             get => _isMonitoringEnabled;
@@ -39,9 +45,10 @@ namespace WinVClip.Services
             _settingsService = settingsService;
             _windowHandle = windowHandle;
             _trayIconId = new Random().Next();
-            
+
             _icon = LoadIcon();
-            
+            _taskbarCreatedMessage = RegisterWindowMessage("TaskbarCreated");
+
             AddTrayIcon();
             RegisterTrayMessageHandler();
         }
@@ -98,6 +105,14 @@ namespace WinVClip.Services
 
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
+            // explorer 重启后任务栏重建，重新创建托盘图标（带防抖）
+            if (_taskbarCreatedMessage != 0 && msg == (int)_taskbarCreatedMessage)
+            {
+                ScheduleRecreateTrayIcon();
+                handled = true;
+                return IntPtr.Zero;
+            }
+
             if (msg == WM_TRAYICON)
             {
                 switch ((int)lParam)
@@ -206,6 +221,60 @@ namespace WinVClip.Services
             Shell_NotifyIcon(NIM_MODIFY, ref data);
         }
 
+        /// <summary>
+        /// 防抖调度：收到 TaskbarCreated 消息后延迟重建托盘图标，
+        /// 合并 explorer 重启过程中可能多次广播的消息，避免重复创建。
+        /// </summary>
+        private void ScheduleRecreateTrayIcon()
+        {
+            if (_disposed) return;
+
+            if (_recreateTimer == null)
+            {
+                _recreateTimer = new System.Windows.Threading.DispatcherTimer
+                {
+                    Interval = TimeSpan.FromMilliseconds(RecreateDebounceMs)
+                };
+                _recreateTimer.Tick += (s, e) =>
+                {
+                    _recreateTimer!.Stop();
+                    RecreateTrayIcon();
+                };
+            }
+
+            // 每次收到消息都重置定时器，只在最后一次消息后延迟触发重建
+            _recreateTimer.Stop();
+            _recreateTimer.Start();
+        }
+
+        /// <summary>
+        /// 重建托盘图标：先删除可能残留的旧图标，再重新添加。
+        /// 在 explorer 重启、任务栏重建后调用。
+        /// </summary>
+        private void RecreateTrayIcon()
+        {
+            if (_disposed) return;
+
+            try
+            {
+                // 先尝试删除可能残留的旧图标（explorer 已销毁时会失败，忽略即可）
+                var deleteData = new NotifyIconData
+                {
+                    cbSize = Marshal.SizeOf(typeof(NotifyIconData)),
+                    hWnd = _windowHandle,
+                    uID = _trayIconId
+                };
+                Shell_NotifyIcon(NIM_DELETE, ref deleteData);
+
+                // 重新添加托盘图标，复用当前 _icon（仍由本进程持有，句柄有效）
+                AddTrayIcon();
+            }
+            catch
+            {
+                // 重建过程中发生异常时忽略，避免影响主窗口
+            }
+        }
+
         public void ShowNotification(string title, string message)
         {
             var data = new NotifyIconData
@@ -227,6 +296,8 @@ namespace WinVClip.Services
         {
             if (!_disposed)
             {
+                _recreateTimer?.Stop();
+
                 var data = new NotifyIconData
                 {
                     cbSize = Marshal.SizeOf(typeof(NotifyIconData)),
@@ -284,6 +355,9 @@ namespace WinVClip.Services
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool PostMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern uint RegisterWindowMessage(string lpString);
 
         #endregion
     }
