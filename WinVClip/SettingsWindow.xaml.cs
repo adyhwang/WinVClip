@@ -3945,7 +3945,7 @@ namespace WinVClip
                         Loc.Get("Settings.QuickCommand.Error.RuleN", "规则 #{0} [{1}]"),
                         (i + 1), FunctionDisplayName(r.Function));
                     int need = FunctionParamCount(r.Function);
-                    if (need >= 1 && string.IsNullOrWhiteSpace(r.Param1))
+                    if (need >= 1 && string.IsNullOrEmpty(r.Param1))
                     {
                         ResetEntryBorder(entry);
                         if (showMessage)
