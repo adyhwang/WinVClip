@@ -3041,7 +3041,7 @@ namespace WinVClip
                 // 1. 提取全部手机号
                 new QuickCommand
                 {
-                    Name = "提取全部手机号",
+                    Name = Loc.Get("Settings.QuickCommand.Template.Phone", "提取全部手机号"),
                     ClipboardType = -2, // 仅文本 + 富文本
                     Rules = new List<QuickCommandRule>
                     {
@@ -3065,7 +3065,7 @@ namespace WinVClip
                 },
                 new QuickCommand
                 {
-                    Name = "提取全部身份证号",
+                    Name = Loc.Get("Settings.QuickCommand.Template.IdCard", "提取全部身份证号"),
                     ClipboardType = -2,
                     Rules = new List<QuickCommandRule>
                     {
@@ -3087,7 +3087,7 @@ namespace WinVClip
                 },
                 new QuickCommand
                 {
-                    Name = "提取全部邮箱地址",
+                    Name = Loc.Get("Settings.QuickCommand.Template.Email", "提取全部邮箱地址"),
                     ClipboardType = -2,
                     Rules = new List<QuickCommandRule>
                     {
@@ -3102,7 +3102,7 @@ namespace WinVClip
                 },
                 new QuickCommand
                 {
-                    Name = "提取全部网址链接",
+                    Name = Loc.Get("Settings.QuickCommand.Template.Url", "提取全部网址链接"),
                     ClipboardType = -2,
                     Rules = new List<QuickCommandRule>
                     {
@@ -3117,7 +3117,7 @@ namespace WinVClip
                 },
                 new QuickCommand
                 {
-                    Name = "提取全部数字（逗号分割）",
+                    Name = Loc.Get("Settings.QuickCommand.Template.NumberSplit", "提取全部数字（逗号分割）"),
                     ClipboardType = -2,
                     Rules = new List<QuickCommandRule>
                     {
@@ -3132,7 +3132,7 @@ namespace WinVClip
                 },
                 new QuickCommand
                 {
-                    Name = "提取全部数字（不分割）",
+                    Name = Loc.Get("Settings.QuickCommand.Template.NumberConcat", "提取全部数字（不分割）"),
                     ClipboardType = -2,
                     Rules = new List<QuickCommandRule>
                     {
@@ -3147,7 +3147,7 @@ namespace WinVClip
                 },
                 new QuickCommand
                 {
-                    Name = "提取全部中文汉字",
+                    Name = Loc.Get("Settings.QuickCommand.Template.Chinese", "提取全部中文汉字"),
                     ClipboardType = -2,
                     Rules = new List<QuickCommandRule>
                     {
@@ -3162,7 +3162,7 @@ namespace WinVClip
                 },
                 new QuickCommand
                 {
-                    Name = "清除多余空格",
+                    Name = Loc.Get("Settings.QuickCommand.Template.CollapseSpaces", "清除多余空格"),
                     ClipboardType = -2,
                     Rules = new List<QuickCommandRule>
                     {
@@ -3191,7 +3191,7 @@ namespace WinVClip
                 },
                 new QuickCommand
                 {
-                    Name = "列表去重（换行数据）",
+                    Name = Loc.Get("Settings.QuickCommand.Template.DistinctLines", "列表去重（换行数据）"),
                     ClipboardType = -2,
                     Rules = new List<QuickCommandRule>
                     {
@@ -3213,7 +3213,7 @@ namespace WinVClip
                 },
                 new QuickCommand
                 {
-                    Name = "多行转逗号一行",
+                    Name = Loc.Get("Settings.QuickCommand.Template.LinesToComma", "多行转逗号一行"),
                     ClipboardType = -2,
                     Rules = new List<QuickCommandRule>
                     {
@@ -3228,7 +3228,7 @@ namespace WinVClip
                 },
                 new QuickCommand
                 {
-                    Name = "逗号转多行（半角/全角逗号）",
+                    Name = Loc.Get("Settings.QuickCommand.Template.CommaToLines", "逗号转多行（半角/全角逗号）"),
                     ClipboardType = -2,
                     Rules = new List<QuickCommandRule>
                     {
@@ -3243,7 +3243,7 @@ namespace WinVClip
                 },
                 new QuickCommand
                 {
-                    Name = "去除HTML标签",
+                    Name = Loc.Get("Settings.QuickCommand.Template.StripHtml", "去除HTML标签"),
                     ClipboardType = -2,
                     Rules = new List<QuickCommandRule>
                     {
@@ -3263,96 +3263,6 @@ namespace WinVClip
                         }
                     }
                 }
-                // // 2. 提取全部身份证号
-                // new QuickCommand
-                // {
-                //     Name = Loc.Get("Settings.QuickCommand.Template.IdCard", "提取全部身份证号"),
-                //     ClipboardType = -2,
-                //     Rules = new System.Collections.Generic.List<QuickCommandRule>
-                //     {
-                //         new QuickCommandRule { Enabled = true, Function = QuickCommandFunction.RegexMatches, Param1 = @"\d{17}[\dXx]", Param2 = "," }
-                //     }
-                // },
-                // // 3. 提取全部邮箱地址
-                // new QuickCommand
-                // {
-                //     Name = Loc.Get("Settings.QuickCommand.Template.Email", "提取全部邮箱地址"),
-                //     ClipboardType = -2,
-                //     Rules = new System.Collections.Generic.List<QuickCommandRule>
-                //     {
-                //         new QuickCommandRule { Enabled = true, Function = QuickCommandFunction.RegexMatches, Param1 = @"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", Param2 = "," }
-                //     }
-                // },
-                // // 4. 提取全部网址链接
-                // new QuickCommand
-                // {
-                //     Name = Loc.Get("Settings.QuickCommand.Template.Url", "提取全部网址链接"),
-                //     ClipboardType = -2,
-                //     Rules = new System.Collections.Generic.List<QuickCommandRule>
-                //     {
-                //         new QuickCommandRule { Enabled = true, Function = QuickCommandFunction.RegexMatches, Param1 = @"https?://[^\s]+", Param2 = "," }
-                //     }
-                // },
-                // // 5. 提取全部数字（逗号分割）
-                // new QuickCommand
-                // {
-                //     Name = Loc.Get("Settings.QuickCommand.Template.NumberSplit", "提取全部数字（逗号分割）"),
-                //     ClipboardType = -2,
-                //     Rules = new System.Collections.Generic.List<QuickCommandRule>
-                //     {
-                //         new QuickCommandRule { Enabled = true, Function = QuickCommandFunction.RegexMatches, Param1 = @"\d+", Param2 = "," }
-                //     }
-                // },
-                // // 6. 提取全部数字（不分割）
-                // new QuickCommand
-                // {
-                //     Name = Loc.Get("Settings.QuickCommand.Template.NumberConcat", "提取全部数字（不分割）"),
-                //     ClipboardType = -2,
-                //     Rules = new System.Collections.Generic.List<QuickCommandRule>
-                //     {
-                //         new QuickCommandRule { Enabled = true, Function = QuickCommandFunction.RegexMatches, Param1 = @"\d+", Param2 = "" }
-                //     }
-                // },
-                // // 7. 提取全部中文汉字
-                // new QuickCommand
-                // {
-                //     Name = Loc.Get("Settings.QuickCommand.Template.Chinese", "提取全部中文汉字"),
-                //     ClipboardType = -2,
-                //     Rules = new System.Collections.Generic.List<QuickCommandRule>
-                //     {
-                //         new QuickCommandRule { Enabled = true, Function = QuickCommandFunction.RegexMatches, Param1 = @"[\u4e00-\u9fa5]", Param2 = "" }
-                //     }
-                // },
-                // // 8. 清除多余空格（连续空格压缩成 1 个，删除制表符）
-                // new QuickCommand
-                // {
-                //     Name = Loc.Get("Settings.QuickCommand.Template.CollapseSpaces", "清除多余空格"),
-                //     ClipboardType = -2,
-                //     Rules = new System.Collections.Generic.List<QuickCommandRule>
-                //     {
-                //         new QuickCommandRule { Enabled = true, Function = QuickCommandFunction.RegexReplace, Param1 = @"[ \t]+", Param2 = " " }
-                //     }
-                // },
-                // // 9. 列表去重
-                // new QuickCommand
-                // {
-                //     Name = Loc.Get("Settings.QuickCommand.Template.Distinct", "列表去重"),
-                //     ClipboardType = -2,
-                //     Rules = new System.Collections.Generic.List<QuickCommandRule>
-                //     {
-                //         new QuickCommandRule { Enabled = true, Function = QuickCommandFunction.DistinctRemoveDuplicate, Param1 = "", Param2 = "" }
-                //     }
-                // },
-                // // 10. 去除HTML标签
-                // new QuickCommand
-                // {
-                //     Name = Loc.Get("Settings.QuickCommand.Template.StripHtml", "去除HTML标签"),
-                //     ClipboardType = -2,
-                //     Rules = new System.Collections.Generic.List<QuickCommandRule>
-                //     {
-                //         new QuickCommandRule { Enabled = true, Function = QuickCommandFunction.RegexReplace, Param1 = @"<[^>]+>", Param2 = "" }
-                //     }
-                // }
             };
         }
 

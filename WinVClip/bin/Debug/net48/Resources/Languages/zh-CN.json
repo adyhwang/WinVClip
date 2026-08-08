@@ -258,6 +258,9 @@
     "Settings.QuickCommand.Template.CollapseSpaces": "清除多余空格",
     "Settings.QuickCommand.Template.Distinct": "列表去重",
     "Settings.QuickCommand.Template.StripHtml": "去除HTML标签",
+    "Settings.QuickCommand.Template.DistinctLines": "列表去重（换行数据）",
+    "Settings.QuickCommand.Template.LinesToComma": "多行转逗号一行",
+    "Settings.QuickCommand.Template.CommaToLines": "逗号转多行（半角/全角逗号）",
 
     "Settings.Entry.Enabled": "启用",
 
