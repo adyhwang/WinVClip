@@ -20,15 +20,13 @@
 
 WinVClip 是一款使用 AI 辅助开发的 Windows 剪贴板管理工具，旨在帮助用户高效管理剪贴板历史记录。它能够自动捕获和存储剪贴板内容，支持多种数据类型，并提供便捷的搜索、分组和管理功能。
 
-
-<img width="569" height="600" alt="6" src="https://github.com/user-attachments/assets/dd0648ea-8d77-4048-bc4f-91f3a7695b22" />
-<img width="416" height="605" alt="7" src="https://github.com/user-attachments/assets/f8d4ab30-e755-4aac-af7a-e87546dd57e2" />
-<img width="600" height="500" alt="8" src="https://github.com/user-attachments/assets/fc1d2128-8816-4e91-986a-d4b1ec573445" />
 <img width="750" height="620" alt="1" src="https://github.com/user-attachments/assets/991a48f2-b882-45a3-bef4-230fa1e6ca1c" />
 <img width="750" height="618" alt="2" src="https://github.com/user-attachments/assets/3a4b708c-86d5-4e59-9f52-8056a331c5e6" />
 <img width="750" height="620" alt="3" src="https://github.com/user-attachments/assets/b8b00604-033c-4796-bfd8-6d060801b520" />
 <img width="750" height="620" alt="4" src="https://github.com/user-attachments/assets/97f513f4-1d34-4267-b631-d413dd31d497" />
 <img width="750" height="620" alt="5" src="https://github.com/user-attachments/assets/cba6fbe9-825c-462e-aedc-4324aa433674" />
+<img width="569" height="600" alt="6" src="https://github.com/user-attachments/assets/dd0648ea-8d77-4048-bc4f-91f3a7695b22" />
+<img width="416" height="605" alt="7" src="https://github.com/user-attachments/assets/f8d4ab30-e755-4aac-af7a-e87546dd57e2" />
 
 ---
 

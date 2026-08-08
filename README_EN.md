@@ -25,13 +25,7 @@ WinVClip is a Windows clipboard manager developed with AI assistance, designed t
 <img width="750" height="620" alt="2" src="https://github.com/user-attachments/assets/7fafce65-8c39-48b4-8c6f-bf06187ce680" />
 <img width="750" height="620" alt="3" src="https://github.com/user-attachments/assets/356505b2-8c43-42ee-a03e-85eea39f2c15" />
 <img width="600" height="500" alt="6" src="https://github.com/user-attachments/assets/c62de8bc-6461-45b7-8a78-f88ad7f118c8" />
-<img width="750" height="620" alt="1" src="https://github.com/user-attachments/assets/991a48f2-b882-45a3-bef4-230fa1e6ca1c" />
-<img width="750" height="618" alt="2" src="https://github.com/user-attachments/assets/3a4b708c-86d5-4e59-9f52-8056a331c5e6" />
-<img width="750" height="620" alt="3" src="https://github.com/user-attachments/assets/b8b00604-033c-4796-bfd8-6d060801b520" />
-<img width="750" height="620" alt="4" src="https://github.com/user-attachments/assets/97f513f4-1d34-4267-b631-d413dd31d497" />
-<img width="750" height="620" alt="5" src="https://github.com/user-attachments/assets/cba6fbe9-825c-462e-aedc-4324aa433674" />
-<img width="569" height="600" alt="6" src="https://github.com/user-attachments/assets/dd0648ea-8d77-4048-bc4f-91f3a7695b22" />
-<img width="416" height="605" alt="7" src="https://github.com/user-attachments/assets/f8d4ab30-e755-4aac-af7a-e87546dd57e2" />
+
 
 ---
 

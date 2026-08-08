@@ -93,8 +93,23 @@
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" 
                             HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button x:Name="FilterToggleButton" Width="32" Height="32" Margin="2,0"
+                    <Button x:Name="MultiSelectToggleButton" Width="32" Height="32" Margin="2,0"
                             Content="☑︎" ToolTipService.ShowOnDisabled="True"
+                            Click="MultiSelectToggleButton_Click"
+                            PreviewMouseDown="Button_PreviewMouseDown">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMultiSelectMode}" Value="True">
+                                        <Setter Property="Background" Value="#007ACC"/>
+                                        <Setter Property="Foreground" Value="#FFFFFF"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <Button x:Name="FilterToggleButton" Width="32" Height="32" Margin="2,0"
+                            Content="🎛️" ToolTipService.ShowOnDisabled="True"
                             Click="FilterToggleButton_Click"
                             PreviewMouseDown="Button_PreviewMouseDown">
                         <Button.Style>
@@ -293,9 +308,6 @@
                                           Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}, ConverterParameter=Invert}"/>
                                 <Separator Style="{DynamicResource SeparatorStyle}"
                                           Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}, ConverterParameter=Invert}"/>
-                                <MenuItem x:Name="MenuMultiSelectMode" Header="多选模式" Icon="📋" Click="EnterMultiSelectMode_Click"
-                                          Style="{DynamicResource MenuItemStyle}"
-                                          Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}, ConverterParameter=Invert}"/>
                                 <MenuItem x:Name="MenuBatchPaste" Header="批量粘贴" Icon="📋" Click="BatchPaste_Click"
                                           Style="{DynamicResource MenuItemStyle}"
                                           Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}}"/>
@@ -306,9 +318,6 @@
                                           Style="{DynamicResource MenuItemStyle}"
                                           Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}}"/>
                                 <Separator Style="{DynamicResource SeparatorStyle}"
-                                          Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}}"/>
-                                <MenuItem x:Name="MenuExitMultiSelectMode" Header="返回常规模式" Icon="🔄" Click="ExitMultiSelectMode_Click"
-                                          Style="{DynamicResource MenuItemStyle}"
                                           Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}}"/>
                                 <!-- 快捷命令二级菜单：鼠标悬停自动向右展开（MenuItemWithSubmenuStyle 支持子菜单弹出） -->
                                 <MenuItem x:Name="MenuQuickCommands" Header="快捷命令" Icon="⚡"

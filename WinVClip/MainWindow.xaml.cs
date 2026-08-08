@@ -1186,12 +1186,10 @@ namespace WinVClip
             MenuCopy.Header = Loc.Get("MainWindow.ContextMenu.Copy", "复制");
             MenuGroup.Header = Loc.Get("MainWindow.ContextMenu.Group", "分组");
             MenuDelete.Header = Loc.Get("MainWindow.ContextMenu.Delete", "删除");
-            MenuMultiSelectMode.Header = Loc.Get("MainWindow.ContextMenu.MultiSelectMode", "多选模式");
             MenuBatchDelete.Header = Loc.Get("MainWindow.ContextMenu.BatchDelete", "批量删除");
             MenuBatchPaste.Header = Loc.Get("MainWindow.ContextMenu.BatchPaste", "批量粘贴");
             MenuBatchGroup.Header = Loc.Get("MainWindow.ContextMenu.BatchGroup", "批量分组");
-            MenuExitMultiSelectMode.Header = Loc.Get("MainWindow.ContextMenu.ExitMultiSelectMode", "返回常规模式");
-            
+
             LoadingMoreText.Text = Loc.Get("MainWindow.Status.LoadingMore", "加载更多...");
             EmptyStateText.Text = Loc.Get("MainWindow.Status.Empty", "暂无剪贴板记录");
             LoadingText.Text = Loc.Get("MainWindow.Status.Loading", "加载中...");
@@ -1744,7 +1742,9 @@ namespace WinVClip
             DeactivateWindowDeferred();
 
             // 左键/中键按下时捕获目标窗口句柄（供粘贴类操作使用）
-            if (e.ChangedButton == MouseButton.Left || e.ChangedButton == MouseButton.Middle)
+            // 多选模式下点击用于选择条目，不应捕获粘贴目标
+            if (!_viewModel.IsMultiSelectMode &&
+                (e.ChangedButton == MouseButton.Left || e.ChangedButton == MouseButton.Middle))
             {
                 _capturedTargetHwnd = _lastFocusHwndWhenShow != IntPtr.Zero
                     ? _lastFocusHwndWhenShow
@@ -2180,9 +2180,13 @@ namespace WinVClip
             if (IsControlElement(e.OriginalSource))
                 return;
 
-            _capturedTargetHwnd = _lastFocusHwndWhenShow != IntPtr.Zero
-                ? _lastFocusHwndWhenShow
-                : (App.GetFocusService()?.LastFocusHwnd ?? IntPtr.Zero);
+            // 多选模式下点击用于选择条目，不应捕获粘贴目标
+            if (!_viewModel.IsMultiSelectMode)
+            {
+                _capturedTargetHwnd = _lastFocusHwndWhenShow != IntPtr.Zero
+                    ? _lastFocusHwndWhenShow
+                    : (App.GetFocusService()?.LastFocusHwnd ?? IntPtr.Zero);
+            }
         }
 
         private void ClipboardListBox_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -3420,11 +3424,8 @@ namespace WinVClip
             }
         }
 
-        private void EnterMultiSelectMode_Click(object sender, RoutedEventArgs e) 
-            => SetMultiSelectMode(true);
-
-        private void ExitMultiSelectMode_Click(object sender, RoutedEventArgs e) 
-            => SetMultiSelectMode(false);
+        private void MultiSelectToggleButton_Click(object sender, RoutedEventArgs e)
+            => SetMultiSelectMode(!_viewModel.IsMultiSelectMode);
 
         private bool _wasPinnedBeforeMultiSelect = false;
 
@@ -3432,6 +3433,8 @@ namespace WinVClip
         {
             _viewModel.IsMultiSelectMode = enabled;
             _viewModel.ClearSelection();
+            // 清除可能残留的捕获目标，避免多选模式下使用过期句柄
+            _capturedTargetHwnd = IntPtr.Zero;
 
             if (enabled)
             {
