@@ -1,0 +1,56 @@
+<Window x:Class="WinVClip.LoadingTipWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="LoadingTip"
+        Width="220" Height="100"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        WindowStartupLocation="CenterScreen"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        ResizeMode="NoResize">
+    <Border Background="White" CornerRadius="8" BorderBrush="#E0E0E0" BorderThickness="1">
+        <Grid Margin="12,8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- 环形进度圈：背景灰环 + 旋转蓝色弧 -->
+            <Grid Grid.Row="0" Width="32" Height="32" HorizontalAlignment="Center" Margin="0,2,0,4">
+                <Ellipse Width="32" Height="32" Stroke="#E8E8E8" StrokeThickness="3"/>
+                <Ellipse Width="32" Height="32" Stroke="#007ACC" StrokeThickness="3"
+                         StrokeDashArray="10,20" StrokeStartLineCap="Round" StrokeEndLineCap="Round">
+                    <Ellipse.RenderTransform>
+                        <RotateTransform x:Name="RingRotate" CenterX="16" CenterY="16"/>
+                    </Ellipse.RenderTransform>
+                    <Ellipse.Triggers>
+                        <EventTrigger RoutedEvent="Loaded">
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation Storyboard.TargetName="RingRotate"
+                                                     Storyboard.TargetProperty="Angle"
+                                                     From="0" To="360"
+                                                     Duration="0:0:0.8"
+                                                     RepeatBehavior="Forever"/>
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </EventTrigger>
+                    </Ellipse.Triggers>
+                </Ellipse>
+            </Grid>
+
+            <!-- 提示文本 -->
+            <TextBlock Grid.Row="1"
+                       Text="剪贴板被其他程序阻塞，正在重试，请稍候…"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       FontSize="11"
+                       Foreground="#666666"
+                       TextWrapping="Wrap"
+                       TextAlignment="Center"/>
+        </Grid>
+    </Border>
+</Window>

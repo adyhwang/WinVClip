@@ -98,7 +98,7 @@ namespace WinVClip
 
             try
             {
-                Clipboard.SetImage(_qrCodeBitmap);
+                ClipboardWin32Helper.SetImage(_qrCodeBitmap);
                 MessageBox.Show(Loc.Get("QRCode.Message.Copied", "二维码图片已复制到剪贴板"),
                     Loc.Get("Common.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
             }

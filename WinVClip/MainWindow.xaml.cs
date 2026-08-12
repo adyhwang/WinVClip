@@ -1246,6 +1246,9 @@ namespace WinVClip
             _hwndSource = HwndSource.FromHwnd(handle);
             _hwndSource.AddHook(WndProc);
 
+            // 注册主窗口 HWND，供 ClipboardWin32Helper 的 OpenClipboard 使用
+            ClipboardWin32Helper.SetWindowHandle(handle);
+
             DisableMaximizeAndAeroSnap(handle);
 
             var focusService = App.GetFocusService();
@@ -2518,7 +2521,7 @@ namespace WinVClip
                 image.CacheOption = BitmapCacheOption.OnLoad;
                 image.EndInit();
 
-                Clipboard.SetImage(image);
+                ClipboardWin32Helper.SetImage(image);
                 PostPasteFlow(moveTopItem: item);
             }
             finally
@@ -2555,7 +2558,7 @@ namespace WinVClip
 
                 var fileList = new System.Collections.Specialized.StringCollection();
                 fileList.Add(fullPath);
-                Clipboard.SetFileDropList(fileList);
+                ClipboardWin32Helper.SetFileDropList(fileList);
                 PostPasteFlow(moveTopItem: item);
             }
             finally
@@ -2755,7 +2758,7 @@ namespace WinVClip
             switch (item.Type)
             {
                 case ClipboardType.Text:
-                    SetClipboardData(dataObject, d => d.SetText(item.Content), () => Clipboard.SetText(item.Content));
+                    SetClipboardData(dataObject, d => d.SetText(item.Content), () => ClipboardWin32Helper.SetText(item.Content));
                     break;
                 case ClipboardType.RichText:
                     SetRichTextToClipboard(item, dataObject);
@@ -2792,7 +2795,7 @@ namespace WinVClip
             image.CacheOption = BitmapCacheOption.OnLoad;
             image.EndInit();
 
-            SetClipboardData(dataObject, d => d.SetImage(image), () => Clipboard.SetImage(image));
+            SetClipboardData(dataObject, d => d.SetImage(image), () => ClipboardWin32Helper.SetImage(image));
         }
 
         private static void SetFileListToClipboard(ClipboardItem item, DataObject dataObject)
@@ -2808,7 +2811,7 @@ namespace WinVClip
             {
                 var fileDataObject = new DataObject();
                 fileDataObject.SetFileDropList(stringCollection);
-                Clipboard.SetDataObject(fileDataObject);
+                ClipboardWin32Helper.SetDataObject(fileDataObject);
             }
         }
 
@@ -2842,7 +2845,7 @@ namespace WinVClip
             }
 
             if (dataObject == null)
-                Clipboard.SetDataObject(target);
+                ClipboardWin32Helper.SetDataObject(target);
         }
 
         private void PasteItemWithKeyboardModifiers(ClipboardItem item)
@@ -2872,7 +2875,7 @@ namespace WinVClip
             try
             {
                 _isPasting = true;
-                Clipboard.SetText(item.Content ?? "");
+                ClipboardWin32Helper.SetText(item.Content ?? "");
                 PostPasteFlow(pasteHashText: item.Content ?? "", moveTopItem: item);
             }
             catch (Exception ex)
@@ -2897,7 +2900,7 @@ namespace WinVClip
                     text = text.Replace("  ", " ");
 
                 text = text.Trim();
-                Clipboard.SetText(text);
+                ClipboardWin32Helper.SetText(text);
                 PostPasteFlow(pasteHashText: text, moveTopItem: item);
             }
             catch (Exception ex)
@@ -3062,7 +3065,7 @@ namespace WinVClip
                     }
                 }
 
-                Clipboard.SetText(current ?? "");
+                ClipboardWin32Helper.SetText(current ?? "");
                 PostPasteFlow(pasteHashText: current ?? "", moveTopItem: item);
             }
             catch (Exception ex)
@@ -3411,7 +3414,7 @@ namespace WinVClip
             try
             {
                 _isPasting = true;
-                Clipboard.SetText(text);
+                ClipboardWin32Helper.SetText(text);
                 PostPasteFlow(pasteHashText: text, overrideTargetHwnd: targetHwnd);
             }
             catch (Exception ex)
@@ -3497,7 +3500,7 @@ namespace WinVClip
                 _isPasting = true;
 
                 var combinedText = string.Join("\n", textItems.Select(i => i.Content ?? ""));
-                Clipboard.SetText(combinedText);
+                ClipboardWin32Helper.SetText(combinedText);
                 PostPasteFlow(pasteHashText: combinedText, moveTopItems: textItems);
             }
             catch (Exception ex)
@@ -3531,7 +3534,7 @@ namespace WinVClip
 
                 var fileCollection = new System.Collections.Specialized.StringCollection();
                 fileCollection.AddRange(allFilePaths.ToArray());
-                Clipboard.SetFileDropList(fileCollection);
+                ClipboardWin32Helper.SetFileDropList(fileCollection);
                 PostPasteFlow(pasteHashFiles: allFilePaths, moveTopItems: fileItems);
             }
             catch (Exception ex)
@@ -3951,7 +3954,7 @@ namespace WinVClip
                 try
                 {
                     _isPasting = true;
-                    Clipboard.SetText(ch);
+                    ClipboardWin32Helper.SetText(ch);
                     PostPasteFlow(pasteHashText: ch);
                 }
                 catch

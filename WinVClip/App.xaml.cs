@@ -222,6 +222,7 @@ namespace WinVClip
             _databaseService?.Dispose();
             _focusService?.Dispose();
             _mutex?.Dispose();
+            ClipboardWin32Helper.Shutdown();
         }
 
         public static void ShowSettingsWindow()

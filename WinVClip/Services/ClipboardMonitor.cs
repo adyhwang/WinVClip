@@ -170,10 +170,10 @@ namespace WinVClip.Services
 
             try
             {
-                var dataObject = System.Windows.Clipboard.GetDataObject();
-                bool hasText = System.Windows.Clipboard.ContainsText();
-                bool hasImage = System.Windows.Clipboard.ContainsImage();
-                bool hasFileDrop = System.Windows.Clipboard.ContainsFileDropList();
+                var dataObject = ClipboardWin32Helper.GetDataObject();
+                bool hasText = ClipboardWin32Helper.ContainsText();
+                bool hasImage = ClipboardWin32Helper.ContainsImage();
+                bool hasFileDrop = ClipboardWin32Helper.ContainsFileDropList();
                 bool hasRichText = dataObject?.GetDataPresent(System.Windows.DataFormats.Html) == true ||
                                    dataObject?.GetDataPresent(System.Windows.DataFormats.Rtf) == true;
 
@@ -185,7 +185,7 @@ namespace WinVClip.Services
                     else if (dataObject.GetDataPresent(System.Windows.DataFormats.Rtf))
                         richContent = dataObject.GetData(System.Windows.DataFormats.Rtf) as string;
 
-                    var text = System.Windows.Clipboard.GetText();
+                    var text = ClipboardWin32Helper.GetText();
                     if (!string.IsNullOrWhiteSpace(text) && !string.IsNullOrWhiteSpace(richContent))
                     {
                         _lastContentSignatures[ClipboardType.RichText] = ComputeSignature(ClipboardType.RichText, text + richContent);
@@ -193,13 +193,13 @@ namespace WinVClip.Services
                 }
                 else if (hasText)
                 {
-                    var text = System.Windows.Clipboard.GetText();
+                    var text = ClipboardWin32Helper.GetText();
                     _lastContentSignatures[ClipboardType.Text] = ComputeSignature(ClipboardType.Text, text);
                 }
 
                 if (hasImage)
                 {
-                    var image = System.Windows.Clipboard.GetImage();
+                    var image = ClipboardWin32Helper.GetImage();
                     if (image != null)
                     {
                         _lastContentSignatures[ClipboardType.Image] = ComputeSignature(ClipboardType.Image, $"{image.PixelWidth}x{image.PixelHeight}_{image.Format}");
@@ -309,11 +309,11 @@ namespace WinVClip.Services
 
             try
             {
-                hasText = System.Windows.Clipboard.ContainsText();
-                hasImage = System.Windows.Clipboard.ContainsImage();
-                hasFileDrop = System.Windows.Clipboard.ContainsFileDropList();
+                hasText = ClipboardWin32Helper.ContainsText();
+                hasImage = ClipboardWin32Helper.ContainsImage();
+                hasFileDrop = ClipboardWin32Helper.ContainsFileDropList();
                 
-                var dataObject = System.Windows.Clipboard.GetDataObject();
+                var dataObject = ClipboardWin32Helper.GetDataObject();
                 hasRichText = dataObject.GetDataPresent(System.Windows.DataFormats.Html) || 
                               dataObject.GetDataPresent(System.Windows.DataFormats.Rtf);
             }
@@ -327,7 +327,7 @@ namespace WinVClip.Services
 
             if (hasFileDrop && _settingsService.Settings.CaptureFiles)
             {
-                var dataObject = System.Windows.Clipboard.GetDataObject();
+                var dataObject = ClipboardWin32Helper.GetDataObject();
                 if (dataObject.GetDataPresent(System.Windows.DataFormats.FileDrop))
                 {
                     var fileList = dataObject.GetData(System.Windows.DataFormats.FileDrop) as string[];
@@ -368,7 +368,7 @@ namespace WinVClip.Services
 
             if (hasRichText && hasText && _settingsService.Settings.CaptureImages)
             {
-                var dataObject = System.Windows.Clipboard.GetDataObject();
+                var dataObject = ClipboardWin32Helper.GetDataObject();
                 string richContent = null;
                 string richFormat = null;
                 string csvContent = null;
@@ -389,7 +389,7 @@ namespace WinVClip.Services
                     csvContent = dataObject.GetData(System.Windows.DataFormats.CommaSeparatedValue) as string;
                 }
 
-                var text = System.Windows.Clipboard.GetText();
+                var text = ClipboardWin32Helper.GetText();
                 if (!string.IsNullOrWhiteSpace(text) && !string.IsNullOrWhiteSpace(richContent))
                 {
                     if (ShouldProcessRichText(text, richContent, richFormat))
@@ -455,7 +455,7 @@ namespace WinVClip.Services
 
             if (hasText && _settingsService.Settings.CaptureImages)
             {
-                var text = System.Windows.Clipboard.GetText();
+                var text = ClipboardWin32Helper.GetText();
                 if (ShouldProcessText(text))
                 {
                     var item = new ClipboardItem
@@ -759,7 +759,7 @@ namespace WinVClip.Services
         {
             try
             {
-                var image = System.Windows.Clipboard.GetImage();
+                var image = ClipboardWin32Helper.GetImage();
                 if (image != null)
                 {
                     if (image.CanFreeze)
@@ -767,7 +767,7 @@ namespace WinVClip.Services
                     return image;
                 }
                     
-                var dataObject = System.Windows.Clipboard.GetDataObject();
+                var dataObject = ClipboardWin32Helper.GetDataObject();
                 if (dataObject != null)
                 {
                     if (dataObject.GetDataPresent(System.Windows.DataFormats.Bitmap))

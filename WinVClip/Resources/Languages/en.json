@@ -258,6 +258,9 @@
     "Settings.QuickCommand.Template.CollapseSpaces": "Collapse extra spaces",
     "Settings.QuickCommand.Template.Distinct": "Deduplicate list",
     "Settings.QuickCommand.Template.StripHtml": "Strip HTML tags",
+    "Settings.QuickCommand.Template.DistinctLines": "Deduplicate list (line-based)",
+    "Settings.QuickCommand.Template.LinesToComma": "Multi-line to comma-separated",
+    "Settings.QuickCommand.Template.CommaToLines": "Comma to multi-line (half/full-width)",
 
     "Settings.Entry.Enabled": "Enabled",
 

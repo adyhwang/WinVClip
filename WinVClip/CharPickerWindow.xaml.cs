@@ -508,7 +508,7 @@ namespace WinVClip
             var copyItem = new MenuItem { Header = Loc.Get("CharPicker.CopyChar", "复制该字") };
             copyItem.Click += (_, _) =>
             {
-                try { Clipboard.SetText(text); } catch { }
+                try { ClipboardWin32Helper.SetText(text); } catch { }
             };
             menu.Items.Add(copyItem);
 
@@ -678,7 +678,7 @@ namespace WinVClip
             if (string.IsNullOrEmpty(SelectedTextBlock.Text)) return;
             try
             {
-                Clipboard.SetText(SelectedTextBlock.Text);
+                ClipboardWin32Helper.SetText(SelectedTextBlock.Text);
                 ShowCopyFeedback();
             }
             catch { }
