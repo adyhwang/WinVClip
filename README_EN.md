@@ -22,7 +22,8 @@ WinVClip is a Windows clipboard manager developed with AI assistance, designed t
 
 
 <img width="627" height="612" alt="1" src="https://github.com/user-attachments/assets/12638bde-6ccf-46a4-a3c7-568557854fdc" />
-<img width="600" height="500" alt="6" src="https://github.com/user-attachments/assets/c62de8bc-6461-45b7-8a78-f88ad7f118c8" />
+<img width="600" height="500" alt="5e" src="https://github.com/user-attachments/assets/da24871d-a4de-4e3f-a4b2-a76b7d7bf00f" />
+
 
 <img width="750" height="620" alt="1e" src="https://github.com/user-attachments/assets/b7bbe2e2-4c15-4034-8f08-3fc83e406d2e" />
 <img width="750" height="620" alt="2e" src="https://github.com/user-attachments/assets/192df508-e5ae-4717-86d4-e26f0f134946" />
