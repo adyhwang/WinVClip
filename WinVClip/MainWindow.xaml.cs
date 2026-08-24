@@ -1568,6 +1568,16 @@ namespace WinVClip
 
         private const uint GA_ROOT = 2;
 
+        [DllImport("user32.dll")]
+        private static extern bool IsWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr hWnd);
+
+        // CopyQ raiseWindowHelper: SetWindowPos 使用 HWND_TOP 提升窗口 Z 序
+        private static readonly IntPtr HWND_TOP = IntPtr.Zero;
+        private const int SWP_SHOWWINDOW = 0x0040;
+
         [DllImport("kernel32.dll")]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
 
@@ -3336,6 +3346,12 @@ namespace WinVClip
             }
         }
 
+        /// <summary>
+        /// 参考 CopyQ sendKeyPress 的完整粘贴流程：
+        /// before-raise 延时 → 激活并验证（失败即放弃）→ after-raised 等待 →
+        /// 等待修饰键释放 → 发送粘贴快捷键。
+        /// 关键原则：激活失败时绝不发送按键，宁可不粘贴也不能粘到错误的窗口。
+        /// </summary>
         private void ActivateAndPaste(IntPtr windowHandle)
         {
             IntPtr targetHwnd = IntPtr.Zero;
@@ -3351,12 +3367,31 @@ namespace WinVClip
                 targetHwnd = GetDesktopWindow();
             }
 
-            if (targetHwnd == IntPtr.Zero) return;
+            if (targetHwnd == IntPtr.Zero || !IsWindow(targetHwnd)) return;
 
-            BringWindowToForeground(targetHwnd);
+            // CopyQ: window_wait_before_raise_ms（默认 20ms）。
+            // HideWindow 后系统的焦点恢复是异步消息，先让这些事件入队完成，
+            // 避免激活操作与焦点恢复竞争。
+            Thread.Sleep(20);
 
-            // 自适应等待：检测到窗口激活立即继续，超时才等待
+            // CopyQ: raiseWindow——激活失败则放弃整个粘贴流程。
+            // 旧实现激活失败后仍继续发送按键，导致内容粘贴到
+            // 恰好处于前台的其它程序（"粘贴到程序 B"问题的根源）。
+            if (!TryBringWindowToForeground(targetHwnd))
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[Paste] Aborted: failed to activate target window 0x{targetHwnd.ToInt64():X}");
+                return;
+            }
+
+            // CopyQ: window_wait_raised_ms（默认 150ms），自适应等待：
+            // 检测到窗口激活立即继续，超时才保底等待目标窗口输入队列就绪。
             WaitForWindowActivated(targetHwnd);
+
+            // CopyQ: waitForModifiersReleased——等待用户释放修饰键，
+            // 避免注入的快捷键与用户按住的修饰键叠加。超时不中断：
+            // WinVClip 支持修饰键+点击组合粘贴，此时由 SimulatePaste 自适应处理。
+            KeyboardService.WaitForModifiersReleased(500);
 
             var pasteMode = App.SettingsService?.GetPasteShortcutMode() ?? Services.PasteShortcutMode.Auto;
             KeyboardService.SimulatePaste(pasteMode);
@@ -3381,9 +3416,14 @@ namespace WinVClip
             Thread.Sleep(30);
         }
 
-        private static void BringWindowToForeground(IntPtr hWnd)
+        /// <summary>
+        /// 参考 CopyQ raiseWindow：激活目标窗口并验证结果，失败时重试。
+        /// 返回是否确认目标窗口已成为前台窗口——调用方必须在失败时放弃粘贴，
+        /// 否则按键会发送到恰好处于前台的其它程序（粘贴到错误窗口的根源）。
+        /// </summary>
+        private static bool TryBringWindowToForeground(IntPtr hWnd)
         {
-            if (hWnd == IntPtr.Zero) return;
+            if (hWnd == IntPtr.Zero) return false;
 
             IntPtr rootHwnd = GetAncestor(hWnd, GA_ROOT);
             if (rootHwnd != IntPtr.Zero)
@@ -3391,43 +3431,63 @@ namespace WinVClip
                 hWnd = rootHwnd;
             }
 
-            // 先放宽 Windows 前台窗口锁定超时限制，
-            // 这是 CopyQ 等成熟客户端的通用做法，大幅提升 SetForegroundWindow 成功率。
+            // CopyQ: 不可见/无效窗口无法激活，直接失败
+            if (!IsWindow(hWnd) || !IsWindowVisible(hWnd)) return false;
+
+            // 先放宽 Windows 前台窗口锁定超时限制，提升 SetForegroundWindow 成功率。
             SystemParametersInfo(SPI_SETFOREGROUNDLOCKTIMEOUT, 0, IntPtr.Zero, 0);
 
-            uint foregroundThreadId = GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero);
-            uint currentThreadId = GetCurrentThreadId();
+            // CopyQ: 重试 + 每次尝试后验证前台窗口确实是目标窗口。
+            // 焦点恢复（HideWindow 后系统将前台还给目标窗口）是异步消息，
+            // 可能与本激活操作竞争，因此需要重试而非一次定论。
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                uint foregroundThreadId = GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero);
+                uint currentThreadId = GetCurrentThreadId();
 
-            bool attached = false;
-            if (foregroundThreadId != currentThreadId && foregroundThreadId != 0)
-            {
-                AttachThreadInput(currentThreadId, foregroundThreadId, true);
-                attached = true;
-            }
-
-            try
-            {
-                SetForegroundWindow(hWnd);
-            }
-            finally
-            {
-                if (attached)
+                bool attached = false;
+                if (foregroundThreadId != currentThreadId && foregroundThreadId != 0)
                 {
-                    AttachThreadInput(currentThreadId, foregroundThreadId, false);
+                    attached = AttachThreadInput(currentThreadId, foregroundThreadId, true);
                 }
-            }
 
-            // 验证窗口是否已成为前台
-            IntPtr newForeground = GetForegroundWindow();
-            IntPtr newRoot = GetAncestor(newForeground, GA_ROOT);
-            if (newRoot != hWnd && newForeground != hWnd)
-            {
+                try
+                {
+                    SetForegroundWindow(hWnd);
+                    // CopyQ raiseWindowHelper: SetWindowPos 将窗口提到 Z 序顶端，
+                    // 与 SetForegroundWindow 双保险，确保目标窗口可见且位于顶层。
+                    SetWindowPos(hWnd, HWND_TOP, 0, 0, 0, 0,
+                        (uint)(SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW));
+                }
+                finally
+                {
+                    if (attached)
+                    {
+                        AttachThreadInput(currentThreadId, foregroundThreadId, false);
+                    }
+                }
+
+                if (IsForegroundWindow(hWnd)) return true;
+
                 // SetForegroundWindow 可能因 Windows 前台窗口限制而失败，
-                // 使用模拟 Alt 键按下/释放的方式触发系统允许前台切换的机制。
+                // 使用模拟 Alt 键按下/释放的方式触发系统允许前台切换的机制后重试。
                 keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
                 SetForegroundWindow(hWnd);
                 keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+
+                if (IsForegroundWindow(hWnd)) return true;
+
+                Thread.Sleep(30);
             }
+
+            return false;
+        }
+
+        private static bool IsForegroundWindow(IntPtr hWnd)
+        {
+            IntPtr foreground = GetForegroundWindow();
+            IntPtr root = GetAncestor(foreground, GA_ROOT);
+            return root == hWnd || foreground == hWnd;
         }
 
         private void PostPasteFlow(string pasteHashText = null, List<string> pasteHashFiles = null,

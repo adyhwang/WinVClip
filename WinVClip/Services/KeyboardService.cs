@@ -70,6 +70,28 @@ namespace WinVClip.Services
             return (ctrl, alt, shift, win);
         }
 
+        /// <summary>
+        /// 参考 CopyQ waitForModifiersReleased：轮询等待用户释放所有修饰键，
+        /// 避免注入的粘贴快捷键与用户尚未松开的修饰键叠加（如 Ctrl+Ctrl+V）。
+        /// 返回是否在超时前全部释放；超时不中断粘贴流程（修饰键+点击组合粘贴时
+        /// 用户确实按住修饰键，由 SimulatePaste 自适应复用已按下的修饰键）。
+        /// </summary>
+        public static bool WaitForModifiersReleased(int maxWaitMs)
+        {
+            int waited = 0;
+            while (waited < maxWaitMs)
+            {
+                var (ctrl, alt, shift, win) = GetModifierKeysState();
+                if (!ctrl && !alt && !shift && !win)
+                    return true;
+                Thread.Sleep(10);
+                waited += 10;
+            }
+
+            var (c, a, s, w) = GetModifierKeysState();
+            return !c && !a && !s && !w;
+        }
+
         public static void SimulatePaste(PasteShortcutMode mode = PasteShortcutMode.CtrlV)
         {
             if (mode == PasteShortcutMode.Auto)
