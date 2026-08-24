@@ -68,6 +68,7 @@
     "MainWindow.ContextMenu.Delete": "Delete",
     "MainWindow.ContextMenu.QuickCommands": "Quick Commands",
     "MainWindow.ContextMenu.PasteRemoveNewlines": "Paste as Plain Text (Remove Newlines)",
+    "MainWindow.ContextMenu.PasteAndDelete": "Paste and Delete",
     "MainWindow.ContextMenu.MultiSelectMode": "Multi-Select Mode",
     "MainWindow.ContextMenu.BatchDelete": "Batch Delete",
     "MainWindow.ContextMenu.BatchPaste": "Batch Paste",

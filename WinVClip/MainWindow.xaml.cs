@@ -1092,6 +1092,8 @@ namespace WinVClip
         private double _savedLeft;
         private double _savedTop;
         private System.Windows.Point _dragStartPoint;
+        /// <summary>本次按下的拖拽是否已启动，防止 MouseMove 连续触发 DoDragDrop 重入。</summary>
+        private bool _isDragStarted;
 
         private System.Windows.Threading.DispatcherTimer _tooltipTimer;
         private ClipboardItem _currentTooltipItem;
@@ -1100,6 +1102,13 @@ namespace WinVClip
         private IntPtr _lastFocusHwndWhenShow = IntPtr.Zero;
         private IntPtr _capturedTargetHwnd = IntPtr.Zero;
         private List<Models.QuickPasteShortcut> _quickPasteShortcuts = new List<Models.QuickPasteShortcut>();
+
+        /// <summary>粘贴后删除：延迟清空系统剪贴板的定时器（10 秒）。</summary>
+        private System.Windows.Threading.DispatcherTimer _pasteAndDeleteClearTimer;
+        /// <summary>粘贴后删除：待清理的文本内容（用于清理前比对剪贴板是否仍为本程序写入的内容）。</summary>
+        private string _pasteAndDeleteClearText;
+        /// <summary>粘贴后删除：待清理的文件列表。</summary>
+        private List<string> _pasteAndDeleteClearFiles;
 
         private System.Threading.Timer _backgroundGcTimer;
 
@@ -1176,6 +1185,7 @@ namespace WinVClip
             MenuPasteWithFormat.Header = Loc.Get("MainWindow.ContextMenu.PasteWithFormat", "带格式粘贴");
             MenuPasteAsText.Header = Loc.Get("MainWindow.ContextMenu.PasteAsText", "纯文本粘贴");
             MenuPasteRemoveNewlines.Header = Loc.Get("MainWindow.ContextMenu.PasteRemoveNewlines", "纯文本去换行粘贴");
+            MenuPasteAndDelete.Header = Loc.Get("MainWindow.ContextMenu.PasteAndDelete", "粘贴后删除");
             MenuPasteAsImage.Header = Loc.Get("MainWindow.ContextMenu.PasteAsImage", "图片粘贴");
             MenuImagePaste.Header = Loc.Get("MainWindow.ContextMenu.ImagePaste", "图片粘贴");
             MenuImageFilePaste.Header = Loc.Get("MainWindow.ContextMenu.ImageFilePaste", "图片文件粘贴");
@@ -1743,6 +1753,13 @@ namespace WinVClip
             SetWindowActivateStyle(true);
             e.Handled = false;
             DeactivateWindowDeferred();
+
+            // 左键按下时记录拖拽判定起点（供 ItemGrid_MouseMove 检测拖拽阈值）
+            if (e.ChangedButton == MouseButton.Left)
+            {
+                _dragStartPoint = e.GetPosition(this);
+                _isDragStarted = false;
+            }
 
             // 左键/中键按下时捕获目标窗口句柄（供粘贴类操作使用）
             // 多选模式下点击用于选择条目，不应捕获粘贴目标
@@ -2501,6 +2518,121 @@ namespace WinVClip
                 PasteItemAsPlainTextRemoveNewlines(item);
         }
 
+        /// <summary>粘贴条目（保留原格式）后从数据库删除该条目。</summary>
+        private void PasteAndDelete_Click(object sender, RoutedEventArgs e)
+        {
+            if (ClipboardListBox.SelectedItem is ClipboardItem item)
+                PasteAndDeleteItem(item);
+        }
+
+        /// <summary>按原格式粘贴条目，粘贴内容写入剪贴板后从数据库移除该条目。</summary>
+        private void PasteAndDeleteItem(ClipboardItem item)
+        {
+            if (_isPasting) return;
+
+            try
+            {
+                _isPasting = true;
+
+                SetClipboardContent(item);
+
+                var hashText = (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText)
+                    ? item.Content ?? "" : null;
+                var hashFiles = item.Type == ClipboardType.FileList && item.FilePaths != null
+                    ? item.FilePaths : null;
+
+                // 不传 moveTopItem：条目即将删除，无需置顶刷新
+                PostPasteFlow(pasteHashText: hashText, pasteHashFiles: hashFiles);
+
+                // 剪贴板内容已写入，删除数据库条目不影响后续粘贴注入
+                DeleteItem(item);
+
+                // 延迟 10 秒清空系统剪贴板，避免敏感数据残留
+                ScheduleClipboardClearAfterPasteAndDelete(item);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isPasting = false;
+            }
+        }
+
+        /// <summary>粘贴后删除：启动 10 秒定时器，到期后若剪贴板内容仍为本程序写入的则清空。
+        /// 期间用户复制了新内容则跳过清理，避免误删。</summary>
+        private void ScheduleClipboardClearAfterPasteAndDelete(ClipboardItem item)
+        {
+            _pasteAndDeleteClearText = (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText)
+                ? item.Content ?? "" : null;
+            _pasteAndDeleteClearFiles = item.Type == ClipboardType.FileList && item.FilePaths != null
+                ? item.FilePaths.ToList() : null;
+
+            if (_pasteAndDeleteClearTimer == null)
+            {
+                _pasteAndDeleteClearTimer = new System.Windows.Threading.DispatcherTimer
+                {
+                    Interval = TimeSpan.FromSeconds(10)
+                };
+                _pasteAndDeleteClearTimer.Tick += PasteAndDeleteClearTimer_Tick;
+            }
+            // 重复调用时重置计时，以最后一次粘贴后删除的内容为准
+            _pasteAndDeleteClearTimer.Stop();
+            _pasteAndDeleteClearTimer.Start();
+        }
+
+        /// <summary>定时器到期：比对剪贴板内容未被替换后清空系统剪贴板。</summary>
+        private void PasteAndDeleteClearTimer_Tick(object sender, EventArgs e)
+        {
+            _pasteAndDeleteClearTimer.Stop();
+            var text = _pasteAndDeleteClearText;
+            var files = _pasteAndDeleteClearFiles;
+            _pasteAndDeleteClearText = null;
+            _pasteAndDeleteClearFiles = null;
+
+            try
+            {
+                bool isOurs;
+                if (text != null)
+                    isOurs = ClipboardWin32Helper.ContainsText()
+                        && string.Equals(ClipboardWin32Helper.GetText(), text, StringComparison.Ordinal);
+                else if (files != null)
+                    isOurs = IsClipboardFileListEqual(files);
+                else
+                    // 图片无法低成本比对，剪贴板仍为图片即视为未被替换
+                    isOurs = ClipboardWin32Helper.ContainsImage();
+
+                if (isOurs)
+                    ClipboardWin32Helper.Clear();
+            }
+            catch
+            {
+                // 清理失败不影响主流程
+            }
+        }
+
+        /// <summary>比较剪贴板当前文件列表与指定列表是否一致（忽略顺序与大小写）。</summary>
+        private static bool IsClipboardFileListEqual(List<string> files)
+        {
+            if (!ClipboardWin32Helper.ContainsFileDropList())
+                return false;
+
+            var dataObject = ClipboardWin32Helper.GetDataObject();
+            var current = dataObject?.GetData(System.Windows.DataFormats.FileDrop) as string[];
+            if (current == null || current.Length != files.Count)
+                return false;
+
+            var a = current.OrderBy(p => p, StringComparer.OrdinalIgnoreCase).ToList();
+            var b = files.OrderBy(p => p, StringComparer.OrdinalIgnoreCase).ToList();
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (!string.Equals(a[i], b[i], StringComparison.OrdinalIgnoreCase))
+                    return false;
+            }
+            return true;
+        }
+
         private void PasteAsImage_Click(object sender, RoutedEventArgs e)
         {
             if (ClipboardListBox.SelectedItem is not ClipboardItem item) return;
@@ -2952,6 +3084,9 @@ namespace WinVClip
                     break;
                 case Models.QuickPasteAction.PasteRemoveNewlines:
                     PasteItemAsPlainTextRemoveNewlines(item);
+                    break;
+                case Models.QuickPasteAction.PasteAndDelete:
+                    PasteAndDeleteItem(item);
                     break;
                 case Models.QuickPasteAction.Edit:
                     EditMenuItem_Click(null, null);
@@ -3639,29 +3774,160 @@ namespace WinVClip
 
         private void ItemGrid_MouseMove(object sender, MouseEventArgs e)
         {
-            if (e.LeftButton == MouseButtonState.Pressed && sender is Grid grid)
+            if (e.LeftButton != MouseButtonState.Pressed)
             {
-                var diff = _dragStartPoint - e.GetPosition(null);
-                if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
-                    Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+                _dragStartPoint = e.GetPosition(this);
+                return;
+            }
+
+            // 拖拽已启动（DoDragDrop 模态循环内）或已触发过一次，本次按下不再重入
+            // 注意：MouseMove 挂载在 ItemBorder（Border）上，sender 是 Border 而非 Grid
+            if (_isDragStarted || sender is not FrameworkElement fe)
+                return;
+
+            var diff = _dragStartPoint - e.GetPosition(this);
+            if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+            {
+                if (fe.DataContext is ClipboardItem item)
                 {
-                    if (grid.DataContext is ClipboardItem item)
+                    _isDragStarted = true;
+                    try
                     {
                         StartDrag(item);
                     }
+                    finally
+                    {
+                        _isDragStarted = false;
+                    }
                 }
-            }
-            else
-            {
-                _dragStartPoint = e.GetPosition(null);
             }
         }
 
+        /// <summary>启动拖拽。多选模式批量拖拽所有勾选条目；普通模式拖拽当前条目。</summary>
         private void StartDrag(ClipboardItem item)
         {
-            var data = new DataObject();
-            SetClipboardContent(item, data);
+            List<ClipboardItem> items;
+            if (_viewModel.IsMultiSelectMode)
+            {
+                items = _viewModel.GetSelectedItems();
+                // 按下的条目未勾选时，单独拖拽该条目本身
+                if (!items.Contains(item))
+                    items = new List<ClipboardItem> { item };
+            }
+            else
+            {
+                items = new List<ClipboardItem> { item };
+            }
+
+            if (items.Count == 0)
+                return;
+
+            var data = BuildDragDataObject(items);
+            if (data == null)
+                return;
+
+            // DoDragDrop 模态循环会捕获并消费鼠标消息（含释放），
+            // 不会触发 ClipboardListBox_PreviewMouseLeftButtonUp 的单击粘贴/勾选逻辑
             DragDrop.DoDragDrop(ClipboardListBox, data, DragDropEffects.Copy);
+        }
+
+        /// <summary>构建拖拽数据。单条目复用 SetClipboardContent 的 DataObject 分支（与复制到剪贴板格式一致），
+        /// 并对图片/本地路径文本附加文件拖放格式；多条目按类型合并（文件列表去重保序 + 文本换行合并）。</summary>
+        private DataObject BuildDragDataObject(List<ClipboardItem> items)
+        {
+            if (items.Count == 1)
+            {
+                var data = new DataObject();
+                SetClipboardContent(items[0], data);
+
+                // 图片条目：附加图片文件拖放（拖到资源管理器=复制文件，拖到编辑器=粘贴图片）
+                // 本地路径文本：附加文件拖放（拖到资源管理器=复制文件）
+                var localFiles = TryGetItemLocalFiles(items[0]);
+                if (localFiles.Count > 0)
+                {
+                    var fileCollection = new System.Collections.Specialized.StringCollection();
+                    fileCollection.AddRange(localFiles.ToArray());
+                    data.SetFileDropList(fileCollection);
+                }
+
+                return data.GetFormats().Length > 0 ? data : null;
+            }
+
+            // ── 多条目合并 ──
+            var merged = new DataObject();
+            var allFiles = new List<string>();
+            var textParts = new List<string>();
+
+            foreach (var it in items)
+            {
+                var files = TryGetItemLocalFiles(it);
+                if (files.Count > 0)
+                    allFiles.AddRange(files);
+
+                if ((it.Type == ClipboardType.Text || it.Type == ClipboardType.RichText) &&
+                    !string.IsNullOrEmpty(it.Content))
+                {
+                    textParts.Add(it.Content);
+                }
+            }
+
+            if (allFiles.Count > 0)
+            {
+                var fileCollection = new System.Collections.Specialized.StringCollection();
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var path in allFiles)
+                {
+                    if (seen.Add(path))
+                        fileCollection.Add(path);
+                }
+                if (fileCollection.Count > 0)
+                    merged.SetFileDropList(fileCollection);
+            }
+
+            if (textParts.Count > 0)
+            {
+                string combined = string.Join(Environment.NewLine, textParts);
+                merged.SetText(combined, TextDataFormat.UnicodeText);
+                merged.SetText(combined, TextDataFormat.Text);
+            }
+
+            return merged.GetFormats().Length > 0 ? merged : null;
+        }
+
+        /// <summary>获取条目对应的本地文件路径：
+        /// FileList 取全部存在路径；Image 取图片文件；本地路径文本（IsLocalPath）取该路径。</summary>
+        private static List<string> TryGetItemLocalFiles(ClipboardItem item)
+        {
+            var files = new List<string>();
+            try
+            {
+                if (item.Type == ClipboardType.FileList && item.FilePaths?.Count > 0)
+                {
+                    foreach (var path in item.FilePaths)
+                    {
+                        if (File.Exists(path))
+                            files.Add(path);
+                    }
+                }
+                else if (item.Type == ClipboardType.Image && !string.IsNullOrEmpty(item.ImagePath))
+                {
+                    string fullPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, item.ImagePath);
+                    if (File.Exists(fullPath))
+                        files.Add(fullPath);
+                }
+                else if ((item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText) && item.IsLocalPath)
+                {
+                    string path = TrimQuotes(item.Content?.Trim() ?? "");
+                    if (File.Exists(path))
+                        files.Add(path);
+                }
+            }
+            catch
+            {
+                // 路径解析失败时忽略文件格式，仅保留其他拖拽数据
+            }
+            return files;
         }
 
         private void ItemBorder_MouseEnter(object sender, MouseEventArgs e)

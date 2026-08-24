@@ -26,6 +26,7 @@ namespace WinVClip.Models
         Delete,              // 删除
         PasteAsPlainText,    // 以纯文本粘贴
         PasteRemoveNewlines, // 移除换行符以纯文本粘贴
+        PasteAndDelete,      // 粘贴后删除（从数据库移除该条目）
         Group,               // 分组（弹出分组菜单）
         CustomRegex          // 自定义处理文本（正则提取后粘贴）
     }

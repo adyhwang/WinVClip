@@ -67,6 +67,7 @@
     "MainWindow.ContextMenu.Delete": "刪除",
     "MainWindow.ContextMenu.QuickCommands": "快捷命令",
     "MainWindow.ContextMenu.PasteRemoveNewlines": "純文字去換行貼上",
+    "MainWindow.ContextMenu.PasteAndDelete": "貼上後刪除",
     "MainWindow.ContextMenu.MultiSelectMode": "多選模式",
     "MainWindow.ContextMenu.BatchDelete": "批次刪除",
     "MainWindow.ContextMenu.BatchPaste": "批次貼上",

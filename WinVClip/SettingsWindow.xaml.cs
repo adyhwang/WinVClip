@@ -2131,7 +2131,7 @@ namespace WinVClip
             };
         }
 
-        /// <summary>向 ActionComboBox 填充 9 个内建静态操作项（不含动态快捷命令分组）。</summary>
+        /// <summary>向 ActionComboBox 填充 10 个内建静态操作项（不含动态快捷命令分组）。</summary>
         private void FillStaticActionItems(ComboBox actionCombo)
         {
             actionCombo.Items.Add(MakeComboItem(Loc.Get("MainWindow.ContextMenu.CharPicker", "拆分选字"), QuickPasteAction.Split.ToString()));
@@ -2142,6 +2142,7 @@ namespace WinVClip
             actionCombo.Items.Add(MakeComboItem(Loc.Get("MainWindow.ContextMenu.Delete", "删除"), QuickPasteAction.Delete.ToString()));
             actionCombo.Items.Add(MakeComboItem(Loc.Get("MainWindow.ContextMenu.PasteAsText", "以纯文本粘贴"), QuickPasteAction.PasteAsPlainText.ToString()));
             actionCombo.Items.Add(MakeComboItem(Loc.Get("Settings.Hotkey.QuickPaste.PasteRemoveNewlines", "移除换行符以纯文本粘贴"), QuickPasteAction.PasteRemoveNewlines.ToString()));
+            actionCombo.Items.Add(MakeComboItem(Loc.Get("MainWindow.ContextMenu.PasteAndDelete", "粘贴后删除"), QuickPasteAction.PasteAndDelete.ToString()));
             actionCombo.Items.Add(MakeComboItem(Loc.Get("MainWindow.ContextMenu.Group", "分组"), QuickPasteAction.Group.ToString()));
         }
 
