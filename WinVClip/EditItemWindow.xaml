@@ -37,7 +37,7 @@
                      VerticalScrollBarVisibility="Auto"
                      HorizontalScrollBarVisibility="Auto"/>
 
-            <!-- 快捷命令区域 -->
+            
             <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,12,0,0">
                 <TextBlock x:Name="ActionLabel" Text="快捷命令"
                            Foreground="{DynamicResource TextForeground}"

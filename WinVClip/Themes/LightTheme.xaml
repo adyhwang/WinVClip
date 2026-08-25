@@ -6,7 +6,7 @@
         <ResourceDictionary Source="SharedStyles.xaml"/>
     </ResourceDictionary.MergedDictionaries>
     
-    <!-- 设置窗口专用颜色 -->
+    
     <SolidColorBrush x:Key="HeaderBackground" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="SidebarBackground" Color="#F8F9FA"/>
     <SolidColorBrush x:Key="FooterBackground" Color="#F8F9FA"/>
@@ -46,7 +46,7 @@
     <SolidColorBrush x:Key="InputBackground" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="InputBorderBrush" Color="#E0E0E0"/>
     
-    <!-- 浅色主题特定样式 -->
+    
     <Style TargetType="Thumb" BasedOn="{StaticResource {x:Type Thumb}}" x:Key="LightScrollBarThumbStyle">
         <Setter Property="Background" Value="#C0C0C0"/>
         <Style.Triggers>
@@ -72,9 +72,9 @@
         </Style.Triggers>
     </Style>
     
-    <!-- 设置窗口现代化样式 -->
     
-    <!-- 导航按钮样式 -->
+    
+    
     <Style x:Key="NavRadioButtonStyle" TargetType="RadioButton">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{DynamicResource SecondaryTextForeground}"/>
@@ -107,7 +107,7 @@
         </Setter>
     </Style>
     
-    <!-- 设置卡片样式 -->
+    
     <Style x:Key="SettingCardStyle" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource CardBackground}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
@@ -117,7 +117,7 @@
         <Setter Property="Margin" Value="0,0,0,16"/>
     </Style>
     
-    <!-- 现代化复选框样式 -->
+    
     <Style x:Key="ModernCheckBoxStyle" TargetType="CheckBox">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{DynamicResource TextForeground}"/>
@@ -163,7 +163,7 @@
         </Setter>
     </Style>
     
-    <!-- 现代化下拉框样式 -->
+    
     <Style x:Key="ModernComboBoxStyle" TargetType="ComboBox">
         <Setter Property="Background" Value="{DynamicResource InputBackground}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextForeground}"/>
@@ -244,7 +244,7 @@
         </Setter>
     </Style>
     
-    <!-- 标签按钮样式 -->
+    
     <Style x:Key="TagButtonStyle" TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource NavSelectedBackground}"/>
         <Setter Property="Foreground" Value="{DynamicResource NavSelectedForeground}"/>
@@ -272,7 +272,7 @@
         </Style.Triggers>
     </Style>
     
-    <!-- 操作按钮样式 -->
+    
     <Style x:Key="ActionButtonStyle" TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource CardBackground}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextForeground}"/>

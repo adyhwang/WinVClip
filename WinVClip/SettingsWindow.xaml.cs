@@ -29,7 +29,7 @@ namespace WinVClip
         public SettingsWindow(SettingsService settingsService)
         {
             _settingsService = settingsService;
-            // 从计划任务读取开机启动状态
+            
             _originalStartWithWindows = _settingsService.IsStartupEnabled();
             
             _originalSettings = new AppSettings
@@ -353,7 +353,7 @@ namespace WinVClip
             UpdateCustomSearchEngineGridVisibility();
         }
 
-        // 修饰键的标准顺序
+        
         private static readonly string[] ModifierOrder = { "Ctrl", "Alt", "Shift", "Win" };
 
         private void HotkeyTextBox_GotFocus(object sender, RoutedEventArgs e)
@@ -371,7 +371,7 @@ namespace WinVClip
 
             e.Handled = true;
 
-            // 处理 System 键（包括 Win 键）
+            
             if (e.Key == Key.System)
             {
                 var systemKey = e.SystemKey;
@@ -387,11 +387,11 @@ namespace WinVClip
                 }
             }
 
-            // 获取修饰键名称
+            
             string? modifierKey = GetModifierKeyName(e.Key);
             if (modifierKey != null)
             {
-                // 防止重复添加相同的修饰键
+                
                 if (!_pressedModifiers.Contains(modifierKey, StringComparer.OrdinalIgnoreCase))
                 {
                     _pressedModifiers.Add(modifierKey);
@@ -417,7 +417,7 @@ namespace WinVClip
                 return;
             }
 
-            // 处理普通按键（不是功能键如 System）
+            
             if (e.Key != Key.System && !IsModifierKey(e.Key))
             {
                 var keyName = GetKeyDisplayName(e.Key);
@@ -426,10 +426,10 @@ namespace WinVClip
                 HotkeyTextBox.Text = string.Join("+", allKeys);
                 _pressedModifiers.Clear();
 
-                // 自动验证并应用快捷键
+                
                 _ = Task.Run(async () =>
                 {
-                    await Task.Delay(100); // 短暂延迟让用户看到完整快捷键
+                    await Task.Delay(100); 
                     await Dispatcher.InvokeAsync(() =>
                     {
                         if (HotkeyTextBox.IsFocused)
@@ -480,7 +480,7 @@ namespace WinVClip
 
         private void UpdateHotkeyDisplay()
         {
-            // 按标准顺序排序修饰键
+            
             var orderedModifiers = ModifierOrder
                 .Where(m => _pressedModifiers.Contains(m, StringComparer.OrdinalIgnoreCase));
             HotkeyTextBox.Text = string.Join("+", orderedModifiers);
@@ -494,17 +494,17 @@ namespace WinVClip
 
                 var newHotkey = HotkeyTextBox.Text;
 
-                // 如果用户没有输入任何内容，恢复原来的快捷键
+                
                 if (string.IsNullOrWhiteSpace(newHotkey) || newHotkey == Loc.Get("Settings.General.Hotkey.PressingKeys", "按下快捷键组合..."))
                 {
                     HotkeyTextBox.Text = _tempHotkey;
                     return;
                 }
 
-                // 标准化快捷键格式
+                
                 newHotkey = HotkeyService.NormalizeHotkey(newHotkey);
 
-                // 使用静态方法验证格式（更高效，不需要注册）
+                
                 if (!HotkeyService.ValidateHotkey(newHotkey))
                 {
                     HotkeyTextBox.Text = _tempHotkey;
@@ -512,21 +512,21 @@ namespace WinVClip
                     return;
                 }
 
-                // 检查是否与当前快捷键相同
+                
                 if (newHotkey.Equals(_tempHotkey, StringComparison.OrdinalIgnoreCase))
                 {
                     HotkeyTextBox.Text = newHotkey;
                     return;
                 }
 
-                // 检查 Win+V 冲突
+                
                 if (!CheckAndHandleWinVConflict(newHotkey))
                 {
                     HotkeyTextBox.Text = _tempHotkey;
                     return;
                 }
 
-                // 检查是否已被其他应用占用
+                
                 if (!IsHotkeyAvailable(newHotkey))
                 {
                     HotkeyTextBox.Text = _tempHotkey;
@@ -545,7 +545,7 @@ namespace WinVClip
         {
             try
             {
-                // 使用临时 HotkeyService 进行验证，避免影响当前注册的快捷键
+                
                 using var tempService = new HotkeyService(IntPtr.Zero);
                 return tempService.RegisterHotkey(hotkey, () => { });
             }
@@ -557,15 +557,15 @@ namespace WinVClip
 
         private bool CheckAndHandleWinVConflict(string hotkey)
         {
-            // 检查是否是 Win+V 快捷键
+            
             if (!hotkey.Equals("Win+V", StringComparison.OrdinalIgnoreCase))
-                return true; // 不是 Win+V，直接通过
+                return true; 
 
-            // 检查系统 Win+V 是否已禁用
+            
             if (IsSystemWinVDisabled())
-                return true; // 已禁用，可以使用
+                return true; 
 
-            // 检查是否有管理员权限
+            
             if (!IsAdministrator())
             {
                 var result = MessageBox.Show(
@@ -581,7 +581,7 @@ namespace WinVClip
                 return false;
             }
 
-            // 弹出提示
+            
             var confirmResult = MessageBox.Show(
                 Loc.Get("Settings.Hotkey.WinVConflict", "该快捷键与系统快捷键冲突，需要在注册表禁用系统的历史剪贴板并重启资源管理器。\n\n是否继续？"),
                 Loc.Get("Settings.Hotkey.ConflictTitle", "快捷键冲突"),
@@ -591,7 +591,7 @@ namespace WinVClip
             if (confirmResult != MessageBoxResult.OK)
                 return false;
 
-            // 禁用系统 Win+V
+            
             return DisableSystemWinV();
         }
 
@@ -617,7 +617,7 @@ namespace WinVClip
                 {
                     FileName = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName ?? System.Reflection.Assembly.GetExecutingAssembly().Location,
                     UseShellExecute = true,
-                    Verb = "runas" // 请求管理员权限
+                    Verb = "runas" 
                 };
 
                 System.Diagnostics.Process.Start(processInfo);
@@ -657,7 +657,7 @@ namespace WinVClip
                 using var key = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Clipboard");
                 key.SetValue("IsCloudAndHistoryFeatureAvailable", 0, Microsoft.Win32.RegistryValueKind.DWord);
 
-                // 重启资源管理器
+                
                 RestartExplorer();
 
                 MessageBox.Show(Loc.Get("Settings.Hotkey.WinVDisabled", "系统 Win+V 已禁用，资源管理器已重启。\n\n现在可以使用 Win+V 作为快捷键了。"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
@@ -674,7 +674,7 @@ namespace WinVClip
         {
             try
             {
-                // 结束资源管理器进程
+                
                 var processes = System.Diagnostics.Process.GetProcessesByName("explorer");
                 foreach (var process in processes)
                 {
@@ -688,17 +688,17 @@ namespace WinVClip
                     }
                 }
 
-                // 启动资源管理器
+                
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = "explorer.exe",
                     UseShellExecute = true
                 });
 
-                // 等待资源管理器启动并重建系统托盘
+                
                 System.Threading.Thread.Sleep(2000);
 
-                // 重新创建托盘图标
+                
                 App.RecreateTrayIcon();
             }
             catch
@@ -710,7 +710,7 @@ namespace WinVClip
         {
             if (sender is Button button && button.Tag is string hotkey)
             {
-                // 检查是否与当前快捷键相同
+                
                 if (hotkey.Equals(_tempHotkey, StringComparison.OrdinalIgnoreCase))
                 {
                     MessageBox.Show(Loc.Get("Settings.Hotkey.AlreadyCurrent", "该快捷键已经是当前设置。"), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
@@ -1013,7 +1013,7 @@ namespace WinVClip
 
             if (dialog.ShowDialog() == true)
             {
-                // 创建进度窗口
+                
                 var progressWindow = new Window
                 {
                     Title = Loc.Get("Import.Title", "导入数据"),
@@ -1050,7 +1050,7 @@ namespace WinVClip
                 stackPanel.Children.Add(detailText);
                 progressWindow.Content = stackPanel;
 
-                // 异步执行导入
+                
                 _ = Task.Run(async () =>
                 {
                     try
@@ -1622,7 +1622,7 @@ namespace WinVClip
                 LocalizationService.Instance.LoadLanguage(_settingsService.Settings.Language);
             }
 
-            // 全局快捷键 / 显示隐藏热键变更后统一重新注册全部热键
+            
             App.RegisterAllHotkeys();
             SyncGlobalHotkeyEntrySnapshots();
             _originalSettings.GlobalHotkeys = _settingsService.Settings.GlobalHotkeys?
@@ -1699,7 +1699,7 @@ namespace WinVClip
                                 _settingsService.Settings.RetentionDays != _originalSettings.RetentionDays;
             var themeChanged = _settingsService.Settings.Theme != _originalSettings.Theme;
             var languageChanged = _settingsService.Settings.Language != _originalSettings.Language;
-            // 从CheckBox获取当前开机启动状态
+            
             var currentStartWithWindows = StartWithWindowsCheckBox?.IsChecked ?? false;
             var startWithWindowsChanged = currentStartWithWindows != _originalStartWithWindows;
 
@@ -1708,7 +1708,7 @@ namespace WinVClip
             CollectGlobalHotkeyEntries();
             _settingsService.SaveSettings();
 
-            // 更新原始设置，使应用后的设置成为新的基准
+            
             _originalSettings.Hotkey = _settingsService.Settings.Hotkey;
             _originalSettings.CaptureImages = _settingsService.Settings.CaptureImages;
             _originalSettings.CaptureFiles = _settingsService.Settings.CaptureFiles;
@@ -1730,12 +1730,12 @@ namespace WinVClip
                 .Select(s => s.Clone()).ToList() ?? new List<QuickCommand>();
             _originalSettings.GlobalHotkeys = _settingsService.Settings.GlobalHotkeys?
                 .Select(g => g.Clone()).ToList() ?? new List<GlobalHotkey>();
-            // 同步每条条目的「已保存快照」为当前值，供「重置」按钮使用
+            
             SyncQuickPasteEntrySnapshots();
             SyncQuickCommandEntrySnapshots();
             SyncGlobalHotkeyEntrySnapshots();
 
-            // 全局快捷键 / 显示隐藏热键变更后统一重新注册全部热键
+            
             App.RegisterAllHotkeys();
 
             if (monitoringChanged)
@@ -1778,7 +1778,7 @@ namespace WinVClip
         {
             if (sender is RadioButton radioButton && radioButton.Tag is string tag)
             {
-                // 隐藏所有面板
+                
                 PanelGeneral.Visibility = Visibility.Collapsed;
                 PanelHotkey.Visibility = Visibility.Collapsed;
                 PanelQuickCommand.Visibility = Visibility.Collapsed;
@@ -1789,7 +1789,7 @@ namespace WinVClip
                 PanelSystem.Visibility = Visibility.Collapsed;
                 PanelAbout.Visibility = Visibility.Collapsed;
 
-                // 显示选中的面板
+                
                 switch (tag)
                 {
                     case "General":
@@ -1953,7 +1953,7 @@ namespace WinVClip
                 DataContext = _settingsService.Settings;
 
                 UpdateCustomSearchEngineGridVisibility();
-                // 重建条目
+                
                 QuickPasteEntriesPanel.Children.Clear();
                 LoadQuickPasteEntries();
                 QuickCommandEntriesPanel.Children.Clear();
@@ -1969,7 +1969,7 @@ namespace WinVClip
 
         #region 便捷粘贴快捷键条目
 
-        /// <summary>便捷粘贴条目控件的命名约定，便于在代码中按名称查找。</summary>
+        
         private const string EntryTypeComboBox = "TypeComboBox";
         private const string EntryCtrlCheckBox = "CtrlCheckBox";
         private const string EntryShiftCheckBox = "ShiftCheckBox";
@@ -1978,7 +1978,7 @@ namespace WinVClip
         private const string EntryActionComboBox = "ActionComboBox";
         private const string EntryEnabledCheckBox = "EnabledCheckBox";
 
-        /// <summary>从已保存设置加载并构建所有便捷粘贴条目。</summary>
+        
         private void LoadQuickPasteEntries()
         {
             QuickPasteEntriesPanel.Children.Clear();
@@ -1990,7 +1990,7 @@ namespace WinVClip
             }
         }
 
-        /// <summary>➕按钮：新增一条默认值条目。</summary>
+        
         private void AddQuickPasteEntry_Click(object sender, RoutedEventArgs e)
         {
             var defaults = new QuickPasteShortcut
@@ -2005,10 +2005,10 @@ namespace WinVClip
             QuickPasteEntriesPanel.Children.Add(BuildQuickPasteEntry(defaults));
         }
 
-        /// <summary>构建单条便捷粘贴快捷键条目 UI。</summary>
+        
         private Border BuildQuickPasteEntry(QuickPasteShortcut saved)
         {
-            // 卡片样式边框，可通过确认按钮改绿色
+            
             var entryBorder = new Border
             {
                 BorderBrush = (Brush)FindResource("InputBorderBrush"),
@@ -2017,13 +2017,13 @@ namespace WinVClip
                 Padding = new Thickness(10),
                 Margin = new Thickness(0, 0, 0, 8),
                 Background = (Brush)FindResource("InputBackground"),
-                Tag = saved.Clone() // 已保存快照，供重置使用
+                Tag = saved.Clone() 
             };
 
             var root = new StackPanel { Margin = new Thickness(0) };
             entryBorder.Child = root;
 
-            // ===== 第一行：类型 + 修饰键 + 鼠标按键 + 操作 =====
+            
             var row1 = new WrapPanel { Margin = new Thickness(0, 0, 0, 6) };
 
             var typeCombo = BuildClipboardTypeCombo(EntryTypeComboBox, saved.ClipboardType);
@@ -2070,7 +2070,7 @@ namespace WinVClip
 
             var actionCombo = BuildActionComboBox(EntryActionComboBox, saved.Action, saved.QuickCommandName,
                 saved.ClipboardType);
-            // 下拉展开时按当前条目类型过滤快捷命令（与「快捷命令」tab 改动同步）
+            
             actionCombo.DropDownOpened += (s, e) =>
             {
                 var selectedTag = (actionCombo.SelectedItem as ComboBoxItem)?.Tag as string;
@@ -2090,7 +2090,7 @@ namespace WinVClip
 
             root.Children.Add(row1);
 
-            // 任一控件被修改后，移除绿色"已确认"边框，提示用户需重新确认
+            
             typeCombo.SelectionChanged += (s, e) => ResetEntryBorder(entryBorder);
             mouseCombo.SelectionChanged += (s, e) => ResetEntryBorder(entryBorder);
             actionCombo.SelectionChanged += (s, e) => ResetEntryBorder(entryBorder);
@@ -2098,7 +2098,7 @@ namespace WinVClip
             shiftCb.Click += (s, e) => ResetEntryBorder(entryBorder);
             altCb.Click += (s, e) => ResetEntryBorder(entryBorder);
 
-            // ===== 第三行：启用 / 重置 / 删除 / 确定（靠右） =====
+            
             var row3 = BuildEntryButtons(
                 EntryEnabledCheckBox, saved.Enabled,
                 (s, e) => OnQuickPasteConfirm(entryBorder),
@@ -2115,9 +2115,9 @@ namespace WinVClip
             return new ComboBoxItem { Content = content, Tag = tag };
         }
 
-        // ===== 公共构建辅助（主界面快捷键 / 全局快捷键复用） =====
+        
 
-        /// <summary>构建单个修饰键 CheckBox。</summary>
+        
         private CheckBox BuildModifierCheckBox(string name, string content, bool isChecked)
         {
             return new CheckBox
@@ -2131,7 +2131,7 @@ namespace WinVClip
             };
         }
 
-        /// <summary>向 ActionComboBox 填充 10 个内建静态操作项（不含动态快捷命令分组）。</summary>
+        
         private void FillStaticActionItems(ComboBox actionCombo)
         {
             actionCombo.Items.Add(MakeComboItem(Loc.Get("MainWindow.ContextMenu.CharPicker", "拆分选字"), QuickPasteAction.Split.ToString()));
@@ -2146,8 +2146,8 @@ namespace WinVClip
             actionCombo.Items.Add(MakeComboItem(Loc.Get("MainWindow.ContextMenu.Group", "分组"), QuickPasteAction.Group.ToString()));
         }
 
-        /// <summary>构建 ActionComboBox 并完成初始化选中。filterType=-1 表示不按类型过滤快捷命令。
-        /// 注意：DropDownOpened 时的动态刷新由调用方自行挂载（不同条目类型过滤策略不同）。</summary>
+        
+        
         private ComboBox BuildActionComboBox(string elementName, QuickPasteAction savedAction,
             string savedQcName, int initialFilterType)
         {
@@ -2158,9 +2158,9 @@ namespace WinVClip
                 Style = (Style)FindResource("ModernComboBoxStyle")
             };
             FillStaticActionItems(actionCombo);
-            // 动态项：构建时先插一次 QC 分组，便于初始化选中已保存的 QC 名称
+            
             RefreshActionComboQuickCommands(actionCombo, initialFilterType);
-            // 初始化选中值
+            
             string initTag;
             if (savedAction == QuickPasteAction.CustomRegex && !string.IsNullOrEmpty(savedQcName))
                 initTag = "QC:" + savedQcName;
@@ -2170,7 +2170,7 @@ namespace WinVClip
             return actionCombo;
         }
 
-        /// <summary>从指定元素向上查找 Tag 为指定类型字符串的 Border。</summary>
+        
         private static Border FindAncestorBorder(System.Windows.DependencyObject start, string tagType)
         {
             for (var dp = start; dp != null; dp = System.Windows.Media.VisualTreeHelper.GetParent(dp))
@@ -2181,7 +2181,7 @@ namespace WinVClip
             return null;
         }
 
-        /// <summary>构建"重置 / 删除 / 确定"按钮行（靠右排列）。</summary>
+        
         private DockPanel BuildEntryButtons(string enabledCheckBoxName, bool enabledValue,
             EventHandler confirmHandler, EventHandler resetHandler,
             System.Windows.Threading.DispatcherPriority removePriority, System.Action removeAction)
@@ -2218,7 +2218,7 @@ namespace WinVClip
             DockPanel.SetDock(resetBtn, Dock.Right);
             row.Children.Add(resetBtn);
 
-            // 启用 CheckBox：位于重置按钮左边（Dock.Right 逆序排列，最后添加 = 最左）
+            
             var enabledCb = new CheckBox
             {
                 Name = enabledCheckBoxName,
@@ -2234,7 +2234,7 @@ namespace WinVClip
             return row;
         }
 
-        /// <summary>构建公共的 ClipboardType 选择下拉框（所有类型/文本/图片/文件/富文本）。</summary>
+        
         private ComboBox BuildClipboardTypeCombo(string elementName, int selectedType)
         {
             var typeCombo = new ComboBox
@@ -2253,7 +2253,7 @@ namespace WinVClip
             return typeCombo;
         }
 
-        /// <summary>读取 ClipboardType ComboBox 当前选中值，默认 -1。</summary>
+        
         private int ReadClipboardTypeCombo(ComboBox typeCombo)
         {
             if (typeCombo == null) return -1;
@@ -2262,15 +2262,15 @@ namespace WinVClip
             return -1;
         }
 
-        /// <summary>
-        /// 动态刷新 ActionComboBox 末尾的「快捷命令」分组：
-        ///  1. 先移除之前插入的所有动态项（用 Tag 约定 "__QC_SEP__" / "__QC_HEADER__" / "QC:xxx" 识别）
-        ///  2. 再追加 Separator → 分组标题 → 每个快捷命令一项
-        ///  如果没有任何快捷命令 → 只追加 Separator + 标题 + "（暂无，请在「快捷命令」tab 添加）"
-        /// </summary>
-        /// <summary>
-        /// 从 QuickPasteEntry Border 内部查找指定名称的 ComboBox，返回其当前 ClipboardType 值，未找到返回 -1。
-        /// </summary>
+        
+        
+        
+        
+        
+        
+        
+        
+        
         private int ReadTypeComboFromEntryBorder(Border entryBorder, string comboName)
         {
             if (entryBorder == null) return -1;
@@ -2294,7 +2294,7 @@ namespace WinVClip
         private void RefreshActionComboQuickCommands(ComboBox combo, int entryTypeFilter = -1)
         {
             if (combo == null) return;
-            // 1. 清理旧的 QC 动态项（从后往前删）
+            
             for (int i = combo.Items.Count - 1; i >= 0; i--)
             {
                 var it = combo.Items[i];
@@ -2305,7 +2305,7 @@ namespace WinVClip
                 }
             }
 
-            // 2. 追加 Separator + 分组标题 + QC 列表项
+            
             var sep = new Separator { Tag = "__QC_SEP__" };
             combo.Items.Add(sep);
             var header = new ComboBoxItem
@@ -2360,21 +2360,21 @@ namespace WinVClip
             if (combo.Items.Count > 0) combo.SelectedIndex = 0;
         }
 
-        /// <summary>恢复条目边框为默认样式（移除绿色"已确认"标记）。</summary>
+        
         private void ResetEntryBorder(Border entry)
         {
             entry.BorderBrush = (Brush)FindResource("InputBorderBrush");
             entry.BorderThickness = new Thickness(1);
         }
 
-        /// <summary>设置条目边框为绿色"已确认"样式。</summary>
+        
         private void SetEntryConfirmedBorder(Border entry)
         {
             entry.BorderBrush = new SolidColorBrush(Color.FromRgb(34, 197, 94));
             entry.BorderThickness = new Thickness(2);
         }
 
-        /// <summary>设置界面打开/重置后批量校验所有条目并设置边框颜色（不弹框）。</summary>
+        
         private void ValidateAllEntries()
         {
             foreach (var child in QuickPasteEntriesPanel.Children)
@@ -2385,13 +2385,13 @@ namespace WinVClip
                 if (child is Border entry) ValidateQuickCommandEntry(entry, showMessage: false);
         }
 
-        /// <summary>确定按钮：检测快捷键可用性，可用则绿框，不可用则弹框提醒。</summary>
+        
         private void OnQuickPasteConfirm(Border entry)
         {
             ValidateQuickPasteEntry(entry, showMessage: true);
         }
 
-        /// <summary>校验便捷粘贴条目：可用则绿框。showMessage=true 时弹框提醒冲突。</summary>
+        
         private bool ValidateQuickPasteEntry(Border entry, bool showMessage)
         {
             var current = ReadQuickPasteEntry(entry);
@@ -2411,14 +2411,14 @@ namespace WinVClip
             return false;
         }
 
-        /// <summary>重置按钮：恢复该条目到已保存快照。</summary>
+        
         private void OnQuickPasteReset(Border entry)
         {
             var saved = entry.Tag as QuickPasteShortcut;
             if (saved == null) return;
             var rebuilt = BuildQuickPasteEntry(saved.Clone());
-            // 延迟到当前 Click 事件处理完毕后再修改可视化树，避免移除触发中的按钮导致崩溃。
-            // UIElementCollection 索引器 setter 不支持直接替换（抛 ArgumentException），须先 RemoveAt 再 Insert。
+            
+            
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 var idx = QuickPasteEntriesPanel.Children.IndexOf(entry);
@@ -2426,13 +2426,13 @@ namespace WinVClip
                 {
                     QuickPasteEntriesPanel.Children.RemoveAt(idx);
                     QuickPasteEntriesPanel.Children.Insert(idx, rebuilt);
-                    // 重置后重新校验，恢复绿框（若快照值仍合法）
+                    
                     ValidateQuickPasteEntry(rebuilt, showMessage: false);
                 }
             }), System.Windows.Threading.DispatcherPriority.Background);
         }
 
-        /// <summary>读取单条条目当前控件值为 QuickPasteShortcut。</summary>
+        
         private QuickPasteShortcut ReadQuickPasteEntry(Border entry)
         {
             var sc = new QuickPasteShortcut();
@@ -2442,7 +2442,7 @@ namespace WinVClip
                 {
                     if (row1.Children[0] is ComboBox typeCombo)
                         sc.ClipboardType = int.Parse((typeCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "-1");
-                    // 遍历查找三个 CheckBox（按名称识别）
+                    
                     foreach (var child in row1.Children)
                     {
                         if (child is CheckBox cb)
@@ -2475,7 +2475,7 @@ namespace WinVClip
                         }
                     }
                 }
-                // 读取启用 CheckBox
+                
                 var enabledCb = FindQcChildByName<CheckBox>(entry, EntryEnabledCheckBox);
                 if (enabledCb != null) sc.Enabled = enabledCb.IsChecked == true;
             }
@@ -2491,13 +2491,13 @@ namespace WinVClip
         private QuickPasteAction ParseActionCombo(ComboBox combo)
         {
             var tag = (combo.SelectedItem as ComboBoxItem)?.Tag as string;
-            // 选择 QC 分组项下的快捷命令 → 视为 CustomRegex（真正的命令名保存在 QuickCommandName 字段）
+            
             if (tag != null && tag.StartsWith("QC:"))
                 return QuickPasteAction.CustomRegex;
             return Enum.TryParse<QuickPasteAction>(tag, out var a) ? a : QuickPasteAction.PasteRemoveNewlines;
         }
 
-        /// <summary>冲突检测：当前条目与其他条目是否冲突。</summary>
+        
         private bool IsShortcutAvailable(QuickPasteShortcut current, UIElement exceptSelf, out string conflictDesc)
         {
             conflictDesc = "";
@@ -2514,12 +2514,12 @@ namespace WinVClip
             return true;
         }
 
-        /// <summary>两条快捷键是否冲突：鼠标按键相同 && 修饰键组合相同 && (类型相同 || 其中一个为所有类型)。</summary>
+        
         private bool ShortcutConflicts(QuickPasteShortcut a, QuickPasteShortcut b)
         {
             if (a.MouseButton != b.MouseButton) return false;
             if (a.Ctrl != b.Ctrl || a.Shift != b.Shift || a.Alt != b.Alt) return false;
-            // 类型：-1 = 所有类型。所有类型与任何具体类型都冲突
+            
             if (a.ClipboardType == -1 || b.ClipboardType == -1) return true;
             return a.ClipboardType == b.ClipboardType;
         }
@@ -2535,7 +2535,7 @@ namespace WinVClip
             return $"{type} + {mod}{sc.MouseButton}";
         }
 
-        /// <summary>收集所有条目当前值到设置列表。</summary>
+        
         private void CollectQuickPasteEntries()
         {
             var list = new List<QuickPasteShortcut>();
@@ -2547,7 +2547,7 @@ namespace WinVClip
             _settingsService.Settings.QuickPasteShortcuts = list;
         }
 
-        /// <summary>同步每条条目的「已保存快照」为当前值（应用后调用）。</summary>
+        
         private void SyncQuickPasteEntrySnapshots()
         {
             foreach (var child in QuickPasteEntriesPanel.Children)
@@ -2561,7 +2561,7 @@ namespace WinVClip
 
         #region 全局快捷键条目
 
-        /// <summary>全局快捷键条目控件的命名约定。</summary>
+        
         private const string GhItemIndexComboBox = "GhItemIndexComboBox";
         private const string GhCtrlCheckBox = "GhCtrlCheckBox";
         private const string GhShiftCheckBox = "GhShiftCheckBox";
@@ -2571,7 +2571,7 @@ namespace WinVClip
         private const string GhActionComboBox = "GhActionComboBox";
         private const string GhEnabledCheckBox = "GhEnabledCheckBox";
 
-        /// <summary>从已保存设置加载并构建所有全局快捷键条目。</summary>
+        
         private void LoadGlobalHotkeyEntries()
         {
             GlobalHotkeyEntriesPanel.Children.Clear();
@@ -2583,7 +2583,7 @@ namespace WinVClip
             }
         }
 
-        /// <summary>➕ 全局快捷键按钮：新增一条默认条目（条目容器在按钮上方，Add 即可）。</summary>
+        
         private void AddGlobalHotkeyEntry_Click(object sender, RoutedEventArgs e)
         {
             var defaults = new GlobalHotkey
@@ -2599,7 +2599,7 @@ namespace WinVClip
             GlobalHotkeyEntriesPanel.Children.Add(BuildGlobalHotkeyEntry(defaults));
         }
 
-        /// <summary>构建单条全局快捷键条目 UI。</summary>
+        
         private Border BuildGlobalHotkeyEntry(GlobalHotkey saved)
         {
             if (saved == null) saved = new GlobalHotkey();
@@ -2618,7 +2618,7 @@ namespace WinVClip
             var root = new StackPanel { Margin = new Thickness(0) };
             entryBorder.Child = root;
 
-            // ===== 第一行：第N项 + "：" + Ctrl/Shift/Alt/Win + 按键 + → + 操作 =====
+            
             var row1 = new WrapPanel { Margin = new Thickness(0, 0, 0, 6) };
 
             var indexCombo = new ComboBox
@@ -2653,7 +2653,7 @@ namespace WinVClip
             var winCb = BuildModifierCheckBox(GhWinCheckBox, "Win", saved.Win);
             row1.Children.Add(winCb);
 
-            // 按键输入框：捕获单个按键（修饰键已由 CheckBox 表示，这里只记录普通按键）
+            
             var keyBox = new TextBox
             {
                 Name = GhKeyTextBox,
@@ -2665,7 +2665,7 @@ namespace WinVClip
                 VerticalContentAlignment = VerticalAlignment.Center,
                 ToolTip = Loc.Get("Settings.Hotkey.Global.KeyTip", "点击后按下键盘按键")
             };
-            // 占位提示
+            
             var keyPlaceholder = new TextBlock
             {
                 Text = Loc.Get("Settings.Hotkey.Global.KeyPlaceholder", "按键"),
@@ -2682,20 +2682,20 @@ namespace WinVClip
             keyPlaceholder.Visibility = string.IsNullOrEmpty(saved.Key) ? Visibility.Visible : Visibility.Collapsed;
             keyBox.TextChanged += (s, e) =>
                 keyPlaceholder.Visibility = string.IsNullOrEmpty(keyBox.Text) ? Visibility.Visible : Visibility.Collapsed;
-            // 捕获按键：聚焦后按下任意普通按键即记录其名称；Esc 清空
+            
             keyBox.GotFocus += (s, e) => keyBox.Text = "";
             keyBox.PreviewKeyDown += (s, e) =>
             {
                 e.Handled = true;
-                if (e.Key == Key.System) return; // 忽略 Alt 系列系统键
-                if (IsModifierKey(e.Key)) return; // 修饰键不作为主键
+                if (e.Key == Key.System) return; 
+                if (IsModifierKey(e.Key)) return; 
                 if (e.Key == Key.Escape)
                 {
                     keyBox.Text = "";
                     return;
                 }
                 keyBox.Text = GetKeyDisplayName(e.Key);
-                // 记录后自动失焦，避免误触
+                
                 keyBox.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
             };
             row1.Children.Add(keyGrid);
@@ -2709,7 +2709,7 @@ namespace WinVClip
             });
 
             var actionCombo = BuildActionComboBox(GhActionComboBox, saved.Action, saved.QuickCommandName, -1);
-            // 全局快捷键不按类型过滤快捷命令（作用于固定序号条目，类型不定）
+            
             actionCombo.DropDownOpened += (s, e) =>
             {
                 var selectedTag = (actionCombo.SelectedItem as ComboBoxItem)?.Tag as string;
@@ -2720,7 +2720,7 @@ namespace WinVClip
 
             root.Children.Add(row1);
 
-            // 任一控件被修改后，移除绿色"已确认"边框
+            
             indexCombo.SelectionChanged += (s, e) => ResetEntryBorder(entryBorder);
             actionCombo.SelectionChanged += (s, e) => ResetEntryBorder(entryBorder);
             ctrlCb.Click += (s, e) => ResetEntryBorder(entryBorder);
@@ -2729,7 +2729,7 @@ namespace WinVClip
             winCb.Click += (s, e) => ResetEntryBorder(entryBorder);
             keyBox.TextChanged += (s, e) => ResetEntryBorder(entryBorder);
 
-            // ===== 第二行：启用 / 重置 / 删除 / 确定 =====
+            
             var row3 = BuildEntryButtons(
                 GhEnabledCheckBox, saved.Enabled,
                 (s, e) => OnGlobalHotkeyConfirm(entryBorder),
@@ -2737,7 +2737,7 @@ namespace WinVClip
                 System.Windows.Threading.DispatcherPriority.Background,
                 () =>
                 {
-                    // 删除时保留 ➕ 按钮（它是面板最后一个子元素）
+                    
                     var idx = GlobalHotkeyEntriesPanel.Children.IndexOf(entryBorder);
                     if (idx >= 0) GlobalHotkeyEntriesPanel.Children.RemoveAt(idx);
                 });
@@ -2746,13 +2746,13 @@ namespace WinVClip
             return entryBorder;
         }
 
-        /// <summary>确定按钮：校验快捷键可用性，可用则绿框。</summary>
+        
         private void OnGlobalHotkeyConfirm(Border entry)
         {
             ValidateGlobalHotkeyEntry(entry, showMessage: true);
         }
 
-        /// <summary>校验全局快捷键条目：可用则绿框。showMessage=true 时弹框提醒无效/冲突。</summary>
+        
         private bool ValidateGlobalHotkeyEntry(Border entry, bool showMessage)
         {
             var current = ReadGlobalHotkeyEntry(entry);
@@ -2769,7 +2769,7 @@ namespace WinVClip
                 }
                 return false;
             }
-            // 冲突检测：与其它全局快捷键条目 + 显示/隐藏主界面热键
+            
             if (!IsGlobalHotkeyAvailable(current, entry, out string conflictDesc))
             {
                 ResetEntryBorder(entry);
@@ -2786,7 +2786,7 @@ namespace WinVClip
             return true;
         }
 
-        /// <summary>重置按钮：恢复该条目到已保存快照。</summary>
+        
         private void OnGlobalHotkeyReset(Border entry)
         {
             var saved = entry.Tag as GlobalHotkey;
@@ -2799,13 +2799,13 @@ namespace WinVClip
                 {
                     GlobalHotkeyEntriesPanel.Children.RemoveAt(idx);
                     GlobalHotkeyEntriesPanel.Children.Insert(idx, rebuilt);
-                    // 重置后重新校验，恢复绿框（若快照值仍合法）
+                    
                     ValidateGlobalHotkeyEntry(rebuilt, showMessage: false);
                 }
             }), System.Windows.Threading.DispatcherPriority.Background);
         }
 
-        /// <summary>读取单条全局快捷键条目当前控件值。</summary>
+        
         private GlobalHotkey ReadGlobalHotkeyEntry(Border entry)
         {
             var gh = new GlobalHotkey();
@@ -2844,7 +2844,7 @@ namespace WinVClip
                     }
                     else if (child is Grid g)
                     {
-                        // 按键输入框在 Grid 内
+                        
                         foreach (var c in g.Children)
                         {
                             if (c is TextBox tb && tb.Name == GhKeyTextBox)
@@ -2853,30 +2853,30 @@ namespace WinVClip
                     }
                 }
             }
-            // 读取启用 CheckBox
+            
             var enabledCb = FindQcChildByName<CheckBox>(entry, GhEnabledCheckBox);
             if (enabledCb != null) gh.Enabled = enabledCb.IsChecked == true;
             return gh;
         }
 
-        /// <summary>
-        /// 冲突检测：与其它全局快捷键条目 + 显示/隐藏主界面热键是否冲突。
-        /// 三重检测：① 字符串比对显示/隐藏主界面热键 ② 字符串比对其它全局快捷键条目
-        /// ③ 使用与显示/隐藏主界面相同的 RegisterHotKey API 验证是否被其它应用占用。
-        /// </summary>
+        
+        
+        
+        
+        
         private bool IsGlobalHotkeyAvailable(GlobalHotkey current, UIElement exceptSelf, out string conflictDesc)
         {
             conflictDesc = "";
             var rawStr = current.ToHotkeyString();
             var curStr = HotkeyService.NormalizeHotkey(rawStr);
-            // 1. 与显示/隐藏主界面热键冲突
+            
             var showHide = HotkeyService.NormalizeHotkey(_settingsService.Settings.Hotkey);
             if (!string.IsNullOrEmpty(showHide) && string.Equals(curStr, showHide, StringComparison.OrdinalIgnoreCase))
             {
                 conflictDesc = curStr + " (" + Loc.Get("Settings.Hotkey.Global.ConflictShowHide", "与显示/隐藏主界面热键冲突") + ")";
                 return false;
             }
-            // 2. 与其它全局快捷键条目冲突
+            
             foreach (var child in GlobalHotkeyEntriesPanel.Children)
             {
                 if (child == exceptSelf || !(child is Border other)) continue;
@@ -2888,11 +2888,11 @@ namespace WinVClip
                     return false;
                 }
             }
-            // 3. 若与上次 Apply/启动时已注册的本应用热键相同，则跳过 API 注册测试——
-            //    避免与自身已注册热键产生误报（Apply 时会统一注销并重新注册全部热键）。
+            
+            
             if (IsOwnRegisteredHotkey(curStr))
                 return true;
-            // 4. 复用显示/隐藏主界面热键的 RegisterHotKey API 验证：是否被其它应用占用或无效
+            
             if (!IsHotkeyAvailable(rawStr))
             {
                 conflictDesc = curStr + " (" + Loc.Get("Settings.Hotkey.AlreadyInUse", "该快捷键已被占用或无效") + ")";
@@ -2901,10 +2901,10 @@ namespace WinVClip
             return true;
         }
 
-        /// <summary>
-        /// 判断候选热键是否为本应用上次 Apply/启动时已注册的热键（含显示/隐藏主界面与全部全局快捷键）。
-        /// 这些热键当前已在系统注册，若不跳过会被 API 测试误判为冲突。
-        /// </summary>
+        
+        
+        
+        
         private bool IsOwnRegisteredHotkey(string normalizedCandidate)
         {
             if (string.IsNullOrEmpty(normalizedCandidate)) return false;
@@ -2926,7 +2926,7 @@ namespace WinVClip
             return false;
         }
 
-        /// <summary>收集所有全局快捷键条目当前值到设置列表。</summary>
+        
         private void CollectGlobalHotkeyEntries()
         {
             var list = new List<GlobalHotkey>();
@@ -2938,7 +2938,7 @@ namespace WinVClip
             _settingsService.Settings.GlobalHotkeys = list;
         }
 
-        /// <summary>同步每条全局快捷键条目的「已保存快照」为当前值（应用后调用）。</summary>
+        
         private void SyncGlobalHotkeyEntrySnapshots()
         {
             foreach (var child in GlobalHotkeyEntriesPanel.Children)
@@ -2956,7 +2956,7 @@ namespace WinVClip
         private const string QcRulesPanel = "QcRulesPanel";
         private const string QcEnabledCheckBox = "QcEnabledCheckBox";
 
-        // 规则行控件命名模式：前缀 + 规则索引 + 后缀
+        
         private const string QcRuleEnabledSuffix = "_Enabled";
         private const string QcRuleFuncSuffix = "_Func";
         private const string QcRuleP1Suffix = "_P1";
@@ -2966,7 +2966,7 @@ namespace WinVClip
         private const string QcRuleDelSuffix = "_Del";
         private static string RuleCtrlName(int idx, string suffix) => "QcRule_" + idx + suffix;
 
-        /// <summary>从已保存设置加载并构建所有快捷命令条目。</summary>
+        
         private void LoadQuickCommandEntries()
         {
             QuickCommandEntriesPanel.Children.Clear();
@@ -2981,13 +2981,13 @@ namespace WinVClip
             }
         }
 
-        /// <summary>➕按钮：新增一条默认值快捷命令条目。</summary>
+        
         private void AddQuickCommandEntry_Click(object sender, RoutedEventArgs e)
         {
             var defaults = new QuickCommand
             {
                 Name = "",
-                ClipboardType = -2, // 文本+富文本，此卡片仅支持这两种类型
+                ClipboardType = -2, 
                 Rules = new System.Collections.Generic.List<QuickCommandRule>
                 {
                     new QuickCommandRule
@@ -3002,7 +3002,7 @@ namespace WinVClip
             QuickCommandEntriesPanel.Children.Add(BuildQuickCommandEntry(defaults));
         }
 
-        /// <summary>💡按钮：弹出模板菜单，点击模板项后新增对应的快捷命令条目。</summary>
+        
         private void QuickCommandTemplateButton_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button btn) return;
@@ -3016,7 +3016,7 @@ namespace WinVClip
 
             foreach (var tpl in GetQuickCommandTemplates())
             {
-                var captured = tpl; // 闭包捕获
+                var captured = tpl; 
                 var item = new MenuItem
                 {
                     Header = captured.Name,
@@ -3032,18 +3032,18 @@ namespace WinVClip
             menu.IsOpen = true;
         }
 
-        /// <summary>
-        /// 模板预设：点击💡 菜单项后新增的快捷命令模板。
-        /// </summary>
+        
+        
+        
         private System.Collections.Generic.List<QuickCommand> GetQuickCommandTemplates()
         {
             return new System.Collections.Generic.List<QuickCommand>
             {
-                // 1. 提取全部手机号
+                
                 new QuickCommand
                 {
                     Name = Loc.Get("Settings.QuickCommand.Template.Phone", "提取全部手机号"),
-                    ClipboardType = -2, // 仅文本 + 富文本
+                    ClipboardType = -2, 
                     Rules = new List<QuickCommandRule>
                     {
                         new QuickCommandRule
@@ -3269,11 +3269,11 @@ namespace WinVClip
 
         #region 快捷命令 - 构建 & 校验
 
-        /// <summary>
-        /// 给规则行上的 ↑/↓/× 小图标按钮专用的紧凑 Style。
-        /// 颜色与 SecondaryButtonStyle 保持一致，但直接在此显式设置资源回退值 + 小 Padding ControlTemplate，
-        /// 完全不依赖资源加载时机或 BasedOn，确保任何情况下都有可见的边框/背景/文字。
-        /// </summary>
+        
+        
+        
+        
+        
         private Style _compactIconButtonStyle;
         private Style CompactIconButtonStyle
         {
@@ -3281,7 +3281,7 @@ namespace WinVClip
             {
                 if (_compactIconButtonStyle != null) return _compactIconButtonStyle;
 
-                // 解析颜色画笔：先 TryFindResource，失败则硬编码回退（亮/暗都能看清）
+                
                 Brush buttonBg = TryFindResource("ButtonBackground") as Brush
                                  ?? new SolidColorBrush(Color.FromRgb(243, 244, 246));
                 Brush textFg = TryFindResource("TextForeground") as Brush
@@ -3292,7 +3292,7 @@ namespace WinVClip
                                 ?? new SolidColorBrush(Color.FromRgb(229, 231, 235));
 
                 var style = new Style(typeof(Button));
-                // 显式设置默认属性（不走 BasedOn，避免资源失败全部变透明）
+                
                 style.Setters.Add(new Setter(Button.BackgroundProperty, buttonBg));
                 style.Setters.Add(new Setter(Button.ForegroundProperty, textFg));
                 style.Setters.Add(new Setter(Button.BorderBrushProperty, borderBrush));
@@ -3304,7 +3304,7 @@ namespace WinVClip
                 style.Setters.Add(new Setter(Button.HorizontalContentAlignmentProperty, HorizontalAlignment.Center));
                 style.Setters.Add(new Setter(Button.VerticalContentAlignmentProperty, VerticalAlignment.Center));
 
-                // 自定义 ControlTemplate，Padding 足够小（2 左右）保证 28×28 能放下 14 号粗体字
+                
                 var ct = new ControlTemplate(typeof(Button));
                 var borderFactory = new FrameworkElementFactory(typeof(Border));
                 borderFactory.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Button.BackgroundProperty));
@@ -3319,11 +3319,11 @@ namespace WinVClip
                 borderFactory.AppendChild(cp);
                 ct.VisualTree = borderFactory;
 
-                // 鼠标悬停：背景换 HoverBackground
+                
                 var trig = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
                 trig.Setters.Add(new Setter(Button.BackgroundProperty, hoverBg));
                 ct.Triggers.Add(trig);
-                // 禁用：降低不透明度
+                
                 var trigDisabled = new Trigger { Property = UIElement.IsEnabledProperty, Value = false };
                 trigDisabled.Setters.Add(new Setter(UIElement.OpacityProperty, 0.45));
                 ct.Triggers.Add(trigDisabled);
@@ -3334,11 +3334,11 @@ namespace WinVClip
             }
         }
 
-        /// <summary>
-        /// 构造规则按钮的图标 Content。
-        /// 显式设置 Foreground（不再依赖 Binding/TemplatedParent），
-        /// 使用 14 号粗体 Unicode 字符，保证无论资源加载情况都能清晰显示。
-        /// </summary>
+        
+        
+        
+        
+        
         private object BuildRuleButtonIcon(string glyph)
         {
             var fg = TryFindResource("TextForeground") as Brush
@@ -3351,16 +3351,16 @@ namespace WinVClip
                 Foreground = fg,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, -1, 0, 0)  // 细微上移，视觉居中
+                Margin = new Thickness(0, -1, 0, 0)  
             };
         }
 
-        // 规则按钮字符：使用清晰可辨的 Unicode 符号
+        
         private const string IconArrowUp = "▲";
         private const string IconArrowDown = "▼";
         private const string IconClose = "✕";
 
-        /// <summary>返回 11 个函数的有序定义列表，顺序与用户要求一致。</summary>
+        
         private static readonly QuickCommandFunction[] OrderedFunctions = new[]
         {
             QuickCommandFunction.StringReplace,
@@ -3376,7 +3376,7 @@ namespace WinVClip
             QuickCommandFunction.RemoveNewLines
         };
 
-        /// <summary>获取函数的本地化显示名。</summary>
+        
         private static string FunctionDisplayName(QuickCommandFunction f)
         {
             switch (f)
@@ -3396,14 +3396,14 @@ namespace WinVClip
             return f.ToString();
         }
 
-        /// <summary>返回函数的参数数量：0 / 1(仅Param1) / 2(Param1+Param2)。</summary>
+        
         private static int FunctionParamCount(QuickCommandFunction f)
         {
             switch (f)
             {
                 case QuickCommandFunction.StringReplace:
                 case QuickCommandFunction.RegexReplace:
-                case QuickCommandFunction.RegexMatches: // Param1=Pattern; Param2=多个匹配结果分隔符（留空=直接拼接）
+                case QuickCommandFunction.RegexMatches: 
                     return 2;
                 case QuickCommandFunction.RegexSplit:
                     return 1;
@@ -3412,7 +3412,7 @@ namespace WinVClip
             }
         }
 
-        /// <summary>返回 Param1/Param2 的占位提示或标签文本（本地化）。</summary>
+        
         private static string ParamToolTip(QuickCommandFunction f, int paramIndex)
         {
             if (paramIndex == 1)
@@ -3438,12 +3438,12 @@ namespace WinVClip
             return "";
         }
 
-        /// <summary>构建单条快捷命令条目 UI：名称行 + RulesStackPanel(规则行) + 添加规则按钮 + 重置/删除/确定按钮栏。</summary>
+        
         private Border BuildQuickCommandEntry(QuickCommand saved)
         {
             if (saved == null) saved = new QuickCommand();
             if (saved.Rules == null) saved.Rules = new System.Collections.Generic.List<QuickCommandRule>();
-            // 无任何规则：保底一条默认 StringReplace，保证界面上总是能看到一条可编辑行
+            
             if (saved.Rules.Count == 0)
                 saved.Rules.Add(new QuickCommandRule { Enabled = true, Function = QuickCommandFunction.StringReplace });
 
@@ -3461,10 +3461,10 @@ namespace WinVClip
             entryBorder.Child = root;
 
             const double inputBoxHeight = 36;
-            const double ruleBoxHeight = 36;   // 规则行内的输入框稍微紧凑一点
+            const double ruleBoxHeight = 36;   
             Brush labelFg = (Brush)FindResource("SecondaryTextForeground");
 
-            // ---------- Row1: 快捷命令名称 ----------
+            
             var row1 = new DockPanel { LastChildFill = true, Margin = new Thickness(0, 0, 0, 6) };
             var nameLabel = new TextBlock
             {
@@ -3486,7 +3486,7 @@ namespace WinVClip
             row1.Children.Add(nameBox);
             root.Children.Add(row1);
 
-            // ---------- Rules 专用 StackPanel（只放规则行 Grid，不包含添加按钮，所以 Children.Count == 真实规则数） ----------
+            
             var rulesPanel = new StackPanel
             {
                 Name = QcRulesPanel,
@@ -3494,7 +3494,7 @@ namespace WinVClip
             };
             root.Children.Add(rulesPanel);
 
-            // ---------- 添加规则按钮（rulesPanel 外部，避免被算作规则行） ----------
+            
             var addRuleBtn = new Button
             {
                 Content = Loc.Get("Settings.QuickCommand.Button.AddRule", "＋ 添加规则"),
@@ -3513,7 +3513,7 @@ namespace WinVClip
             };
             root.Children.Add(addRuleBtn);
 
-            // ---------- 构建已有的规则行 ----------
+            
             foreach (var rule in saved.Rules)
             {
                 var r = BuildSingleRuleRow(rule, rulesPanel, entryBorder, ruleBoxHeight);
@@ -3521,7 +3521,7 @@ namespace WinVClip
             }
             RefreshRuleArrows(rulesPanel);
 
-            // ---------- Bottom Button Bar: 启用 / 重置 / 删除 / 确定 ----------
+            
             var buttonBar = new DockPanel { LastChildFill = false, Margin = new Thickness(0, 4, 0, 0) };
 
             var confirmBtn = new Button
@@ -3556,7 +3556,7 @@ namespace WinVClip
             DockPanel.SetDock(resetBtn, Dock.Right);
             buttonBar.Children.Add(resetBtn);
 
-            // 启用 CheckBox：位于重置按钮左边（Dock.Right 逆序，最后添加 = 最左）
+            
             var enabledCb = new CheckBox
             {
                 Name = QcEnabledCheckBox,
@@ -3574,20 +3574,20 @@ namespace WinVClip
             return entryBorder;
         }
 
-        /// <summary>
-        /// 构建单个规则行：
-        /// Grid 列 0: 启用 CheckBox | 1: 函数 ComboBox | 2: Param1 TextBox | 3: Param2 TextBox | 4: 上移/下移/删除按钮
-        /// </summary>
+        
+        
+        
+        
         private Grid BuildSingleRuleRow(QuickCommandRule rule, StackPanel rulesPanel, Border entryBorder, double ruleBoxHeight)
         {
             var row = new Grid { Margin = new Thickness(0, 0, 0, 4) };
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(32) });        // 0: Enabled
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });        // 1: Function 
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // 2: Param1
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // 3: Param2
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });           // 4: Actions
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(32) });        
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });        
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); 
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); 
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });           
 
-            // 0. 启用 CheckBox
+            
             var enabledCb = new CheckBox
             {
                 Name = "RuleEnabled",
@@ -3601,7 +3601,7 @@ namespace WinVClip
             Grid.SetColumn(enabledCb, 0);
             row.Children.Add(enabledCb);
 
-            // 1. 函数 ComboBox（与其它 ComboBox 统一使用 ModernComboBoxStyle）
+            
             var funcCb = new ComboBox
             {
                 Name = "RuleFunc",
@@ -3624,7 +3624,7 @@ namespace WinVClip
             Grid.SetColumn(funcCb, 1);
             row.Children.Add(funcCb);
 
-            // 2. Param1 TextBox
+            
             var p1Tb = new TextBox
             {
                 Name = "RuleP1",
@@ -3638,7 +3638,7 @@ namespace WinVClip
             Grid.SetColumn(p1Tb, 2);
             row.Children.Add(p1Tb);
 
-            // 3. Param2 TextBox
+            
             var p2Tb = new TextBox
             {
                 Name = "RuleP2",
@@ -3651,7 +3651,7 @@ namespace WinVClip
             Grid.SetColumn(p2Tb, 3);
             row.Children.Add(p2Tb);
 
-            // 4. Actions: 上移 / 下移 / 删除
+            
             var actionsPanel = new WrapPanel
             {
                 Orientation = Orientation.Horizontal,
@@ -3710,9 +3710,9 @@ namespace WinVClip
             {
                 if (rulesPanel.Children.Count <= 1)
                 {
-                    // 至少保留一行，直接清空该行内容并重置为默认函数
+                    
                     if (enabledCb != null) enabledCb.IsChecked = true;
-                    funcCb.SelectedIndex = 0; // StringReplace
+                    funcCb.SelectedIndex = 0; 
                     p1Tb.Text = "";
                     p2Tb.Text = "";
                     ApplyParamVisibilityToRuleRow(row, QuickCommandFunction.StringReplace);
@@ -3731,7 +3731,7 @@ namespace WinVClip
             Grid.SetColumn(actionsPanel, 4);
             row.Children.Add(actionsPanel);
 
-            // 函数切换时：刷新 Param1 / Param2 的可见性与 Tooltip
+            
             void FuncChanged(object sender, SelectionChangedEventArgs e)
             {
                 if (funcCb.SelectedItem is ComboBoxItem cbi && cbi.Tag is QuickCommandFunction fn)
@@ -3741,13 +3741,13 @@ namespace WinVClip
                 }
             }
             funcCb.SelectionChanged += FuncChanged;
-            // 初次应用一次（基于 rule.Function 已设置的 SelectedItem）
+            
             ApplyParamVisibilityToRuleRow(row, rule.Function);
 
             return row;
         }
 
-        /// <summary>根据函数调整 Param1/Param2 的 Visibility / Tooltip，隐藏时清空内容避免残留无效值。</summary>
+        
         private static void ApplyParamVisibilityToRuleRow(Grid row, QuickCommandFunction fn)
         {
             int need = FunctionParamCount(fn);
@@ -3776,10 +3776,10 @@ namespace WinVClip
             }
         }
 
-        /// <summary>
-        /// 根据 rulesPanel 当前顺序刷新每条规则的 ↑/↓ 可用性。
-        /// 首行：↑ 禁用；尾行：↓ 禁用；只有一行：两个都禁用。
-        /// </summary>
+        
+        
+        
+        
         private static void RefreshRuleArrows(Panel rulesPanel)
         {
             int count = rulesPanel.Children.Count;
@@ -3806,18 +3806,18 @@ namespace WinVClip
             }
         }
 
-        /// <summary>确定按钮：校验名称 + 每条启用规则的必填参数 / 正则语法。通过则绿框，否则弹框。</summary>
+        
         private void OnQuickCommandConfirm(Border entry)
         {
             ValidateQuickCommandEntry(entry, showMessage: true);
         }
 
-        /// <summary>校验快捷命令条目：通过则绿框。showMessage=true 时弹框提醒错误。</summary>
+        
         private bool ValidateQuickCommandEntry(Border entry, bool showMessage)
         {
             var current = ReadQuickCommandEntry(entry);
 
-            // 1. 名称必填
+            
             if (string.IsNullOrWhiteSpace(current.Name))
             {
                 ResetEntryBorder(entry);
@@ -3828,7 +3828,7 @@ namespace WinVClip
                 }
                 return false;
             }
-            // 2. 名称不重复（排除自己）
+            
             foreach (var child in QuickCommandEntriesPanel.Children)
             {
                 if (child == entry || !(child is Border other)) continue;
@@ -3845,7 +3845,7 @@ namespace WinVClip
                     return false;
                 }
             }
-            // 3. 校验每条启用规则
+            
             if (current.Rules != null)
             {
                 for (int i = 0; i < current.Rules.Count; i++)
@@ -3873,10 +3873,10 @@ namespace WinVClip
                         (r.Function == QuickCommandFunction.StringReplace ||
                          r.Function == QuickCommandFunction.RegexReplace))
                     {
-                        // 注意：RegexReplace 的替换串允许为空（等价于删除匹配），所以这里不强制 Param2 非空
-                        // 仅 StringReplace：空的替换串和"删除"语义一致，也允许空
+                        
+                        
                     }
-                    // 正则语法校验：RegexReplace / RegexMatches / RegexSplit 都需要
+                    
                     if (r.Function == QuickCommandFunction.RegexReplace ||
                         r.Function == QuickCommandFunction.RegexMatches ||
                         r.Function == QuickCommandFunction.RegexSplit)
@@ -3903,12 +3903,12 @@ namespace WinVClip
                 }
             }
 
-            // 校验通过：绿框
+            
             SetEntryConfirmedBorder(entry);
             return true;
         }
 
-        /// <summary>重置按钮：恢复该条目到已保存快照。</summary>
+        
         private void OnQuickCommandReset(Border entry)
         {
             var saved = entry.Tag as QuickCommand;
@@ -3921,7 +3921,7 @@ namespace WinVClip
                 {
                     QuickCommandEntriesPanel.Children.RemoveAt(idx);
                     QuickCommandEntriesPanel.Children.Insert(idx, rebuilt);
-                    // 重置后重新校验，恢复绿框（若快照值仍合法）
+                    
                     ValidateQuickCommandEntry(rebuilt, showMessage: false);
                 }
             }), System.Windows.Threading.DispatcherPriority.Background);
@@ -3931,13 +3931,13 @@ namespace WinVClip
 
         #region 快捷命令 - 读取与收集
 
-        /// <summary>枚举任意容器的直接子元素（Panel / Decorator / Border / ContentControl）。</summary>
+        
         private static System.Collections.Generic.IEnumerable<System.Windows.DependencyObject> EnumerateDirectChildren(
             System.Windows.DependencyObject parent)
         {
             if (parent == null) yield break;
 
-            // 优先 Panel.Children（DockPanel / WrapPanel / StackPanel / Grid 等）
+            
             if (parent is Panel p)
             {
                 foreach (System.Windows.UIElement c in p.Children)
@@ -3945,14 +3945,14 @@ namespace WinVClip
                 yield break;
             }
 
-            // Decorator 单内容容器（Border 等）
+            
             if (parent is Decorator dec && dec.Child != null)
             {
                 yield return dec.Child;
                 yield break;
             }
 
-            // ContentControl 单内容控件
+            
             if (parent is ContentControl cc && cc.Content is System.Windows.DependencyObject ccChild)
             {
                 yield return ccChild;
@@ -3960,7 +3960,7 @@ namespace WinVClip
             }
         }
 
-        /// <summary>在指定父容器内按 Name 递归查找指定类型的第一个子控件。</summary>
+        
         private static T FindQcChildByName<T>(System.Windows.DependencyObject parent, string name)
             where T : FrameworkElement
         {
@@ -3975,7 +3975,7 @@ namespace WinVClip
             return null;
         }
 
-        /// <summary>从单个规则行 Grid 中读取控件值生成 QuickCommandRule。</summary>
+        
         private static QuickCommandRule ReadRuleRow(Grid rowGrid)
         {
             var rule = new QuickCommandRule { Enabled = true };
@@ -3996,7 +3996,7 @@ namespace WinVClip
             return rule;
         }
 
-        /// <summary>读取单条快捷命令条目的当前控件值（Name + 规则链 + 启用状态）。</summary>
+        
         private QuickCommand ReadQuickCommandEntry(Border entry)
         {
             var qc = new QuickCommand();
@@ -4009,7 +4009,7 @@ namespace WinVClip
             var rulesPanel = FindQcChildByName<StackPanel>(entry, QcRulesPanel);
             if (rulesPanel != null)
             {
-                // 注意：rulesPanel 只包含规则行 Grid（添加规则按钮在外面，不会混入）
+                
                 foreach (var child in rulesPanel.Children)
                 {
                     if (child is Grid rowGrid)
@@ -4017,14 +4017,14 @@ namespace WinVClip
                 }
             }
 
-            // 读取启用 CheckBox
+            
             var enabledCb = FindQcChildByName<CheckBox>(entry, QcEnabledCheckBox);
             if (enabledCb != null) qc.Enabled = enabledCb.IsChecked == true;
 
             return qc;
         }
 
-        /// <summary>收集所有条目当前值到设置列表。</summary>
+        
         private void CollectQuickCommandEntries()
         {
             var list = new List<QuickCommand>();
@@ -4036,7 +4036,7 @@ namespace WinVClip
             _settingsService.Settings.QuickCommands = list;
         }
 
-        /// <summary>应用按钮后同步「已保存快照」。</summary>
+        
         private void SyncQuickCommandEntrySnapshots()
         {
             foreach (var child in QuickCommandEntriesPanel.Children)

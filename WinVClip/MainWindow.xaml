@@ -175,9 +175,9 @@
                 </StackPanel>
             </Grid>
 
-            <!-- 筛选面板 -->
+            
             <Grid Grid.Row="1" Visibility="{Binding IsFilterPanelVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <!-- 格式筛选 -->
+                
                 <StackPanel Orientation="Horizontal" Margin="0,4" HorizontalAlignment="Left">
                     <Button x:Name="FilterAllButton" Width="28" Height="28" Margin="2,0" Content="📑"
                             Click="FilterAll_Click"
@@ -218,14 +218,14 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- 剪贴板面板 -->
+                
                 <Grid x:Name="ClipboardPanel" Grid.ColumnSpan="2">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="40"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- 分组 TabControl -->
+                    
                     <TabControl x:Name="GroupTabControl"
                                 Grid.Column="0"
                                 Style="{DynamicResource GroupTabControlStyle}"
@@ -319,7 +319,7 @@
                                           Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}}"/>
                                 <Separator Style="{DynamicResource SeparatorStyle}"
                                           Visibility="{Binding IsMultiSelectMode, Converter={local:BoolToVisibilityConverter}}"/>
-                                <!-- 快捷命令二级菜单：鼠标悬停自动向右展开（MenuItemWithSubmenuStyle 支持子菜单弹出） -->
+                                
                                 <MenuItem x:Name="MenuQuickCommands" Header="快捷命令" Icon="⚡"
                                           Style="{DynamicResource MenuItemWithSubmenuStyle}">
                                     <MenuItem x:Name="MenuPasteWithFormat" Header="带格式粘贴" Icon="📋" Click="PasteWithFormat_Click"
@@ -350,7 +350,7 @@
                                               Visibility="{Binding ., Converter={local:IsTextOrRichTextConverter}}"
                                               DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                     <Separator x:Name="MenuQuickCommandsSeparator" Style="{DynamicResource SeparatorStyle}" Tag="__QC_SEP__"/>
-                                    <!-- 动态 QC 菜单项会在 ContextMenu_Opened 时追加到此二级菜单末尾 -->
+                                    
                                 </MenuItem>
                             </ContextMenu>
                         </ListBox.ContextMenu>
@@ -507,7 +507,7 @@
                     </StackPanel>
                     </Grid>
 
-                    <!-- 空状态提示 -->
+                    
                     <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
                           Visibility="{Binding IsEmpty, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <Grid.RowDefinitions>
@@ -522,7 +522,7 @@
                                    HorizontalAlignment="Center"/>
                     </Grid>
 
-                    <!-- 加载动画 -->
+                    
                     <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
                           Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <Border Background="{DynamicResource WindowBackground}"
@@ -554,7 +554,7 @@
                     </Grid>
                 </Grid>
 
-                <!-- 字符面板 -->
+                
                 <Grid x:Name="CharPanel" Grid.ColumnSpan="2" Visibility="Collapsed">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>

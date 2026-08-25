@@ -362,12 +362,12 @@ namespace WinVClip
             if (s.Length == 1)
             {
                 uint c = s[0];
-                return c == 0x200D  // ZWJ
-                    || c == 0xFE0F  // VS16
-                    || c == 0xFE0E  // VS15
-                    || c == 0x20E3  // combining enclosing keycap
-                    || (c >= 0x1F3FB && c <= 0x1F3FF)  // skin tone
-                    || (c >= 0xE0020 && c <= 0xE007F);  // tag
+                return c == 0x200D  
+                    || c == 0xFE0F  
+                    || c == 0xFE0E  
+                    || c == 0x20E3  
+                    || (c >= 0x1F3FB && c <= 0x1F3FF)  
+                    || (c >= 0xE0020 && c <= 0xE007F);  
             }
             if (s.Length == 2 && char.IsHighSurrogate(s[0]))
             {
@@ -388,7 +388,7 @@ namespace WinVClip
             var sequence = new List<string> { elements[index] };
             index++;
 
-            // Flag sequence: Regional Indicator pair
+            
             if (IsRegionalIndicator(sequence[0]) && index < elements.Count && IsRegionalIndicator(elements[index]))
             {
                 sequence.Add(elements[index]);
@@ -396,12 +396,12 @@ namespace WinVClip
                 return string.Join("", sequence);
             }
 
-            // ZWJ sequence, modifier sequence, keycap sequence
+            
             while (index < elements.Count)
             {
                 string next = elements[index];
 
-                if (next == "\u200D") // ZWJ
+                if (next == "\u200D") 
                 {
                     sequence.Add(next);
                     index++;
@@ -411,7 +411,7 @@ namespace WinVClip
                         index++;
                     }
                 }
-                else if (IsEmojiComponent(next)) // VS16, skin tone, keycap, tag
+                else if (IsEmojiComponent(next)) 
                 {
                     sequence.Add(next);
                     index++;

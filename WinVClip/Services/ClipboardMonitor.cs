@@ -482,7 +482,7 @@ namespace WinVClip.Services
 
             if (_settingsService.Settings.RemoveDuplicates && _databaseService.TextExistsInDatabase(text))
             {
-                // 如果是刚刚粘贴的内容，不更新时间戳（避免粘贴后移动位置）
+                
                 if (!IsRecentlyPastedContent(text))
                 {
                     _databaseService.UpdateDuplicateItemTimestamp(text, (int)ClipboardType.Text);
@@ -508,7 +508,7 @@ namespace WinVClip.Services
 
             if (_settingsService.Settings.RemoveDuplicates && _databaseService.RichTextExistsInDatabase(text, richContent))
             {
-                // 如果是刚刚粘贴的内容，不更新时间戳（避免粘贴后移动位置）
+                
                 if (!IsRecentlyPastedContent(text))
                 {
                     _databaseService.UpdateDuplicateRichTextTimestamp(text, richContent);
@@ -534,7 +534,7 @@ namespace WinVClip.Services
 
             if (_settingsService.Settings.RemoveDuplicates && _databaseService.ImageExistsInDatabase(imageHash))
             {
-                // 如果是刚刚粘贴的内容，不更新时间戳（避免粘贴后移动位置）
+                
                 if (!IsRecentlyPastedContent(imageHash))
                 {
                     _databaseService.UpdateDuplicateImageTimestamp(imageHash);
@@ -565,7 +565,7 @@ namespace WinVClip.Services
             {
                 if (!string.IsNullOrEmpty(matchingContent))
                 {
-                    // 如果是刚刚粘贴的内容，不更新时间戳（避免粘贴后移动位置）
+                    
                     if (!IsRecentlyPastedContent(hash))
                     {
                         _databaseService.UpdateDuplicateItemTimestamp(matchingContent, (int)ClipboardType.FileList);
@@ -668,23 +668,23 @@ namespace WinVClip.Services
         {
             try
             {
-                // 确保图片格式为Bgr32或Pbgra32，这是最兼容的格式
+                
                 if (source.Format != System.Windows.Media.PixelFormats.Bgr32 &&
                     source.Format != System.Windows.Media.PixelFormats.Pbgra32)
                 {
-                    // 创建FormatConvertedBitmap来转换格式
+                    
                     var converted = new FormatConvertedBitmap();
                     converted.BeginInit();
                     converted.Source = source;
                     converted.DestinationFormat = System.Windows.Media.PixelFormats.Bgr32;
                     converted.EndInit();
 
-                    // 冻结以提高性能
+                    
                     converted.Freeze();
                     return converted;
                 }
 
-                // 如果已经是兼容格式，直接返回
+                
                 return source;
             }
             catch

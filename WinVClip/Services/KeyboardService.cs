@@ -70,12 +70,6 @@ namespace WinVClip.Services
             return (ctrl, alt, shift, win);
         }
 
-        /// <summary>
-        /// 参考 CopyQ waitForModifiersReleased：轮询等待用户释放所有修饰键，
-        /// 避免注入的粘贴快捷键与用户尚未松开的修饰键叠加（如 Ctrl+Ctrl+V）。
-        /// 返回是否在超时前全部释放；超时不中断粘贴流程（修饰键+点击组合粘贴时
-        /// 用户确实按住修饰键，由 SimulatePaste 自适应复用已按下的修饰键）。
-        /// </summary>
         public static bool WaitForModifiersReleased(int maxWaitMs)
         {
             int waited = 0;
@@ -138,6 +132,74 @@ namespace WinVClip.Services
                 processName.Equals(t, StringComparison.OrdinalIgnoreCase));
         }
 
+        #region SendInput
+
+        private const uint INPUT_KEYBOARD = 1;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct KEYBDINPUT
+        {
+            public ushort wVk;
+            public ushort wScan;
+            public uint dwFlags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MOUSEINPUT
+        {
+            public int dx;
+            public int dy;
+            public uint mouseData;
+            public uint dwFlags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        private struct INPUTUNION
+        {
+            [FieldOffset(0)] public MOUSEINPUT mi;
+            [FieldOffset(0)] public KEYBDINPUT ki;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct INPUT
+        {
+            public uint type;
+            public INPUTUNION U;
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+        private static INPUT KeyboardInput(int vk, bool up, uint extraFlags = 0)
+        {
+            return new INPUT
+            {
+                type = INPUT_KEYBOARD,
+                U = new INPUTUNION
+                {
+                    ki = new KEYBDINPUT
+                    {
+                        wVk = (ushort)vk,
+                        dwFlags = (up ? KEYEVENTF_KEYUP : 0u) | extraFlags,
+                        time = 0,
+                        dwExtraInfo = IntPtr.Zero
+                    }
+                }
+            };
+        }
+
+        private static bool SendKeyInputs(params INPUT[] inputs)
+        {
+            if (inputs == null || inputs.Length == 0) return false;
+            return SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>()) == inputs.Length;
+        }
+
+        #endregion
+
         private static void SimulatePasteCtrlV()
         {
             bool userAlt = IsKeyPressed(VK_MENU);
@@ -148,24 +210,23 @@ namespace WinVClip.Services
 
             bool userCtrl = IsKeyPressed(VK_CONTROL);
 
-            if (!userCtrl)
-            {
-                SendKey(VK_CONTROL, false);
-            }
-
             try
             {
-                SendKey(VK_V, false);
-                Thread.Sleep(8);
-                SendKey(VK_V, true);
+                if (userCtrl)
+                {
+                    SendKeyInputs(KeyboardInput(VK_V, false));
+                    Thread.Sleep(8);
+                    SendKeyInputs(KeyboardInput(VK_V, true));
+                }
+                else
+                {
+                    SendKeyInputs(KeyboardInput(VK_CONTROL, false), KeyboardInput(VK_V, false));
+                    Thread.Sleep(8);
+                    SendKeyInputs(KeyboardInput(VK_V, true), KeyboardInput(VK_CONTROL, true));
+                }
             }
             finally
             {
-                if (!userCtrl)
-                {
-                    SendKey(VK_CONTROL, true);
-                }
-
                 if (userShift)
                 {
                     SendKey(VK_SHIFT, false);
@@ -191,24 +252,23 @@ namespace WinVClip.Services
 
             bool userShift = IsKeyPressed(VK_SHIFT);
 
-            if (!userShift)
-            {
-                SendKey(VK_SHIFT, false);
-            }
-
             try
             {
-                keybd_event(VK_INSERT, 0, KEYEVENTF_EXTENDEDKEY, 0);
-                Thread.Sleep(8);
-                keybd_event(VK_INSERT, 0, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+                if (userShift)
+                {
+                    SendKeyInputs(KeyboardInput(VK_INSERT, false, KEYEVENTF_EXTENDEDKEY));
+                    Thread.Sleep(8);
+                    SendKeyInputs(KeyboardInput(VK_INSERT, true, KEYEVENTF_EXTENDEDKEY));
+                }
+                else
+                {
+                    SendKeyInputs(KeyboardInput(VK_SHIFT, false), KeyboardInput(VK_INSERT, false, KEYEVENTF_EXTENDEDKEY));
+                    Thread.Sleep(8);
+                    SendKeyInputs(KeyboardInput(VK_INSERT, true, KEYEVENTF_EXTENDEDKEY), KeyboardInput(VK_SHIFT, true));
+                }
             }
             finally
             {
-                if (!userShift)
-                {
-                    SendKey(VK_SHIFT, true);
-                }
-
                 if (userAlt)
                 {
                     SendKey(VK_MENU, false);

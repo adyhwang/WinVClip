@@ -109,7 +109,7 @@ namespace WinVClip
             _item.Content = text.Trim();
             if (_wasRichText)
             {
-                // 富文本编辑后保存，转换为文本类型并清空富文本相关字段
+                
                 _item.Type = ClipboardType.Text;
                 _item.RichContent = null;
                 _item.RichFormat = null;

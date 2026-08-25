@@ -513,7 +513,7 @@ namespace WinVClip.Services
         public void DeleteItem(long id)
         {
             var item = GetItem(id);
-            // 删除图片文件（图片类型或含图片的富文本类型）
+            
             if (item != null && !string.IsNullOrEmpty(item.ImagePath))
             {
                 DeleteImageFile(item.ImagePath);
@@ -652,7 +652,7 @@ namespace WinVClip.Services
             var imagePaths = new List<string>();
             using var selectCommand = _connection.CreateCommand();
             
-            // 查询所有含图片路径的记录（图片类型或富文本类型）
+            
             if (ungroupedOnly)
             {
                 selectCommand.CommandText = "SELECT Id, ImagePath FROM ClipboardItems WHERE ImagePath IS NOT NULL AND ImagePath != '' AND GroupId IS NULL";
@@ -751,7 +751,7 @@ namespace WinVClip.Services
             if (contents == null || contents.Count == 0)
                 return result;
 
-            // 过滤掉空内容，避免 SQL 问题
+            
             var validContents = contents.Where(c => !string.IsNullOrWhiteSpace(c)).ToList();
             if (validContents.Count == 0)
                 return result;
@@ -787,7 +787,7 @@ namespace WinVClip.Services
             if (contents == null || contents.Count == 0)
                 return 0;
 
-            // 过滤掉空内容，避免 SQL 问题
+            
             var validContents = contents.Where(c => !string.IsNullOrWhiteSpace(c)).ToList();
             if (validContents.Count == 0)
                 return 0;
@@ -1097,10 +1097,10 @@ namespace WinVClip.Services
             command.ExecuteNonQuery();
         }
 
-        /// <summary>
-        /// 富文本保存为纯文本时使用：同时更新 Type 为 Text，清空 RichContent/RichFormat，
-        /// 并写入新的 Content/PreviewText。
-        /// </summary>
+        
+        
+        
+        
         public void UpdateItemAsText(long itemId, string content)
         {
             using var command = _connection.CreateCommand();
@@ -1199,20 +1199,20 @@ namespace WinVClip.Services
 
         public void CleanupExcessHistoryItems(int maxItems)
         {
-            if (maxItems <= 0) // 0或负数表示无限
+            if (maxItems <= 0) 
                 return;
 
-            // 获取当前未分组记录的数量
+            
             using var countCommand = _connection.CreateCommand();
             countCommand.CommandText = "SELECT COUNT(*) FROM ClipboardItems WHERE GroupId IS NULL";
             int currentCount = Convert.ToInt32(countCommand.ExecuteScalar());
 
-            // 如果超出限制，删除最早的记录
+            
             if (currentCount > maxItems)
             {
                 int itemsToDelete = currentCount - maxItems;
 
-                // 获取要删除的记录ID和图片路径
+                
                 using var selectCommand = _connection.CreateCommand();
                 selectCommand.CommandText = @"
                     SELECT Id, ImagePath 
@@ -1236,7 +1236,7 @@ namespace WinVClip.Services
                     DeleteImageFile(imagePath);
                 }
 
-                // 从数据库中删除记录
+                
                 if (itemsToDeleteList.Count > 0)
                 {
                     var idsToDelete = string.Join(",", itemsToDeleteList.Select(r => r.Id));
@@ -1244,15 +1244,15 @@ namespace WinVClip.Services
                     deleteCommand.CommandText = $"DELETE FROM ClipboardItems WHERE Id IN ({idsToDelete})";
                     deleteCommand.ExecuteNonQuery();
 
-                    // 删除超量记录后压缩数据库，回收磁盘空间
+                    
                     VacuumDatabase();
                 }
             }
         }
 
-        /// <summary>
-        /// 执行 WAL checkpoint 并截断 WAL 文件，回收磁盘空间。
-        /// </summary>
+        
+        
+        
         public void CheckpointDatabase()
         {
             try
@@ -1271,14 +1271,14 @@ namespace WinVClip.Services
         {
             try
             {
-                // VACUUM 不会回收 WAL 文件空间，需要先 checkpoint 把 WAL 内容合并回主库
+                
                 CheckpointDatabase();
 
                 using var command = _connection.CreateCommand();
                 command.CommandText = "VACUUM";
                 command.ExecuteNonQuery();
 
-                // VACUUM 过程中可能再次产生 WAL，再次 checkpoint 截断
+                
                 CheckpointDatabase();
             }
             catch (Exception ex)

@@ -27,7 +27,7 @@ using WinVClip.Services;
 
 namespace WinVClip
 {
-    // ScrollViewer 动画滚动辅助类
+    
     public static class ScrollViewerBehavior
     {
         public static readonly DependencyProperty VerticalOffsetProperty =
@@ -56,7 +56,7 @@ namespace WinVClip
         }
     }
 
-    // 转换器基类，提供通用的 ProvideValue 和 ConvertBack 实现
+    
     public abstract class BaseConverter : MarkupExtension, IValueConverter
     {
         public override object ProvideValue(IServiceProvider serviceProvider) => this;
@@ -834,9 +834,6 @@ namespace WinVClip
 
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    // 空列表：走 AddRange（批量 Add 通知），避免 ReplaceAll 触发的
-                    // Reset 通知 → 容器重建 → 闪烁。
-                    // 非空列表（筛选/搜索变化）：用 ReplaceAll，确保旧项被清除。
                     if (ClipboardItems.Count == 0)
                         ClipboardItems.AddRange(newItems);
                     else
@@ -950,8 +947,6 @@ namespace WinVClip
             SelectedItemIds.Clear();
         }
 
-        /// <summary>隐藏时的内存修剪（非破坏性）——只清图片等大对象，保留文本数据缓存。
-        /// 下次显示窗口时直接复用缓存，避免重新加载引发的列表闪烁。</summary>
         public void TrimLargeObjects()
         {
             foreach (var item in ClipboardItems)
@@ -960,21 +955,20 @@ namespace WinVClip
             }
         }
 
-        /// <summary>当前列表中是否已有可复用的缓存数据（即隐藏时未清空）。</summary>
         public bool HasCachedItems => ClipboardItems.Count > 0 || _currentOffset != 0;
 
-        /// <summary>检查缓存是否仍然有效（筛选未变、记录总数未变），无效则需重新加载。
-        /// 隐藏窗口时我们保留了轻量文本数据缓存，显示时借此判断能否直接复用。</summary>
+        
+        
         public bool IsCacheValid()
         {
             if (!HasCachedItems) return false;
-            // 有搜索关键字或筛选：不能依赖缓存（捕获的新项可能正好匹配或不匹配筛选）
+            
             if (!string.IsNullOrWhiteSpace(SearchText)) return false;
             if (TypeFilter != null) return false;
             if (GroupFilter != null) return false;
             try
             {
-                // 快速查询数据库总数，避免重新加载整个列表
+                
                 int actualTotal = _databaseService.GetTotalCount(null, null, null);
                 return actualTotal == GrandTotalCount;
             }
@@ -1018,9 +1012,9 @@ namespace WinVClip
 
         public void AddItem(ClipboardItem item)
         {
-            // 窗口隐藏时也同步写入集合与计数：保证下次 Show 时 ListBox 直接已是最新，
-            // 不需要等用户点过滤/分组才触发 LoadItems。集合操作很轻且有 200 条上限，
-            // 与「隐藏时保留文本缓存、Show 时复用」的抗闪烁策略兼容。
+            
+            
+            
             ClipboardItems.Insert(0, item);
             if (ClipboardItems.Count > 200)
             {
@@ -1092,7 +1086,7 @@ namespace WinVClip
         private double _savedLeft;
         private double _savedTop;
         private System.Windows.Point _dragStartPoint;
-        /// <summary>本次按下的拖拽是否已启动，防止 MouseMove 连续触发 DoDragDrop 重入。</summary>
+        
         private bool _isDragStarted;
 
         private System.Windows.Threading.DispatcherTimer _tooltipTimer;
@@ -1103,11 +1097,11 @@ namespace WinVClip
         private IntPtr _capturedTargetHwnd = IntPtr.Zero;
         private List<Models.QuickPasteShortcut> _quickPasteShortcuts = new List<Models.QuickPasteShortcut>();
 
-        /// <summary>粘贴后删除：延迟清空系统剪贴板的定时器（10 秒）。</summary>
+        
         private System.Windows.Threading.DispatcherTimer _pasteAndDeleteClearTimer;
-        /// <summary>粘贴后删除：待清理的文本内容（用于清理前比对剪贴板是否仍为本程序写入的内容）。</summary>
+        
         private string _pasteAndDeleteClearText;
-        /// <summary>粘贴后删除：待清理的文件列表。</summary>
+        
         private List<string> _pasteAndDeleteClearFiles;
 
         private System.Threading.Timer _backgroundGcTimer;
@@ -1162,7 +1156,7 @@ namespace WinVClip
             LoadQuickPasteShortcuts();
         }
 
-        /// <summary>从设置加载主界面快捷键配置到内存缓存。</summary>
+        
         private void LoadQuickPasteShortcuts()
         {
             _quickPasteShortcuts = _settingsService.Settings.QuickPasteShortcuts?
@@ -1256,7 +1250,7 @@ namespace WinVClip
             _hwndSource = HwndSource.FromHwnd(handle);
             _hwndSource.AddHook(WndProc);
 
-            // 注册主窗口 HWND，供 ClipboardWin32Helper 的 OpenClipboard 使用
+            
             ClipboardWin32Helper.SetWindowHandle(handle);
 
             DisableMaximizeAndAeroSnap(handle);
@@ -1287,8 +1281,8 @@ namespace WinVClip
             const int WM_SHOWMAINWINDOW = 0x0401;
             if (msg == WM_HOTKEY)
             {
-                // wParam 为注册热键时分配的 id，统一交由 HotkeyService 按注册回调分发：
-                // 显示/隐藏主界面、全局快捷键均通过此路径触发对应动作。
+                
+                
                 App.ProcessHotkey(wParam.ToInt32());
                 handled = true;
                 return (IntPtr)1;
@@ -1312,18 +1306,19 @@ namespace WinVClip
             var screen = GetScreenFromPoint(mousePosDevice);
             
             _lastFocusHwndWhenShow = GetForegroundWindow();
+            _capturedTargetHwnd = IntPtr.Zero;
             
-            // 将设备像素（物理像素）转换为 WPF 逻辑像素
+            
             var mousePos = DevicePixelsToLogicalPixels(mousePosDevice, hMonitor);
             var workingArea = DevicePixelsToLogicalPixels(screen.WorkingArea, hMonitor);
             
-            // 计算窗口的智能弹出位置
+            
             var position = CalculateOptimalWindowPosition(mousePos, workingArea);
             
             Left = position.X;
             Top = position.Y;
             
-            // 使用无焦点方式显示窗口
+            
             ShowWithoutActivation();
             _isVisible = true;
             _viewModel.IsWindowVisible = true;
@@ -1333,16 +1328,16 @@ namespace WinVClip
             
             SavePosition();
 
-            // 优先复用隐藏时保留的缓存（文本数据、容器、选中状态）——
-            // 不重新加载数据 → 列表直接显示，完全避免"清空→加载→重建"的闪烁。
-            // 缓存校验：筛选未变 + 数据库总数与 GrandTotalCount 一致 → 有效 → 直接复用。
+            
+            
+            
             bool cacheValid = _viewModel.IsCacheValid();
             if (!cacheValid)
             {
                 _viewModel.LoadItems();
             }
 
-            // 复用缓存时：图片缩略图已被 Trim 清空，异步触发可见区域内图片项的懒加载重绘。
+            
             if (cacheValid)
             {
                 Dispatcher.BeginInvoke(new Action(() =>
@@ -1350,8 +1345,8 @@ namespace WinVClip
                     var scroll = _listBoxScrollViewer;
                     if (scroll != null)
                     {
-                        // 轻触一下滚动位置：触发 VirtualizingStackPanel 重新测量可见项，
-                        // 让可见项的 Image 绑定重新读取 ImageThumbnail（触发懒加载）。
+                        
+                        
                         var offset = scroll.VerticalOffset;
                         scroll.ScrollToVerticalOffset(offset > 0 ? offset - 1 : offset + 1);
                         scroll.ScrollToVerticalOffset(offset);
@@ -1359,7 +1354,7 @@ namespace WinVClip
                 }), System.Windows.Threading.DispatcherPriority.Background);
             }
 
-            // 若没有任何项被选中则默认选中首项；避免每次显示都强制重置选中项。
+            
             if (ClipboardListBox.SelectedItem == null && _viewModel.ClipboardItems.Count > 0)
                 ClipboardListBox.SelectedIndex = 0;
 
@@ -1368,7 +1363,7 @@ namespace WinVClip
             if (_charPanelBuilt && CharTabControl.SelectedItem is TabItem charTab)
                 LoadGroupContent(_charGroups.FirstOrDefault(g => g.Id == charTab.Tag as string) ?? _charGroups.FirstOrDefault(), CharContentPanel, "CharPanel");
 
-            // 设置全局鼠标钩子以检测外部点击
+            
             SetGlobalMouseHook();
         }
 
@@ -1377,29 +1372,29 @@ namespace WinVClip
             int windowWidth = (int)Width;
             int windowHeight = (int)Height;
             
-            const int margin = 12; // 统一边距，参考 QuickClipboard
+            const int margin = 12; 
             
-            // 默认位置：鼠标右下方
+            
             int x = mousePos.X + margin;
             int y = mousePos.Y + margin;
             
-            // 计算工作区边界
+            
             int workRight = workingArea.Left + workingArea.Width;
             int workBottom = workingArea.Top + workingArea.Height;
             
-            // 如果右边超出，移到左边
+            
             if (x + windowWidth > workRight)
             {
                 x = mousePos.X - windowWidth - margin;
             }
             
-            // 如果下边超出，移到上边
+            
             if (y + windowHeight > workBottom)
             {
                 y = mousePos.Y - windowHeight - margin;
             }
             
-            // 确保窗口在工作区内
+            
             x = Math.Max(workingArea.Left, Math.Min(x, workRight - windowWidth));
             y = Math.Max(workingArea.Top, Math.Min(y, workBottom - windowHeight));
             
@@ -1413,9 +1408,9 @@ namespace WinVClip
             return point;
         }
 
-        /// <summary>
-        /// 将设备像素（物理像素）转换为 WPF 逻辑像素
-        /// </summary>
+        
+        
+        
         private System.Drawing.Point DevicePixelsToLogicalPixels(System.Drawing.Point devicePoint, IntPtr monitorHandle)
         {
             var dpi = GetDpiForMonitor(monitorHandle);
@@ -1424,9 +1419,9 @@ namespace WinVClip
                 (int)(devicePoint.Y * 96.0 / dpi.Y));
         }
 
-        /// <summary>
-        /// 将设备像素矩形转换为 WPF 逻辑像素矩形
-        /// </summary>
+        
+        
+        
         private System.Drawing.Rectangle DevicePixelsToLogicalPixels(System.Drawing.Rectangle deviceRect, IntPtr monitorHandle)
         {
             var dpi = GetDpiForMonitor(monitorHandle);
@@ -1437,9 +1432,9 @@ namespace WinVClip
                 (int)(deviceRect.Height * 96.0 / dpi.Y));
         }
 
-        /// <summary>
-        /// 获取指定显示器的 DPI
-        /// </summary>
+        
+        
+        
         private (double X, double Y) GetDpiForMonitor(IntPtr hMonitor)
         {
             uint dpiX = 96, dpiY = 96;
@@ -1449,7 +1444,7 @@ namespace WinVClip
             }
             catch
             {
-                // 如果 API 调用失败，使用当前窗口的 DPI
+                
                 var hwnd = new WindowInteropHelper(this).Handle;
                 if (hwnd != IntPtr.Zero)
                 {
@@ -1457,7 +1452,7 @@ namespace WinVClip
                 }
                 else
                 {
-                    // 使用系统默认 DPI (96)
+                    
                     dpiX = dpiY = 96;
                 }
             }
@@ -1515,7 +1510,7 @@ namespace WinVClip
 
         private const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
 
-        // 焦点管理相关的系统API
+        
         [DllImport("user32.dll")]
         private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
 
@@ -1574,7 +1569,6 @@ namespace WinVClip
         [DllImport("user32.dll")]
         private static extern bool IsWindowVisible(IntPtr hWnd);
 
-        // CopyQ raiseWindowHelper: SetWindowPos 使用 HWND_TOP 提升窗口 Z 序
         private static readonly IntPtr HWND_TOP = IntPtr.Zero;
         private const int SWP_SHOWWINDOW = 0x0040;
 
@@ -1584,7 +1578,7 @@ namespace WinVClip
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool SetProcessWorkingSetSize(IntPtr proc, IntPtr min, IntPtr max);
 
-        // 窗口样式常量
+        
         private const int GWL_STYLE = -16;
         private const int GWL_EXSTYLE = -20;
         private const int WS_MAXIMIZEBOX = 0x00010000;
@@ -1596,12 +1590,12 @@ namespace WinVClip
         private const int SWP_NOSIZE = 0x0001;
         private const int SWP_FRAMECHANGED = 0x0020;
 
-        // 鼠标钩子常量
+        
         private const int WH_MOUSE_LL = 14;
         private const int WM_LBUTTONDOWN = 0x0201;
         private const int WM_RBUTTONDOWN = 0x0204;
 
-        // 鼠标钩子委托和变量
+        
         private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
         private LowLevelMouseProc _mouseProc;
         private IntPtr _mouseHookId = IntPtr.Zero;
@@ -1661,8 +1655,8 @@ namespace WinVClip
             HideCustomTooltip();
             _tooltipTimer?.Stop();
             
-            // 仅修剪图片缩略图等大对象，保留文本数据缓存——下次显示直接复用，避免列表刷新闪烁。
-            // 符合内存清理约束（GC/Compact/WorkingSet 照常执行），数据占用内存可忽略（<几 MB）。
+            
+            
             _viewModel.TrimLargeObjects();
             ImageCache.Clear();
             
@@ -1702,8 +1696,8 @@ namespace WinVClip
             RemoveGlobalMouseHook();
         }
 
-        // 焦点控制相关方法
-        // 窗口样式控制方法
+        
+        
         private void SetWindowActivateStyle(bool activate)
         {
             var handle = new WindowInteropHelper(this).Handle;
@@ -1741,7 +1735,7 @@ namespace WinVClip
                 System.Windows.Threading.DispatcherPriority.ApplicationIdle);
         }
 
-        // 焦点控制相关方法
+        
         private void SearchTextBox_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
             ActivateWindow();
@@ -1764,22 +1758,33 @@ namespace WinVClip
             e.Handled = false;
             DeactivateWindowDeferred();
 
-            // 左键按下时记录拖拽判定起点（供 ItemGrid_MouseMove 检测拖拽阈值）
+            
             if (e.ChangedButton == MouseButton.Left)
             {
                 _dragStartPoint = e.GetPosition(this);
                 _isDragStarted = false;
             }
 
-            // 左键/中键按下时捕获目标窗口句柄（供粘贴类操作使用）
-            // 多选模式下点击用于选择条目，不应捕获粘贴目标
+            
+            
             if (!_viewModel.IsMultiSelectMode &&
                 (e.ChangedButton == MouseButton.Left || e.ChangedButton == MouseButton.Middle))
             {
-                _capturedTargetHwnd = _lastFocusHwndWhenShow != IntPtr.Zero
-                    ? _lastFocusHwndWhenShow
-                    : (App.GetFocusService()?.LastFocusHwnd ?? IntPtr.Zero);
+                _capturedTargetHwnd = ResolvePasteTargetHwnd();
             }
+        }
+
+        private IntPtr ResolvePasteTargetHwnd()
+        {
+            var focusService = App.GetFocusService();
+
+            IntPtr live = focusService?.GetLiveForegroundTarget() ?? IntPtr.Zero;
+            if (live != IntPtr.Zero) return live;
+
+            if (_lastFocusHwndWhenShow != IntPtr.Zero)
+                return _lastFocusHwndWhenShow;
+
+            return focusService?.LastFocusHwnd ?? IntPtr.Zero;
         }
 
         private void ItemBorder_PreviewMouseUp(object sender, MouseButtonEventArgs e)
@@ -1788,14 +1793,14 @@ namespace WinVClip
             {
                 if (e.ChangedButton == MouseButton.Middle)
                 {
-                    // 优先匹配主界面快捷键配置
+                    
                     if (TryMatchQuickPasteShortcut(item, Models.QuickPasteMouseButton.Middle, out var matched))
                     {
                         e.Handled = true;
                         ExecuteQuickPasteAction(item, matched.Action, matched.QuickCommandName);
                         return;
                     }
-                    // 未匹配配置：维持原有「中键纯文本粘贴（去换行）」行为（向后兼容）
+                    
                     if (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText)
                     {
                         e.Handled = true;
@@ -1804,10 +1809,10 @@ namespace WinVClip
                 }
                 else if (e.ChangedButton == MouseButton.Left)
                 {
-                    // 左键快捷键匹配已移至 ClipboardListBox_PreviewMouseLeftButtonUp 处理。
-                    // 原因：PreviewMouseUp 与 PreviewMouseLeftButtonUp 是不同的路由事件，
-                    // 此处 e.Handled 无法阻断 ListBox 级别的 PreviewMouseLeftButtonUp 默认粘贴，
-                    // 会导致快捷键操作被默认粘贴覆盖。
+                    
+                    
+                    
+                    
                 }
             }
         }
@@ -1821,11 +1826,11 @@ namespace WinVClip
                 SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
         }
 
-        /// <summary>
-        /// 预热窗口：以透明、无激活方式完成 WPF 首次布局/渲染，
-        /// 避免首次快捷键弹出主界面时因 JIT 编译、样式实例化、模板构建导致的卡顿。
-        /// 同时触发 WPF 自动绑定 Application.MainWindow，使托盘右键菜单可正常弹出。
-        /// </summary>
+        
+        
+        
+        
+        
         public void PreheatRender()
         {
             var savedOpacity = Opacity;
@@ -1876,17 +1881,17 @@ namespace WinVClip
                     return CallNextHookEx(_mouseHookId, nCode, wParam, lParam);
                 }
 
-                // 获取鼠标点击位置
+                
                 var mouseHookStruct = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
                 var clickPoint = new System.Drawing.Point(mouseHookStruct.pt.x, mouseHookStruct.pt.y);
                 
-                // 检查点击是否在窗口外部
+                
                 if (!IsPointInWindow(clickPoint))
                 {
-                    // 检查点击是否在任何打开的菜单范围内
+                    
                     if (!IsPointInAnyMenu(clickPoint))
                     {
-                        // 点击在窗口外部且不在菜单范围内，隐藏窗口
+                        
                         Dispatcher.Invoke(() =>
                         {
                             if (_isVisible && !_viewModel.IsPinned)
@@ -2071,7 +2076,7 @@ namespace WinVClip
             menu.Opened += ContextMenu_Opened;
             menu.Loaded += (s, args) => SetContextMenuTopmost(menu);            
             
-            // 添加分组菜单项
+            
             AddGroupMenuItem(menu, Loc.Get("Common.All", "全部"), null, currentGroupId, onSelect);
             foreach (var group in _databaseService.GetAllGroups())
             {
@@ -2132,7 +2137,7 @@ namespace WinVClip
 
         private void ClipboardListBox_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
-            // 主界面快捷键：悬停项上滚轮触发对应操作，禁用列表滚动
+            
             var wheelButton = e.Delta > 0 ? Models.QuickPasteMouseButton.WheelUp : Models.QuickPasteMouseButton.WheelDown;
             var hoverItem = GetHoveredClipboardItem();
             if (hoverItem != null && TryMatchQuickPasteShortcut(hoverItem, wheelButton, out var matched))
@@ -2150,7 +2155,7 @@ namespace WinVClip
             }
         }
 
-        /// <summary>获取当前鼠标悬停的剪贴板项（通过可视化树查找 ItemBorder.DataContext）。</summary>
+        
         private ClipboardItem GetHoveredClipboardItem()
         {
             try
@@ -2210,12 +2215,10 @@ namespace WinVClip
             if (IsControlElement(e.OriginalSource))
                 return;
 
-            // 多选模式下点击用于选择条目，不应捕获粘贴目标
+            
             if (!_viewModel.IsMultiSelectMode)
             {
-                _capturedTargetHwnd = _lastFocusHwndWhenShow != IntPtr.Zero
-                    ? _lastFocusHwndWhenShow
-                    : (App.GetFocusService()?.LastFocusHwnd ?? IntPtr.Zero);
+                _capturedTargetHwnd = ResolvePasteTargetHwnd();
             }
         }
 
@@ -2226,16 +2229,16 @@ namespace WinVClip
 
             if (ClipboardListBox.SelectedItem is ClipboardItem item)
             {
-                // 优先匹配主界面快捷键配置（左键）
-                // 注意：PreviewMouseLeftButtonUp 与 ItemBorder 的 PreviewMouseUp 是不同的路由事件，
-                // e.Handled 不会互相阻断，因此必须在此处优先检查并拦截默认粘贴
+                
+                
+                
                 if (TryMatchQuickPasteShortcut(item, Models.QuickPasteMouseButton.Left, out var matched))
                 {
                     e.Handled = true;
                     ExecuteQuickPasteAction(item, matched.Action, matched.QuickCommandName);
                     return;
                 }
-                // 未匹配配置：维持原有默认左键行为
+                
                 if (_viewModel.IsMultiSelectMode)
                     _viewModel.ToggleSelection(item);
                 else
@@ -2367,7 +2370,7 @@ namespace WinVClip
             var wasRichText = item.Type == ClipboardType.RichText;
             var editWindow = new EditItemWindow(item) { Owner = this };
 
-            // 编辑窗口弹出期间按下 PinButton，确保主窗口置顶以便对照编辑
+            
             var wasPinnedBefore = _viewModel.IsPinned;
             _viewModel.IsPinned = true;
             Topmost = true;
@@ -2378,7 +2381,7 @@ namespace WinVClip
                 {
                     if (wasRichText && item.Type == ClipboardType.Text)
                     {
-                        // 富文本经编辑后转换为纯文本：清空富文本字段并修改类型
+                        
                         _databaseService.UpdateItemAsText(item.Id, item.Content);
                     }
                     else
@@ -2390,7 +2393,7 @@ namespace WinVClip
             }
             finally
             {
-                // 编辑窗口关闭后恢复 PinButton 原来的状态
+                
                 _viewModel.IsPinned = wasPinnedBefore;
                 Topmost = wasPinnedBefore;
             }
@@ -2414,7 +2417,7 @@ namespace WinVClip
             if (string.IsNullOrEmpty(text))
                 return;
 
-            // 保存当前目标窗口句柄（在打开CharPickerWindow之前，避免焦点变化影响）
+            
             var focusService = App.GetFocusService();
             var targetHwnd = focusService?.LastFocusHwnd ?? IntPtr.Zero;
 
@@ -2448,7 +2451,7 @@ namespace WinVClip
             if (string.IsNullOrEmpty(text))
                 return;
 
-            // 创建窗口前检查内容是否超出二维码容量上限，超限则直接提示，不弹空白窗口
+            
             if (QRCodeWindow.IsContentTooLarge(text))
             {
                 var byteCount = System.Text.Encoding.UTF8.GetByteCount(text);
@@ -2521,21 +2524,21 @@ namespace WinVClip
                 PasteItemAsPlainText(item);
         }
 
-        /// <summary>纯文本粘贴并移除换行符。</summary>
+        
         private void PasteRemoveNewlines_Click(object sender, RoutedEventArgs e)
         {
             if (ClipboardListBox.SelectedItem is ClipboardItem item)
                 PasteItemAsPlainTextRemoveNewlines(item);
         }
 
-        /// <summary>粘贴条目（保留原格式）后从数据库删除该条目。</summary>
+        
         private void PasteAndDelete_Click(object sender, RoutedEventArgs e)
         {
             if (ClipboardListBox.SelectedItem is ClipboardItem item)
                 PasteAndDeleteItem(item);
         }
 
-        /// <summary>按原格式粘贴条目，粘贴内容写入剪贴板后从数据库移除该条目。</summary>
+        
         private void PasteAndDeleteItem(ClipboardItem item)
         {
             if (_isPasting) return;
@@ -2551,13 +2554,13 @@ namespace WinVClip
                 var hashFiles = item.Type == ClipboardType.FileList && item.FilePaths != null
                     ? item.FilePaths : null;
 
-                // 不传 moveTopItem：条目即将删除，无需置顶刷新
+                
                 PostPasteFlow(pasteHashText: hashText, pasteHashFiles: hashFiles);
 
-                // 剪贴板内容已写入，删除数据库条目不影响后续粘贴注入
+                
                 DeleteItem(item);
 
-                // 延迟 10 秒清空系统剪贴板，避免敏感数据残留
+                
                 ScheduleClipboardClearAfterPasteAndDelete(item);
             }
             catch (Exception ex)
@@ -2570,8 +2573,8 @@ namespace WinVClip
             }
         }
 
-        /// <summary>粘贴后删除：启动 10 秒定时器，到期后若剪贴板内容仍为本程序写入的则清空。
-        /// 期间用户复制了新内容则跳过清理，避免误删。</summary>
+        
+        
         private void ScheduleClipboardClearAfterPasteAndDelete(ClipboardItem item)
         {
             _pasteAndDeleteClearText = (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText)
@@ -2587,12 +2590,12 @@ namespace WinVClip
                 };
                 _pasteAndDeleteClearTimer.Tick += PasteAndDeleteClearTimer_Tick;
             }
-            // 重复调用时重置计时，以最后一次粘贴后删除的内容为准
+            
             _pasteAndDeleteClearTimer.Stop();
             _pasteAndDeleteClearTimer.Start();
         }
 
-        /// <summary>定时器到期：比对剪贴板内容未被替换后清空系统剪贴板。</summary>
+        
         private void PasteAndDeleteClearTimer_Tick(object sender, EventArgs e)
         {
             _pasteAndDeleteClearTimer.Stop();
@@ -2610,7 +2613,7 @@ namespace WinVClip
                 else if (files != null)
                     isOurs = IsClipboardFileListEqual(files);
                 else
-                    // 图片无法低成本比对，剪贴板仍为图片即视为未被替换
+                    
                     isOurs = ClipboardWin32Helper.ContainsImage();
 
                 if (isOurs)
@@ -2618,11 +2621,11 @@ namespace WinVClip
             }
             catch
             {
-                // 清理失败不影响主流程
+                
             }
         }
 
-        /// <summary>比较剪贴板当前文件列表与指定列表是否一致（忽略顺序与大小写）。</summary>
+        
         private static bool IsClipboardFileListEqual(List<string> files)
         {
             if (!ClipboardWin32Helper.ContainsFileDropList())
@@ -2732,7 +2735,7 @@ namespace WinVClip
                 _openMenus.Add(contextMenu);
                 contextMenu.Closed += ContextMenu_Closed;
 
-                // 动态刷新「快捷命令」二级菜单末尾的自定义快捷命令列表 + 过滤 + 隐藏空菜单
+                
                 RefreshQuickCommandSubmenu(contextMenu);
                 UpdateQuickCommandsTopLevelVisibility(contextMenu);
 
@@ -2745,10 +2748,10 @@ namespace WinVClip
             }
         }
 
-        /// <summary>
-        /// 计算「快捷命令」是否有任何可见的二级菜单项。如果没有，则将一级菜单项本身隐藏。
-        /// 可见判定：Visibility == Visible 且 不是 Separator 且不是 __QC_EMPTY__ 占位。
-        /// </summary>
+        
+        
+        
+        
         private void UpdateQuickCommandsTopLevelVisibility(ContextMenu contextMenu)
         {
             if (MenuQuickCommands == null) return;
@@ -2767,24 +2770,24 @@ namespace WinVClip
             MenuQuickCommands.Visibility = hasVisibleItem ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        /// <summary>
-        /// 刷新「快捷命令」二级菜单：
-        ///   1. 找到 Separator（Tag=__QC_SEP__）位置
-        ///   2. 移除该 Separator 之后的所有动态项（Tag 以 "QC:" 开头 或 Tag="__QC_EMPTY__"）
-        ///   3. 追加当前 AppSettings.QuickCommands 列表里的**适用当前 item 类型**的快捷命令菜单项
-        /// </summary>
+        
+        
+        
+        
+        
+        
         private void RefreshQuickCommandSubmenu(ContextMenu contextMenu)
         {
             if (contextMenu == null || MenuQuickCommands == null) return;
             var parent = MenuQuickCommands.Items;
             if (parent == null) return;
 
-            // 当前选中的剪贴板 item：QC 只对 文本/富文本 生效；过滤条件：qc.ClipboardType==-1 或 qc.ClipboardType==(int)curItem.Type
+            
             var curItem = contextMenu.PlacementTarget is System.Windows.Controls.ListBox lb ? lb.SelectedItem as ClipboardItem : null;
             int curType = curItem != null ? (int)curItem.Type : -1;
             bool canApplyToItem = curItem != null && (curItem.Type == ClipboardType.Text || curItem.Type == ClipboardType.RichText);
 
-            // 1. 找到 Separator 的索引，之后的都是动态项
+            
             int sepIdx = -1;
             for (int i = 0; i < parent.Count; i++)
             {
@@ -2796,7 +2799,7 @@ namespace WinVClip
             }
             if (sepIdx < 0) return;
 
-            // 2. 从后往前清掉 Separator 之后的所有动态项
+            
             for (int i = parent.Count - 1; i > sepIdx; i--)
                 parent.RemoveAt(i);
 
@@ -2804,7 +2807,7 @@ namespace WinVClip
             bool anyUser = false;
             if (list != null)
             {
-                // 3. 追加每个快捷命令（按当前 item 类型过滤）
+                
                 foreach (var qc in list)
                 {
                     var name = (qc.Name ?? "").Trim();
@@ -3057,17 +3060,17 @@ namespace WinVClip
 
         #region 主界面快捷键
 
-        /// <summary>
-        /// 尝试匹配主界面快捷键配置。
-        /// 匹配条件：鼠标按键相同 && 修饰键组合相同 && (配置类型为所有类型 || 配置类型 == 项类型)。
-        /// </summary>
+        
+        
+        
+        
         private bool TryMatchQuickPasteShortcut(ClipboardItem item, Models.QuickPasteMouseButton button, out Models.QuickPasteShortcut matched)
         {
             matched = null;
             if (_quickPasteShortcuts == null || _quickPasteShortcuts.Count == 0)
                 return false;
 
-            // 隐藏/失焦后卡住导致误匹配主界面快捷键（详见 PasteItemWithKeyboardModifiers 注释）。
+            
             var (ctrl, alt, shift, _) = KeyboardService.GetModifierKeysState();
 
             foreach (var sc in _quickPasteShortcuts)
@@ -3082,10 +3085,10 @@ namespace WinVClip
             return false;
         }
 
-        /// <summary>根据操作类型执行对应操作（复用现有函数）。</summary>
+        
         private void ExecuteQuickPasteAction(ClipboardItem item, Models.QuickPasteAction action, string quickCommandName = null)
         {
-            // 统一以 item 为操作对象；部分事件处理类函数依赖 SelectedItem，故先选中
+            
             ClipboardListBox.SelectedItem = item;
             switch (action)
             {
@@ -3120,7 +3123,7 @@ namespace WinVClip
                     GroupMenuItem_Click(null, null);
                     break;
                 case Models.QuickPasteAction.CustomRegex:
-                    // 使用 quickCommandName 到设置里查找用户配置的快捷命令（规则链）
+                    
                     if (!string.IsNullOrEmpty(quickCommandName))
                     {
                         var qc = App.SettingsService?.Settings?.QuickCommands?
@@ -3131,17 +3134,17 @@ namespace WinVClip
                             break;
                         }
                     }
-                    // 未找到配置：按 PasteRemoveNewlines（安全默认）处理，丢弃已废弃的 regexPattern 参数
+                    
                     PasteItemAsPlainTextRemoveNewlines(item);
                     break;
             }
         }
 
-        /// <summary>
-        /// 全局快捷键动作执行：根据 <see cref="GlobalHotkey"/> 配置，对当前列表中第 N 项剪贴板条目
-        /// （ItemIndex 为 1 基索引）执行指定操作。窗口处于隐藏状态时也能工作——粘贴类操作通过
-        /// FocusService 解析用户当前前台窗口作为粘贴目标。
-        /// </summary>
+        
+        
+        
+        
+        
         public void ExecuteGlobalHotkeyAction(GlobalHotkey gh)
         {
             if (gh == null) return;
@@ -3149,7 +3152,7 @@ namespace WinVClip
             int idx = gh.ItemIndex - 1;
             if (idx < 0) idx = 0;
 
-            // 确保列表已加载：窗口隐藏期间集合仍维护最近 200 条，可直接取用。
+            
             var items = _viewModel?.ClipboardItems;
             if (items == null || items.Count == 0)
             {
@@ -3161,16 +3164,16 @@ namespace WinVClip
             var item = items[idx];
             if (item == null) return;
 
-            // 复用既有动作分发逻辑；粘贴类动作内部会通过 FocusService 定位目标窗口。
+            
             ExecuteQuickPasteAction(item, gh.Action, gh.QuickCommandName);
         }
 
-        /// <summary>
-        /// 快捷命令规则链执行：按顺序依次对文本应用规则列表中 Enabled=true 的条目，
-        /// 每条规则执行时单独捕获异常并弹窗提示，最后把结果设置回剪贴板并粘贴。
-        /// </summary>
-        /// <param name="item">剪贴板条目（必须是 Text 或 RichText）。</param>
-        /// <param name="rules">规则列表。</param>
+        
+        
+        
+        
+        
+        
         private void PasteWithCustomRegex(ClipboardItem item,
             System.Collections.Generic.IEnumerable<Models.QuickCommandRule> rules)
         {
@@ -3224,7 +3227,7 @@ namespace WinVClip
             }
         }
 
-        /// <summary>对一段文本执行单个快捷命令函数。</summary>
+        
         private static string ApplyQuickCommandRule(string input,
             Models.QuickCommandFunction func, string param1, string param2, bool firstOnly)
         {
@@ -3249,10 +3252,10 @@ namespace WinVClip
                     return rr.Replace(input, param2 ?? "");
 
                 case Models.QuickCommandFunction.RegexMatches:
-                    // 语义：从文本中提取所有 Pattern 匹配的片段。
-                    //   Param1 = Pattern
-                    //   Param2 = 分隔符（空或 null => 直接拼接；非空 => 用指定分隔符连接多个 Match.Value）
-                    // Pattern 为空 或 匹配不到 => 返回空串（绝不返回原文，避免误导性"去空格后原文还在"。
+                    
+                    
+                    
+                    
                     if (string.IsNullOrEmpty(param1)) return "";
                     var rm2 = new System.Text.RegularExpressions.Regex(param1);
                     var mc2 = rm2.Matches(input);
@@ -3264,7 +3267,7 @@ namespace WinVClip
                             sb2.Append(m.Value);
                         return sb2.ToString();
                     }
-                    // Param2 作为分隔符连接
+                    
                     var list = new System.Collections.Generic.List<string>(mc2.Count);
                     foreach (System.Text.RegularExpressions.Match m2 in mc2)
                         list.Add(m2.Value);
@@ -3288,7 +3291,7 @@ namespace WinVClip
                     return string.Join(Environment.NewLine, parts);
 
                 case Models.QuickCommandFunction.DistinctRemoveDuplicate:
-                    // 按行去重：统一换行 → 拆分 → 保留首次出现顺序 → 用原换行风格拼回
+                    
                     string newLine = "\n";
                     if (input.Contains("\r\n")) newLine = "\r\n";
                     else if (input.Contains("\r")) newLine = "\r";
@@ -3346,12 +3349,6 @@ namespace WinVClip
             }
         }
 
-        /// <summary>
-        /// 参考 CopyQ sendKeyPress 的完整粘贴流程：
-        /// before-raise 延时 → 激活并验证（失败即放弃）→ after-raised 等待 →
-        /// 等待修饰键释放 → 发送粘贴快捷键。
-        /// 关键原则：激活失败时绝不发送按键，宁可不粘贴也不能粘到错误的窗口。
-        /// </summary>
         private void ActivateAndPaste(IntPtr windowHandle)
         {
             IntPtr targetHwnd = IntPtr.Zero;
@@ -3369,14 +3366,8 @@ namespace WinVClip
 
             if (targetHwnd == IntPtr.Zero || !IsWindow(targetHwnd)) return;
 
-            // CopyQ: window_wait_before_raise_ms（默认 20ms）。
-            // HideWindow 后系统的焦点恢复是异步消息，先让这些事件入队完成，
-            // 避免激活操作与焦点恢复竞争。
             Thread.Sleep(20);
 
-            // CopyQ: raiseWindow——激活失败则放弃整个粘贴流程。
-            // 旧实现激活失败后仍继续发送按键，导致内容粘贴到
-            // 恰好处于前台的其它程序（"粘贴到程序 B"问题的根源）。
             if (!TryBringWindowToForeground(targetHwnd))
             {
                 System.Diagnostics.Debug.WriteLine(
@@ -3384,13 +3375,8 @@ namespace WinVClip
                 return;
             }
 
-            // CopyQ: window_wait_raised_ms（默认 150ms），自适应等待：
-            // 检测到窗口激活立即继续，超时才保底等待目标窗口输入队列就绪。
             WaitForWindowActivated(targetHwnd);
 
-            // CopyQ: waitForModifiersReleased——等待用户释放修饰键，
-            // 避免注入的快捷键与用户按住的修饰键叠加。超时不中断：
-            // WinVClip 支持修饰键+点击组合粘贴，此时由 SimulatePaste 自适应处理。
             KeyboardService.WaitForModifiersReleased(500);
 
             var pasteMode = App.SettingsService?.GetPasteShortcutMode() ?? Services.PasteShortcutMode.Auto;
@@ -3412,15 +3398,10 @@ namespace WinVClip
                 waited += 10;
             }
 
-            // 未检测到激活，保底等待让目标窗口完成输入队列准备
+            
             Thread.Sleep(30);
         }
 
-        /// <summary>
-        /// 参考 CopyQ raiseWindow：激活目标窗口并验证结果，失败时重试。
-        /// 返回是否确认目标窗口已成为前台窗口——调用方必须在失败时放弃粘贴，
-        /// 否则按键会发送到恰好处于前台的其它程序（粘贴到错误窗口的根源）。
-        /// </summary>
         private static bool TryBringWindowToForeground(IntPtr hWnd)
         {
             if (hWnd == IntPtr.Zero) return false;
@@ -3431,15 +3412,10 @@ namespace WinVClip
                 hWnd = rootHwnd;
             }
 
-            // CopyQ: 不可见/无效窗口无法激活，直接失败
             if (!IsWindow(hWnd) || !IsWindowVisible(hWnd)) return false;
 
-            // 先放宽 Windows 前台窗口锁定超时限制，提升 SetForegroundWindow 成功率。
             SystemParametersInfo(SPI_SETFOREGROUNDLOCKTIMEOUT, 0, IntPtr.Zero, 0);
 
-            // CopyQ: 重试 + 每次尝试后验证前台窗口确实是目标窗口。
-            // 焦点恢复（HideWindow 后系统将前台还给目标窗口）是异步消息，
-            // 可能与本激活操作竞争，因此需要重试而非一次定论。
             for (int attempt = 0; attempt < 3; attempt++)
             {
                 uint foregroundThreadId = GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero);
@@ -3454,8 +3430,6 @@ namespace WinVClip
                 try
                 {
                     SetForegroundWindow(hWnd);
-                    // CopyQ raiseWindowHelper: SetWindowPos 将窗口提到 Z 序顶端，
-                    // 与 SetForegroundWindow 双保险，确保目标窗口可见且位于顶层。
                     SetWindowPos(hWnd, HWND_TOP, 0, 0, 0, 0,
                         (uint)(SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW));
                 }
@@ -3469,8 +3443,6 @@ namespace WinVClip
 
                 if (IsForegroundWindow(hWnd)) return true;
 
-                // SetForegroundWindow 可能因 Windows 前台窗口限制而失败，
-                // 使用模拟 Alt 键按下/释放的方式触发系统允许前台切换的机制后重试。
                 keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
                 SetForegroundWindow(hWnd);
                 keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
@@ -3518,8 +3490,6 @@ namespace WinVClip
                 _viewModel.LoadItems();
             }
 
-            // 解析目标窗口句柄：优先使用调用方显式指定的，其次使用 PreviewMouseDown 时捕获的，
-            // 再使用 ShowAtCursor 时的快照，接着 FocusService 实时记录，最后回退到窗口栈。
             IntPtr targetHwnd = IntPtr.Zero;
             var focusService = App.GetFocusService();
 
@@ -3531,26 +3501,22 @@ namespace WinVClip
             {
                 targetHwnd = _capturedTargetHwnd;
             }
-            else if (_lastFocusHwndWhenShow != IntPtr.Zero)
+            else
             {
-                targetHwnd = _lastFocusHwndWhenShow;
-            }
-            else if (focusService != null)
-            {
-                targetHwnd = focusService.LastFocusHwnd;
+                targetHwnd = focusService?.GetLiveForegroundTarget() ?? IntPtr.Zero;
                 if (targetHwnd == IntPtr.Zero)
+                    targetHwnd = _lastFocusHwndWhenShow;
+                if (targetHwnd == IntPtr.Zero && focusService != null)
                 {
-                    targetHwnd = focusService.GetPreviousFocusHwnd(1);
-                }
-                if (targetHwnd == IntPtr.Zero)
-                {
-                    targetHwnd = focusService.GetPreviousFocusHwnd(2);
+                    targetHwnd = focusService.LastFocusHwnd;
+                    if (targetHwnd == IntPtr.Zero)
+                    {
+                        targetHwnd = focusService.GetPreviousFocusHwnd(1);
+                    }
                 }
             }
+            _capturedTargetHwnd = IntPtr.Zero;
 
-            // ★ 关键修复：先隐藏 WinVClip 窗口，让操作系统恢复目标窗口的前台焦点。
-            // 否则 WinVClip 占据前台时 SetForegroundWindow 会被 Windows 拒绝。
-            // 全局快捷键触发时窗口通常已隐藏，此时无需重复执行 HideWindow（避免冗余的清理与 GC）。
             var windowStateService = App.GetWindowStateService();
             bool shouldHide = _isVisible && windowStateService != null && !windowStateService.IsPinned;
 
@@ -3559,8 +3525,8 @@ namespace WinVClip
                 HideWindow();
             }
 
-            // 使用 BeginInvoke 延迟执行粘贴逻辑，确保 WinVClip 已完全隐藏、
-            // 目标窗口已重新获得前台焦点后再进行窗口激活和按键注入。
+            
+            
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 ActivateAndPaste(targetHwnd);
@@ -3572,7 +3538,7 @@ namespace WinVClip
 
         private static IntPtr GetDesktopWindow()
         {
-            // 尝试找到桌面窗口（Progman 或 WorkerW）
+            
             var hwnd = FindWindow("Progman", null);
             if (hwnd == IntPtr.Zero)
             {
@@ -3631,7 +3597,7 @@ namespace WinVClip
         {
             _viewModel.IsMultiSelectMode = enabled;
             _viewModel.ClearSelection();
-            // 清除可能残留的捕获目标，避免多选模式下使用过期句柄
+            
             _capturedTargetHwnd = IntPtr.Zero;
 
             if (enabled)
@@ -3840,8 +3806,8 @@ namespace WinVClip
                 return;
             }
 
-            // 拖拽已启动（DoDragDrop 模态循环内）或已触发过一次，本次按下不再重入
-            // 注意：MouseMove 挂载在 ItemBorder（Border）上，sender 是 Border 而非 Grid
+            
+            
             if (_isDragStarted || sender is not FrameworkElement fe)
                 return;
 
@@ -3864,14 +3830,14 @@ namespace WinVClip
             }
         }
 
-        /// <summary>启动拖拽。多选模式批量拖拽所有勾选条目；普通模式拖拽当前条目。</summary>
+        
         private void StartDrag(ClipboardItem item)
         {
             List<ClipboardItem> items;
             if (_viewModel.IsMultiSelectMode)
             {
                 items = _viewModel.GetSelectedItems();
-                // 按下的条目未勾选时，单独拖拽该条目本身
+                
                 if (!items.Contains(item))
                     items = new List<ClipboardItem> { item };
             }
@@ -3887,13 +3853,13 @@ namespace WinVClip
             if (data == null)
                 return;
 
-            // DoDragDrop 模态循环会捕获并消费鼠标消息（含释放），
-            // 不会触发 ClipboardListBox_PreviewMouseLeftButtonUp 的单击粘贴/勾选逻辑
+            
+            
             DragDrop.DoDragDrop(ClipboardListBox, data, DragDropEffects.Copy);
         }
 
-        /// <summary>构建拖拽数据。单条目复用 SetClipboardContent 的 DataObject 分支（与复制到剪贴板格式一致），
-        /// 并对图片/本地路径文本附加文件拖放格式；多条目按类型合并（文件列表去重保序 + 文本换行合并）。</summary>
+        
+        
         private DataObject BuildDragDataObject(List<ClipboardItem> items)
         {
             if (items.Count == 1)
@@ -3901,8 +3867,8 @@ namespace WinVClip
                 var data = new DataObject();
                 SetClipboardContent(items[0], data);
 
-                // 图片条目：附加图片文件拖放（拖到资源管理器=复制文件，拖到编辑器=粘贴图片）
-                // 本地路径文本：附加文件拖放（拖到资源管理器=复制文件）
+                
+                
                 var localFiles = TryGetItemLocalFiles(items[0]);
                 if (localFiles.Count > 0)
                 {
@@ -3914,7 +3880,7 @@ namespace WinVClip
                 return data.GetFormats().Length > 0 ? data : null;
             }
 
-            // ── 多条目合并 ──
+            
             var merged = new DataObject();
             var allFiles = new List<string>();
             var textParts = new List<string>();
@@ -3955,8 +3921,8 @@ namespace WinVClip
             return merged.GetFormats().Length > 0 ? merged : null;
         }
 
-        /// <summary>获取条目对应的本地文件路径：
-        /// FileList 取全部存在路径；Image 取图片文件；本地路径文本（IsLocalPath）取该路径。</summary>
+        
+        
         private static List<string> TryGetItemLocalFiles(ClipboardItem item)
         {
             var files = new List<string>();
@@ -3985,7 +3951,7 @@ namespace WinVClip
             }
             catch
             {
-                // 路径解析失败时忽略文件格式，仅保留其他拖拽数据
+                
             }
             return files;
         }
@@ -4062,8 +4028,8 @@ namespace WinVClip
         {
             if (App.SettingsService.Settings.UseSystemCharPanel)
             {
-                // 先隐藏主窗口，再延时 100ms 弹出系统字符面板，
-                // 避免 WinVClip 窗口抢占焦点导致系统字符面板闪退或无法正常输入。
+                
+                
                 HideWindow();
                 System.Threading.ThreadPool.QueueUserWorkItem(_ =>
                 {

@@ -108,8 +108,8 @@ namespace WinVClip
             _windowStateService = WindowStateService;
 
             _mainWindow = new MainWindow(_databaseService, _settingsService);
-            // 显式绑定 Application.MainWindow：窗口启动时从未 Show()，
-            // WPF 不会自动设置该属性，导致托盘右键菜单的 PlacementTarget 为 null 无法弹出。
+            
+            
             Application.Current.MainWindow = _mainWindow;
             
             var windowInteropHelper = new System.Windows.Interop.WindowInteropHelper(_mainWindow);
@@ -117,7 +117,7 @@ namespace WinVClip
             var windowHandle = windowInteropHelper.Handle;
             _focusService.AddExcludedHwnd(windowHandle);
             _hotkeyService = new HotkeyService(windowHandle);
-            // 启动时注册全部热键（显示/隐藏主界面 + 全局快捷键），返回显示/隐藏热键是否注册成功
+            
             var hotkeyRegistered = RegisterAllHotkeys();
 
             _trayService = new TrayService(_settingsService, windowHandle);
@@ -149,10 +149,10 @@ namespace WinVClip
             _clipboardMonitor = new ClipboardMonitor(_databaseService, _settingsService);
             _clipboardMonitor.OnClipboardChanged += item => 
             {
-                // 主窗口显示与否都把 item 写入 ViewModel：
-                // - 显示时：立即插入列表顶部。
-                // - 隐藏时：同步更新集合与计数，保证再次 Show 时数据已是最新，
-                //   无需依赖用户点过滤/分组才触发 LoadItems 刷新。
+                
+                
+                
+                
                 Dispatcher.Invoke(() =>
                 {
                     if (_mainWindow?.ViewModel != null)
@@ -178,9 +178,9 @@ namespace WinVClip
                 _cleanupService.Start(_settingsService.Settings.RetentionDays);
             }
 
-            // 预热首次渲染：窗口启动时仅通过 EnsureHandle 创建了 HWND，从未真正 Show()，
-            // 首次快捷键弹出时 WPF 需要完成首次布局、样式实例化、模板构建及 JIT 编译，导致明显卡顿。
-            // 此处以透明无激活方式提前完成预热，消除首次弹出卡顿。
+            
+            
+            
             _mainWindow.PreheatRender();
 
             _mainWindow.HideWindow();
@@ -189,15 +189,15 @@ namespace WinVClip
             {
                 CheckAndPerformPeriodicVacuum();
 
-                // 每 6 小时执行一次 WAL checkpoint（轻量操作，截断 .db-wal 文件）
+                
                 _checkpointTimer = new System.Threading.Timer(
                     callback: _ => Dispatcher.Invoke(() => _databaseService?.CheckpointDatabase()),
                     state: null,
                     dueTime: TimeSpan.FromHours(6),
                     period: TimeSpan.FromHours(6));
 
-                // 每 1 天检查一次是否需要 VACUUM（实际每 2 天执行一次完整压缩）
-                // 必须在 Dispatcher 上执行，避免与剪贴板监控的写入并发访问同一连接
+                
+                
                 _vacuumTimer = new System.Threading.Timer(
                     callback: _ => Dispatcher.Invoke(() => CheckAndPerformPeriodicVacuum()),
                     state: null,
@@ -217,7 +217,7 @@ namespace WinVClip
             _hotkeyService?.Dispose();
             _cleanupService?.Dispose();
             _trayService?.Dispose();
-            // 退出前主动 checkpoint，把 WAL 内容合并回主库并截断 .db-wal 文件
+            
             _databaseService?.CheckpointDatabase();
             _databaseService?.Dispose();
             _focusService?.Dispose();
@@ -236,10 +236,10 @@ namespace WinVClip
             }
         }
 
-        /// <summary>
-        /// 重新注册全部热键：先注销所有，再依次注册「显示/隐藏主界面」热键与全部「全局快捷键」。
-        /// 返回显示/隐藏主界面热键是否注册成功（用于启动通知）。
-        /// </summary>
+        
+        
+        
+        
         public static bool RegisterAllHotkeys()
         {
             if (_hotkeyService == null) return false;
@@ -249,7 +249,7 @@ namespace WinVClip
             var settings = _settingsService?.Settings;
             if (settings != null)
             {
-                // 1. 显示/隐藏主界面
+                
                 var hk = settings.Hotkey;
                 if (!string.IsNullOrWhiteSpace(hk))
                 {
@@ -257,7 +257,7 @@ namespace WinVClip
                         Current.Dispatcher.Invoke(() => _mainWindow?.ToggleVisibility()));
                 }
 
-                // 2. 全局快捷键：修饰键+按键 → 对第 N 项剪贴板条目执行操作
+                
                 var list = settings.GlobalHotkeys;
                 if (list != null)
                 {
@@ -276,13 +276,13 @@ namespace WinVClip
             return showHideOk;
         }
 
-        /// <summary>WndProc 收到 WM_HOTKEY 时调用，按注册的 id 分发到对应动作。</summary>
+        
         public static void ProcessHotkey(int id)
         {
             _hotkeyService?.ProcessHotkey(id);
         }
 
-        /// <summary>兼容旧调用：显示/隐藏主界面热键变更时，统一重新注册全部热键。</summary>
+        
         public static void UpdateHotkey(string hotkey)
         {
             RegisterAllHotkeys();
@@ -328,10 +328,10 @@ namespace WinVClip
 
         public static void RecreateTrayIcon()
         {
-            // 释放旧的托盘图标
+            
             _trayService?.Dispose();
 
-            // 重新创建托盘图标
+            
             if (_settingsService != null && _mainWindow != null)
             {
                 var windowHandle = new System.Windows.Interop.WindowInteropHelper(_mainWindow).Handle;
@@ -396,12 +396,12 @@ namespace WinVClip
                 var lastVacuumDate = _settingsService?.Settings?.LastVacuumDate?.Date ?? DateTime.MinValue;
                 var daysSinceLastVacuum = (today - lastVacuumDate).TotalDays;
 
-                // 每两天执行一次 Vacuum
+                
                 if (daysSinceLastVacuum >= 2)
                 {
                     System.Diagnostics.Debug.WriteLine($"[Vacuum] 开始执行数据库压缩，上次执行: {lastVacuumDate:yyyy-MM-dd}");
 
-                    // 必须在 UI 线程执行，避免与剪贴板监控并发访问同一 SqliteConnection
+                    
                     try
                     {
                         _databaseService?.VacuumDatabase();

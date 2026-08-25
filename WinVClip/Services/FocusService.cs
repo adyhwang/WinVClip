@@ -49,6 +49,29 @@ namespace WinVClip.Services
             _focusHistory.Clear();
         }
 
+        public IntPtr GetLiveForegroundTarget()
+        {
+            IntPtr hwnd = GetForegroundWindow();
+            if (hwnd == IntPtr.Zero) return IntPtr.Zero;
+
+            IntPtr rootHwnd = GetAncestor(hwnd, GA_ROOT);
+            if (rootHwnd != IntPtr.Zero)
+            {
+                hwnd = rootHwnd;
+            }
+
+            if (hwnd == IntPtr.Zero) return IntPtr.Zero;
+
+            lock (_excludedHwnds)
+            {
+                if (_excludedHwnds.Contains(hwnd)) return IntPtr.Zero;
+            }
+
+            if (IsSystemWindow(hwnd)) return IntPtr.Zero;
+
+            return hwnd;
+        }
+
         public FocusService()
         {
             _winEventDelegate = WinEventProc;
@@ -123,7 +146,7 @@ namespace WinVClip.Services
             {
                 lock (_focusHistory)
                 {
-                    // 记录上一个焦点窗口到历史栈
+                    
                     if (_focusHistory.Count == 0 || _focusHistory[_focusHistory.Count - 1] != _lastFocusHwnd)
                     {
                         _focusHistory.Add(_lastFocusHwnd);

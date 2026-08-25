@@ -191,8 +191,8 @@ namespace WinVClip.Models
             _isFileValid = null;
         }
 
-        /// <summary>仅释放图片缩略图等大对象，保留文本/预览/文件路径等轻量数据。
-        /// 用于隐藏窗口时的内存修剪——避免下次显示全量重新加载导致列表闪烁。</summary>
+        
+        
         public void TrimLargeObjects()
         {
             _imageThumbnail = null;

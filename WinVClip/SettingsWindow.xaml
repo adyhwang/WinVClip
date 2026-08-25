@@ -20,7 +20,7 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- 标题栏 -->
+            
             <Border Grid.Row="0" Background="{DynamicResource HeaderBackground}" 
                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
                     CornerRadius="8,8,0,0" Padding="20,16">
@@ -41,14 +41,14 @@
                 </Grid>
             </Border>
 
-            <!-- 主内容区 -->
+            
             <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- 左侧导航 -->
+                
                 <Border Grid.Column="0" Background="{DynamicResource SidebarBackground}" 
                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
                     <StackPanel Margin="12,16">
@@ -82,7 +82,7 @@
                     </StackPanel>
                 </Border>
 
-                <!-- 右侧内容 -->
+                
                 <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               Margin="12,8" Background="{DynamicResource WindowBackground}">
                     <ScrollViewer.Resources>
@@ -90,12 +90,12 @@
                     </ScrollViewer.Resources>
                     
                     <StackPanel x:Name="ContentPanel">
-                        <!-- 常规设置 -->
+                        
                         <StackPanel x:Name="PanelGeneral">
                             <TextBlock x:Name="GeneralTitleText" Text="常规" FontSize="24" FontWeight="SemiBold" 
                                        Foreground="{DynamicResource TextForeground}" Margin="0,0,0,20"/>
                             
-                            <!-- 语言设置卡片 -->
+                            
                             <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
@@ -113,7 +113,7 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- 主题设置卡片 -->
+                            
                             <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
@@ -134,7 +134,7 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- 粘贴方式设置卡片 -->
+                            
                             <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
@@ -159,7 +159,7 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- 字体大小设置卡片 -->
+                            
                             <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
@@ -190,7 +190,7 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- 管理员权限设置卡片 -->
+                            
                             <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
@@ -240,12 +240,12 @@
                             </Border>
                         </StackPanel>
 
-                        <!-- 快捷键设置 -->
+                        
                         <StackPanel x:Name="PanelHotkey" Visibility="Collapsed">
                             <TextBlock x:Name="HotkeyTitleText" Text="快捷键" FontSize="24" FontWeight="SemiBold" 
                                        Foreground="{DynamicResource TextForeground}" Margin="0,0,0,20"/>
 
-                            <!-- 全局快捷键卡片 -->
+                            
                             <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
@@ -257,7 +257,7 @@
 
                                     <TextBlock x:Name="HotkeyShowHideText" Text="显示/隐藏主界面" Foreground="{DynamicResource SecondaryTextForeground}" 
                                                FontSize="13" Margin="0,0,0,8"/>
-                                    <!-- 显示/隐藏主界面：包裹带边框颜色的 Border，与下方全局快捷键条目视觉一致 -->
+                                    
                                     <Border BorderBrush="{DynamicResource AccentColor}" BorderThickness="1"
                                             CornerRadius="6" Padding="10" Margin="0,0,0,12"
                                             Background="{DynamicResource InputBackground}">
@@ -317,7 +317,7 @@
                                         </StackPanel>
                                     </Border>
 
-                                    <!-- 动态全局快捷键条目容器（每条全局快捷键在代码中构建） -->
+                                    
                                     <StackPanel x:Name="GlobalHotkeyEntriesPanel" Margin="0,4,0,0"/>
                                     <Button x:Name="AddGlobalHotkeyButton" Margin="0,4,0,0"
                                             Style="{DynamicResource SecondaryButtonStyle}" HorizontalAlignment="Left"
@@ -325,7 +325,7 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- 主界面快捷键卡片 -->
+                            
                             <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
                                 <StackPanel>
                                     <DockPanel LastChildFill="True" Margin="0,0,0,8">
@@ -339,7 +339,7 @@
                                     <TextBlock x:Name="QuickPasteDescription" Text="为不同类型的剪贴板项配置鼠标快捷操作（修饰键 + 鼠标按键 → 操作）" 
                                                Foreground="{DynamicResource SecondaryTextForeground}" 
                                                FontSize="13" Margin="0,0,0,8" TextWrapping="Wrap"/>
-                                    <!-- 动态条目容器（每条主界面快捷键在代码中构建） -->
+                                    
                                     <StackPanel x:Name="QuickPasteEntriesPanel" Margin="0,4,0,0"/>
                                     <Button x:Name="AddQuickPasteButton" Margin="0,4,0,0"
                                             Style="{DynamicResource SecondaryButtonStyle}" HorizontalAlignment="Left"
@@ -348,12 +348,12 @@
                             </Border>
                         </StackPanel>
 
-                        <!-- 快捷命令设置 -->
+                        
                         <StackPanel x:Name="PanelQuickCommand" Visibility="Collapsed">
                             <TextBlock x:Name="QuickCommandTitleText" Text="快捷命令" FontSize="24" FontWeight="SemiBold" 
                                        Foreground="{DynamicResource TextForeground}" Margin="0,0,0,20"/>
 
-                            <!-- 快捷命令卡片 -->
+                            
                             <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
                                 <StackPanel>
                                     <DockPanel LastChildFill="True" Margin="0,0,0,8">
@@ -368,7 +368,7 @@
                                                Text="配置自定义文本处理命令：正则或字面匹配文本 → 替换或提取后粘贴。适用于文本与富文本类型。" 
                                                Foreground="{DynamicResource SecondaryTextForeground}" 
                                                FontSize="13" Margin="0,0,0,8" TextWrapping="Wrap"/>
-                                    <!-- 动态条目容器（每条快捷命令在代码中构建） -->
+                                    
                                     <StackPanel x:Name="QuickCommandEntriesPanel" Margin="0,4,0,0"/>
                                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                         <Button x:Name="AddQuickCommandButton"
@@ -404,7 +404,7 @@
                             </Border>
                         </StackPanel>
 
-                        <!-- 捕获设置 -->
+                        
                         <StackPanel x:Name="PanelCapture" Visibility="Collapsed">
                             <TextBlock x:Name="CaptureTitleText" Text="捕获设置" FontSize="24" FontWeight="SemiBold" 
                                        Foreground="{DynamicResource TextForeground}" Margin="0,0,0,20"/>
@@ -441,7 +441,7 @@
                             </Border>
                         </StackPanel>
 
-                        <!-- 历史记录设置 -->
+                        
                         <StackPanel x:Name="PanelHistory" Visibility="Collapsed">
                             <TextBlock x:Name="HistoryTitleText" Text="历史记录" FontSize="24" FontWeight="SemiBold" 
                                        Foreground="{DynamicResource TextForeground}" Margin="0,0,0,20"/>
@@ -510,7 +510,7 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- 手动删除卡片 -->
+                            
                             <Border Style="{DynamicResource SettingCardStyle}">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
@@ -580,7 +580,7 @@
                             </Border>
                         </StackPanel>
 
-                        <!-- 存储设置 -->
+                        
                         <StackPanel x:Name="PanelStorage" Visibility="Collapsed">
                             <TextBlock x:Name="StorageTitleText" Text="存储与备份" FontSize="24" FontWeight="SemiBold" 
                                        Foreground="{DynamicResource TextForeground}" Margin="0,0,0,20"/>
@@ -705,7 +705,7 @@
                             </Border>
                         </StackPanel>
 
-                        <!-- 搜索引擎设置 -->
+                        
                         <StackPanel x:Name="PanelSearch" Visibility="Collapsed">
                             <TextBlock x:Name="SearchTitleText" Text="搜索引擎" FontSize="24" FontWeight="SemiBold" 
                                        Foreground="{DynamicResource TextForeground}" Margin="0,0,0,20"/>
@@ -760,7 +760,7 @@
                             </Border>
                         </StackPanel>
 
-                        <!-- 系统设置 -->
+                        
                         <StackPanel x:Name="PanelSystem" Visibility="Collapsed">
                             <TextBlock x:Name="SystemTitleText" Text="系统设置" FontSize="24" FontWeight="SemiBold" 
                                        Foreground="{DynamicResource TextForeground}" Margin="0,0,0,20"/>
@@ -822,7 +822,7 @@
                 </ScrollViewer>
             </Grid>
 
-            <!-- 底部按钮栏 -->
+            
             <Border Grid.Row="2" Background="{DynamicResource FooterBackground}" 
                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                     CornerRadius="0,0,8,8" Padding="20,16">

@@ -34,17 +34,17 @@ namespace WinVClip.Services
                 if (key == Key.None)
                     return false;
 
-                // 如果没有修饰键，必须是 F1-F12 功能键
+                
                 if (modifiers == 0 && !IsFunctionKey(key.ToString()))
                     return false;
 
-                // 标准化快捷键字符串
+                
                 var normalizedHotkey = NormalizeHotkey(hotkey);
 
-                // 检查是否已注册
+                
                 if (_hotkeyToId.TryGetValue(normalizedHotkey, out var existingId))
                 {
-                    // 更新动作
+                    
                     _hotkeyActions[existingId] = action;
                     return true;
                 }
@@ -103,19 +103,19 @@ namespace WinVClip.Services
             {
                 if (IsModifierKey(part))
                 {
-                    // 检查重复修饰键
+                    
                     if (!modifiers.Add(part))
                         return false;
                 }
                 else
                 {
                     if (regularKey != null)
-                        return false; // 多个普通键
+                        return false; 
                     regularKey = part;
                 }
             }
 
-            // 如果没有修饰键，必须是 F1-F12 功能键
+            
             if (modifiers.Count == 0)
             {
                 return regularKey != null && IsFunctionKey(regularKey);
@@ -147,7 +147,7 @@ namespace WinVClip.Services
 
             var parts = hotkey.Split('+').Select(p => p.Trim()).Where(p => !string.IsNullOrEmpty(p)).ToList();
 
-            // 定义修饰键顺序
+            
             var modifierOrder = new[] { "Ctrl", "Alt", "Shift", "Win" };
             var modifiers = new List<string>();
             string? regularKey = null;
@@ -168,7 +168,7 @@ namespace WinVClip.Services
                 }
             }
 
-            // 按固定顺序排序修饰键
+            
             var orderedModifiers = modifierOrder
                 .Where(m => modifiers.Contains(m, StringComparer.OrdinalIgnoreCase))
                 .Select(m => m);
@@ -221,26 +221,26 @@ namespace WinVClip.Services
             if (string.IsNullOrEmpty(keyPart))
                 return Key.None;
 
-            // 直接尝试解析
+            
             if (Enum.TryParse<Key>(keyPart, true, out var key))
             {
-                // 确保不是修饰键
+                
                 if (!IsModifierKey(keyPart))
                     return key;
             }
 
-            // 处理单个字符
+            
             if (keyPart.Length == 1)
             {
                 var ch = char.ToUpper(keyPart[0]);
 
-                // 处理字母 A-Z
+                
                 if (ch >= 'A' && ch <= 'Z')
                 {
                     return KeyInterop.KeyFromVirtualKey((int)ch);
                 }
 
-                // 处理数字 0-9
+                
                 if (ch >= '0' && ch <= '9')
                 {
                     if (Enum.TryParse<Key>($"D{ch}", out var digitKey))
@@ -248,7 +248,7 @@ namespace WinVClip.Services
                 }
             }
 
-            // 处理特殊键名映射
+            
             var keyMappings = new Dictionary<string, Key>(StringComparer.OrdinalIgnoreCase)
             {
                 ["0"] = Key.D0, ["1"] = Key.D1, ["2"] = Key.D2, ["3"] = Key.D3, ["4"] = Key.D4,

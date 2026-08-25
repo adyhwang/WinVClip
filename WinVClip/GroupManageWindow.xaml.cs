@@ -41,7 +41,7 @@ namespace WinVClip
         protected override void OnSourceInitialized(EventArgs e)
         {
             base.OnSourceInitialized(e);
-            // 确保窗口在主窗口位置弹出
+            
             if (Owner != null)
             {
                 Left = Owner.Left;

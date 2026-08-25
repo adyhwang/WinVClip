@@ -32,12 +32,12 @@ namespace WinVClip.Services
 
         private string GetSettingsPath()
         {
-            // 优先使用BaseDirectory
+            
             string basePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
             
             try
             {
-                // 尝试写入测试文件，检查权限
+                
                 string testPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "test_permission.txt");
                 File.WriteAllText(testPath, "test");
                 File.Delete(testPath);
@@ -45,7 +45,7 @@ namespace WinVClip.Services
             }
             catch
             {
-                // 权限不足，使用ApplicationData目录
+                
                 string appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WinVClip");
                 Directory.CreateDirectory(appDataPath);
                 return Path.Combine(appDataPath, "settings.json");
@@ -81,7 +81,7 @@ namespace WinVClip.Services
                 }
                 else
                 {
-                    // 根据设置文件路径确定数据库路径
+                    
                     string dbPath = GetDatabasePath();
                     _settings = new Models.AppSettings
                     {
@@ -92,7 +92,7 @@ namespace WinVClip.Services
             }
             catch
             {
-                // 根据设置文件路径确定数据库路径
+                
                 string dbPath = GetDatabasePath();
                 _settings = new Models.AppSettings
                 {
@@ -104,17 +104,17 @@ namespace WinVClip.Services
 
         private string GetDatabasePath()
         {
-            // 检查设置文件是否在ApplicationData目录
+            
             string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             if (_settingsPath.StartsWith(appDataPath, StringComparison.OrdinalIgnoreCase))
             {
-                // 设置文件在ApplicationData目录，数据库也放在同一目录
+                
                 string dbDir = Path.GetDirectoryName(_settingsPath) ?? appDataPath;
                 return Path.Combine(dbDir, "clipboard_history.db");
             }
             else
             {
-                // 设置文件在BaseDirectory，数据库也放在同一目录
+                
                 return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "clipboard_history.db");
             }
         }

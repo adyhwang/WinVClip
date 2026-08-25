@@ -19,9 +19,9 @@ namespace WinVClip.Services
         private Icon? _icon;
         private bool _disposed;
 
-        // explorer 重启后任务栏重建消息（RegisterWindowMessage("TaskbarCreated")）
+        
         private readonly uint _taskbarCreatedMessage;
-        // 防抖定时器：合并短时间内可能多次到达的 TaskbarCreated 广播
+        
         private System.Windows.Threading.DispatcherTimer? _recreateTimer;
         private const int RecreateDebounceMs = 500;
 
@@ -57,9 +57,9 @@ namespace WinVClip.Services
         {
             try
             {
-                // 从程序集资源加载图标
+                
                 var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-                // 根据监控状态动态选择图标
+                
                 var iconName = _settingsService.Settings.MonitorEnabled ? "app.ico" : "app_disabled.ico";
                 var resourceName = assembly.GetManifestResourceNames()
                     .FirstOrDefault(n => n.EndsWith(iconName, StringComparison.OrdinalIgnoreCase));
@@ -77,7 +77,7 @@ namespace WinVClip.Services
             {
             }
 
-            // 回退到系统默认图标
+            
             return SystemIcons.Application;
         }
 
@@ -105,7 +105,7 @@ namespace WinVClip.Services
 
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
-            // explorer 重启后任务栏重建，重新创建托盘图标（带防抖）
+            
             if (_taskbarCreatedMessage != 0 && msg == (int)_taskbarCreatedMessage)
             {
                 ScheduleRecreateTrayIcon();
@@ -132,26 +132,26 @@ namespace WinVClip.Services
 
         private void ShowContextMenu()
         {
-            // 使用微软官方推荐的模式 (KB 135788)：
-            // 在显示托盘菜单前调用 SetForegroundWindow，让隐藏的主窗口获得前台状态，
-            // 这样 WPF ContextMenu 才能正确追踪外部点击事件来自动关闭菜单。
+            
+            
+            
             SetForegroundWindow(_windowHandle);
             
             var menu = new System.Windows.Controls.ContextMenu();
             menu.Style = Application.Current.TryFindResource("ContextMenuStyle") as Style;
             
-            // 显示主界面
+            
             var showItem = CreateMenuItem(Loc.Get("Tray.Show", "显示主界面"), "📋", Loc.Get("Tray.Show", "显示 WinVClip 主窗口"), () => OnShowWindow?.Invoke());
             menu.Items.Add(showItem);
             
-            // 设置
+            
             var settingsItem = CreateMenuItem(Loc.Get("Tray.Settings", "设置"), "⚙️", Loc.Get("Tray.Settings", "打开设置窗口"), () => OnOpenSettings?.Invoke());
             menu.Items.Add(settingsItem);
             
-            // 分隔线
+            
             menu.Items.Add(CreateSeparator());
             
-            // 监控开关
+            
             var monitoringItem = new System.Windows.Controls.MenuItem 
             { 
                 Header = _settingsService.Settings.MonitorEnabled ? Loc.Get("Tray.MonitoringDisabled", "禁用监听") : Loc.Get("Tray.MonitoringEnabled", "启用监听"),
@@ -162,19 +162,19 @@ namespace WinVClip.Services
             monitoringItem.Click += (s, e) => ToggleMonitoring();
             menu.Items.Add(monitoringItem);
             
-            // 分隔线
+            
             menu.Items.Add(CreateSeparator());
             
-            // 退出
+            
             var exitItem = CreateMenuItem(Loc.Get("Tray.Exit", "退出"), "❌", Loc.Get("Tray.Exit", "退出 WinVClip"), () => OnExit?.Invoke());
             menu.Items.Add(exitItem);
             
-            // 在鼠标位置显示菜单
+            
             menu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
             menu.PlacementTarget = Application.Current.MainWindow;
             menu.IsOpen = true;
             
-            // 菜单显示后发送 WM_NULL，确保窗口消息队列继续正常处理
+            
             PostMessage(_windowHandle, WM_NULL, IntPtr.Zero, IntPtr.Zero);
         }
 
@@ -202,7 +202,7 @@ namespace WinVClip.Services
         {
             _settingsService.Settings.MonitorEnabled = !_settingsService.Settings.MonitorEnabled;
             _settingsService.SaveSettings();
-            UpdateTrayIcon(); // 更新托盘图标
+            UpdateTrayIcon(); 
             OnMonitoringToggled?.Invoke(_settingsService.Settings.MonitorEnabled);
         }
 
@@ -221,10 +221,10 @@ namespace WinVClip.Services
             Shell_NotifyIcon(NIM_MODIFY, ref data);
         }
 
-        /// <summary>
-        /// 防抖调度：收到 TaskbarCreated 消息后延迟重建托盘图标，
-        /// 合并 explorer 重启过程中可能多次广播的消息，避免重复创建。
-        /// </summary>
+        
+        
+        
+        
         private void ScheduleRecreateTrayIcon()
         {
             if (_disposed) return;
@@ -242,22 +242,22 @@ namespace WinVClip.Services
                 };
             }
 
-            // 每次收到消息都重置定时器，只在最后一次消息后延迟触发重建
+            
             _recreateTimer.Stop();
             _recreateTimer.Start();
         }
 
-        /// <summary>
-        /// 重建托盘图标：先删除可能残留的旧图标，再重新添加。
-        /// 在 explorer 重启、任务栏重建后调用。
-        /// </summary>
+        
+        
+        
+        
         private void RecreateTrayIcon()
         {
             if (_disposed) return;
 
             try
             {
-                // 先尝试删除可能残留的旧图标（explorer 已销毁时会失败，忽略即可）
+                
                 var deleteData = new NotifyIconData
                 {
                     cbSize = Marshal.SizeOf(typeof(NotifyIconData)),
@@ -266,12 +266,12 @@ namespace WinVClip.Services
                 };
                 Shell_NotifyIcon(NIM_DELETE, ref deleteData);
 
-                // 重新添加托盘图标，复用当前 _icon（仍由本进程持有，句柄有效）
+                
                 AddTrayIcon();
             }
             catch
             {
-                // 重建过程中发生异常时忽略，避免影响主窗口
+                
             }
         }
 

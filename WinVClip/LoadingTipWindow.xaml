@@ -18,7 +18,7 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- 环形进度圈：背景灰环 + 旋转蓝色弧 -->
+            
             <Grid Grid.Row="0" Width="32" Height="32" HorizontalAlignment="Center" Margin="0,2,0,4">
                 <Ellipse Width="32" Height="32" Stroke="#E8E8E8" StrokeThickness="3"/>
                 <Ellipse Width="32" Height="32" Stroke="#007ACC" StrokeThickness="3"
@@ -42,7 +42,7 @@
                 </Ellipse>
             </Grid>
 
-            <!-- 提示文本 -->
+            
             <TextBlock Grid.Row="1"
                        Text="剪贴板被其他程序阻塞，正在重试，请稍候…"
                        HorizontalAlignment="Center"

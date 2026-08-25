@@ -100,7 +100,7 @@ namespace WinVClip.Services
                     break;
             }
 
-            // 先添加新资源，再移除旧资源，避免资源查找失败
+            
             var oldDictionaries = app.Resources.MergedDictionaries.ToList();
             app.Resources.MergedDictionaries.Add(resourceDictionary);
             foreach (var oldDict in oldDictionaries)

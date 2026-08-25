@@ -8,17 +8,17 @@ using System.Windows.Threading;
 
 namespace WinVClip.Services
 {
-    /// <summary>
-    /// 基于 Win32 原生 API 的剪贴板辅助类，参考 Ditto/CopyQ 实现。
-    /// 提供带重试的安全读写，全局锁防止并发调用。
-    /// 文本操作使用原生 user32 API（CF_UNICODETEXT），
-    /// 复杂类型（图片/文件/DataObject）使用 WPF Clipboard 加锁+重试封装。
-    /// </summary>
+    
+    
+    
+    
+    
+    
     public static class ClipboardWin32Helper
     {
-        // ═══════════════════════════════════════════
-        //  常量
-        // ═══════════════════════════════════════════
+        
+        
+        
 
         private const int MaxRetries = 5;
         private const int RetryDelayMs = 50;
@@ -27,9 +27,9 @@ namespace WinVClip.Services
         private const uint CF_TEXT = 1;
         private const uint GMEM_MOVEABLE = 0x0002;
 
-        // ═══════════════════════════════════════════
-        //  P/Invoke — user32.dll
-        // ═══════════════════════════════════════════
+        
+        
+        
 
         [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -53,9 +53,9 @@ namespace WinVClip.Services
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool IsClipboardFormatAvailable(uint uFormat);
 
-        // ═══════════════════════════════════════════
-        //  P/Invoke — kernel32.dll
-        // ═══════════════════════════════════════════
+        
+        
+        
 
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern IntPtr GlobalAlloc(uint uFlags, UIntPtr dwBytes);
@@ -70,49 +70,49 @@ namespace WinVClip.Services
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern IntPtr GlobalFree(IntPtr hMem);
 
-        // ═══════════════════════════════════════════
-        //  字段
-        // ═══════════════════════════════════════════
+        
+        
+        
 
-        /// <summary>全局同步锁，防止并发访问剪贴板。</summary>
+        
         private static readonly object _syncLock = new object();
 
-        /// <summary>主窗口真实 HWND，供 OpenClipboard 使用。</summary>
+        
         private static IntPtr _hwnd = IntPtr.Zero;
 
-        // ═══════════════════════════════════════════
-        //  Loading 弹窗 STA 线程管理
-        // ═══════════════════════════════════════════
+        
+        
+        
 
         private static readonly object _loadingLock = new object();
         private static Thread _loadingThread;
         private static WinVClip.LoadingTipWindow _loadingWindow;
         private static volatile bool _closeRequested;
 
-        // ═══════════════════════════════════════════
-        //  初始化
-        // ═══════════════════════════════════════════
+        
+        
+        
 
-        /// <summary>设置主窗口句柄，供 OpenClipboard 使用。应在 SourceInitialized 中调用。</summary>
+        
         public static void SetWindowHandle(IntPtr hwnd)
         {
             _hwnd = hwnd;
         }
 
-        // ═══════════════════════════════════════════
-        //  Loading 弹窗 — 独立 STA 线程
-        // ═══════════════════════════════════════════
+        
+        
+        
 
-        /// <summary>
-        /// 在独立 STA 线程上创建并显示 Loading 弹窗。
-        /// 避免主 UI 线程被 OpenClipboard 阻塞时 Loading 界面卡死。
-        /// </summary>
+        
+        
+        
+        
         public static void ShowClipboardLoading()
         {
             lock (_loadingLock)
             {
                 if (_loadingWindow != null || _loadingThread != null)
-                    return; // 已在显示
+                    return; 
 
                 _closeRequested = false;
                 var thread = new Thread(() =>
@@ -124,7 +124,7 @@ namespace WinVClip.Services
                         _loadingWindow = window;
                     }
 
-                    // 窗口创建期间可能已收到关闭请求
+                    
                     if (_closeRequested)
                     {
                         lock (_loadingLock)
@@ -143,7 +143,7 @@ namespace WinVClip.Services
                     window.Show();
                     Dispatcher.Run();
 
-                    // Dispatcher 退出后清理
+                    
                     lock (_loadingLock)
                     {
                         _loadingWindow = null;
@@ -157,7 +157,7 @@ namespace WinVClip.Services
             }
         }
 
-        /// <summary>关闭 Loading 弹窗。若窗口尚未创建则标记关闭请求，由 STA 线程自行退出。</summary>
+        
         public static void CloseClipboardLoading()
         {
             WinVClip.LoadingTipWindow window;
@@ -177,18 +177,18 @@ namespace WinVClip.Services
             }
         }
 
-        /// <summary>应用退出时安全关闭 STA 线程，防止内存泄漏。应在 App.CleanupResources 中调用。</summary>
+        
         public static void Shutdown()
         {
             CloseClipboardLoading();
         }
 
-        // ═══════════════════════════════════════════
-        //  文本 — 原生 Win32 API
-        // ═══════════════════════════════════════════
+        
+        
+        
 
-        /// <summary>安全设置剪贴板文本（Unicode），带重试。先尝试原生 API，失败回退 WPF。
-        /// 首次失败后显示独立 STA 线程 Loading 弹窗，全部失败则异常向上传播由调用方弹 MessageBox。</summary>
+        
+        
         public static void SetText(string text)
         {
             if (text == null) text = "";
@@ -198,13 +198,13 @@ namespace WinVClip.Services
                 bool loadingShown = false;
                 try
                 {
-                    // 原生 Win32 API
+                    
                     for (int i = 0; i < MaxRetries; i++)
                     {
                         if (TrySetTextNative(text))
                             return;
 
-                        // 首次失败后显示 Loading（后续重试期间用户可见）
+                        
                         if (!loadingShown)
                         {
                             ShowClipboardLoading();
@@ -214,7 +214,7 @@ namespace WinVClip.Services
                         Thread.Sleep(RetryDelayMs);
                     }
 
-                    // 回退 WPF
+                    
                     WpfRetry(() => System.Windows.Clipboard.SetText(text));
                 }
                 finally
@@ -225,12 +225,12 @@ namespace WinVClip.Services
             }
         }
 
-        /// <summary>安全读取剪贴板文本（Unicode），带重试。先尝试原生 API，失败回退 WPF。</summary>
+        
         public static string GetText()
         {
             lock (_syncLock)
             {
-                // 原生 Win32 API
+                
                 for (int i = 0; i < MaxRetries; i++)
                 {
                     string result = TryGetTextNative();
@@ -239,12 +239,12 @@ namespace WinVClip.Services
                     Thread.Sleep(RetryDelayMs);
                 }
 
-                // 回退 WPF
+                
                 return WpfRetry(() => System.Windows.Clipboard.GetText());
             }
         }
 
-        /// <summary>检查剪贴板是否包含文本格式。</summary>
+        
         public static bool ContainsText()
         {
             lock (_syncLock)
@@ -254,9 +254,9 @@ namespace WinVClip.Services
             }
         }
 
-        // ═══════════════════════════════════════════
-        //  图片 — WPF 封装 + 加锁 + 重试
-        // ═══════════════════════════════════════════
+        
+        
+        
 
         public static void SetImage(BitmapSource image)
         {
@@ -282,9 +282,9 @@ namespace WinVClip.Services
             }
         }
 
-        // ═══════════════════════════════════════════
-        //  文件拖放列表 — WPF 封装 + 加锁 + 重试
-        // ═══════════════════════════════════════════
+        
+        
+        
 
         public static void SetFileDropList(StringCollection fileDropList)
         {
@@ -302,9 +302,9 @@ namespace WinVClip.Services
             }
         }
 
-        // ═══════════════════════════════════════════
-        //  DataObject — WPF 封装 + 加锁 + 重试
-        // ═══════════════════════════════════════════
+        
+        
+        
 
         public static void SetDataObject(IDataObject data)
         {
@@ -322,9 +322,9 @@ namespace WinVClip.Services
             }
         }
 
-        // ═══════════════════════════════════════════
-        //  清空
-        // ═══════════════════════════════════════════
+        
+        
+        
 
         public static void Clear()
         {
@@ -346,16 +346,16 @@ namespace WinVClip.Services
                     }
                     Thread.Sleep(RetryDelayMs);
                 }
-                // 回退 WPF
+                
                 WpfRetry(() => System.Windows.Clipboard.Clear());
             }
         }
 
-        // ═══════════════════════════════════════════
-        //  原生 Win32 实现
-        // ═══════════════════════════════════════════
+        
+        
+        
 
-        /// <summary>原生设置文本。成功返回 true，OpenClipboard 失败返回 false 触发重试。</summary>
+        
         private static bool TrySetTextNative(string text)
         {
             if (!OpenClipboard(_hwnd))
@@ -366,7 +366,7 @@ namespace WinVClip.Services
                 if (!EmptyClipboard())
                     return false;
 
-                int byteCount = (text.Length + 1) * 2; // Unicode + null 终止符
+                int byteCount = (text.Length + 1) * 2; 
                 IntPtr hGlobal = GlobalAlloc(GMEM_MOVEABLE, (UIntPtr)byteCount);
                 if (hGlobal == IntPtr.Zero)
                     return false;
@@ -378,14 +378,14 @@ namespace WinVClip.Services
                     return false;
                 }
 
-                // 写入字符串 + null 终止符
+                
                 if (text.Length > 0)
                     Marshal.Copy(text.ToCharArray(), 0, pGlobal, text.Length);
                 Marshal.WriteInt16(pGlobal + text.Length * 2, 0);
 
                 GlobalUnlock(hGlobal);
 
-                // SetClipboardData 成功后内存所有权转移给剪贴板，不可 GlobalFree
+                
                 if (SetClipboardData(CF_UNICODETEXT, hGlobal) == IntPtr.Zero)
                 {
                     GlobalFree(hGlobal);
@@ -400,7 +400,7 @@ namespace WinVClip.Services
             }
         }
 
-        /// <summary>原生读取文本。成功返回字符串，无文本返回 ""，OpenClipboard 失败返回 null 触发重试。</summary>
+        
         private static string TryGetTextNative()
         {
             if (!OpenClipboard(_hwnd))
@@ -434,9 +434,9 @@ namespace WinVClip.Services
             }
         }
 
-        // ═══════════════════════════════════════════
-        //  WPF 重试辅助
-        // ═══════════════════════════════════════════
+        
+        
+        
 
         private static void WpfRetry(Action action)
         {
@@ -453,7 +453,7 @@ namespace WinVClip.Services
                         Thread.Sleep(RetryDelayMs);
                 }
             }
-            action(); // 最后一次不捕获，让异常向上传播
+            action(); 
         }
 
         private static T WpfRetry<T>(Func<T> func)
@@ -470,7 +470,7 @@ namespace WinVClip.Services
                         Thread.Sleep(RetryDelayMs);
                 }
             }
-            return func(); // 最后一次不捕获
+            return func(); 
         }
     }
 }
