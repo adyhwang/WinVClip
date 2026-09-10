@@ -35,6 +35,37 @@ namespace WinVClip.Services
             return true;
         }
 
+        private static bool CheckImageExists(ClipboardItem item)
+        {
+            if (string.IsNullOrEmpty(item.ImagePath))
+                return false;
+            try
+            {
+                string fullPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, item.ImagePath);
+                return File.Exists(fullPath);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool CheckItemExists(ClipboardItem item)
+        {
+            if (item.Type == ClipboardType.FileList)
+                return CheckAllFilesExist(item.FilePaths);
+
+            if (item.Type == ClipboardType.Image)
+                return CheckImageExists(item);
+
+            return true;
+        }
+
+        public static bool IsItemInvalid(ClipboardItem item)
+        {
+            return !CheckItemExists(item);
+        }
+
         private static void SetItemValid(ClipboardItem item, bool isValid)
         {
             Application.Current?.Dispatcher.Invoke(() =>
@@ -43,12 +74,17 @@ namespace WinVClip.Services
             });
         }
 
+        private static bool IsValidatableType(ClipboardType type)
+        {
+            return type == ClipboardType.FileList || type == ClipboardType.Image;
+        }
+
         public void ValidateItem(ClipboardItem item)
         {
-            if (item == null || item.Type != ClipboardType.FileList)
+            if (item == null || !IsValidatableType(item.Type))
                 return;
 
-            if (item.FilePaths == null || item.FilePaths.Count == 0)
+            if (item.Type == ClipboardType.FileList && (item.FilePaths == null || item.FilePaths.Count == 0))
             {
                 item.IsFileValid = false;
                 return;
@@ -65,8 +101,8 @@ namespace WinVClip.Services
             {
                 try
                 {
-                    bool allExist = CheckAllFilesExist(item.FilePaths);
-                    SetItemValid(item, allExist);
+                    bool exists = CheckItemExists(item);
+                    SetItemValid(item, exists);
                 }
                 finally
                 {
@@ -82,15 +118,15 @@ namespace WinVClip.Services
         {
             if (items == null) return;
 
-            var fileItems = items.Where(i => i.Type == ClipboardType.FileList && i.IsFileValid == null).ToList();
-            if (fileItems.Count == 0) return;
+            var validatableItems = items.Where(i => IsValidatableType(i.Type) && i.IsFileValid == null).ToList();
+            if (validatableItems.Count == 0) return;
 
             Task.Run(() =>
             {
-                Parallel.ForEach(fileItems, item =>
+                Parallel.ForEach(validatableItems, item =>
                 {
-                    bool allExist = CheckAllFilesExist(item.FilePaths);
-                    SetItemValid(item, allExist);
+                    bool exists = CheckItemExists(item);
+                    SetItemValid(item, exists);
                 });
             });
         }
@@ -99,15 +135,15 @@ namespace WinVClip.Services
         {
             if (items == null) return;
 
-            var fileItems = items.Where(i => i.Type == ClipboardType.FileList).ToList();
-            if (fileItems.Count == 0) return;
+            var validatableItems = items.Where(i => IsValidatableType(i.Type)).ToList();
+            if (validatableItems.Count == 0) return;
 
-            foreach (var item in fileItems)
+            foreach (var item in validatableItems)
             {
                 item.IsFileValid = null;
             }
 
-            ValidateItems(fileItems);
+            ValidateItems(validatableItems);
         }
     }
 }

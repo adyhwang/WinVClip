@@ -508,7 +508,7 @@ namespace WinVClip
                 if (!HotkeyService.ValidateHotkey(newHotkey))
                 {
                     HotkeyTextBox.Text = _tempHotkey;
-                    MessageBox.Show(Loc.Get("Settings.Hotkey.InvalidFormat", "快捷键格式不正确。支持的格式：\n• 修饰键+按键（如 Ctrl+V、Alt+F1）\n• 单独的功能键 F1-F12"), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                    AppMessageBox.Show(Loc.Get("Settings.Hotkey.InvalidFormat", "快捷键格式不正确。支持的格式：\n• 修饰键+按键（如 Ctrl+V、Alt+F1）\n• 单独的功能键 F1-F12"), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
@@ -530,7 +530,7 @@ namespace WinVClip
                 if (!IsHotkeyAvailable(newHotkey))
                 {
                     HotkeyTextBox.Text = _tempHotkey;
-                    MessageBox.Show(Loc.Get("Settings.Hotkey.AlreadyInUse", "该快捷键已被占用或无效"), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                    AppMessageBox.Show(Loc.Get("Settings.Hotkey.AlreadyInUse", "该快捷键已被占用或无效"), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
@@ -568,7 +568,7 @@ namespace WinVClip
             
             if (!IsAdministrator())
             {
-                var result = MessageBox.Show(
+                var result = AppMessageBox.Show(
                     Loc.Get("Settings.Hotkey.NeedAdminForWinV", "该快捷键与系统快捷键冲突，需要管理员权限才能修改注册表并禁用系统的历史剪贴板。\n\n是否以管理员身份重启程序？"),
                     Loc.Get("Settings.Hotkey.NeedAdminTitle", "需要管理员权限"),
                     MessageBoxButton.OKCancel,
@@ -582,7 +582,7 @@ namespace WinVClip
             }
 
             
-            var confirmResult = MessageBox.Show(
+            var confirmResult = AppMessageBox.Show(
                 Loc.Get("Settings.Hotkey.WinVConflict", "该快捷键与系统快捷键冲突，需要在注册表禁用系统的历史剪贴板并重启资源管理器。\n\n是否继续？"),
                 Loc.Get("Settings.Hotkey.ConflictTitle", "快捷键冲突"),
                 MessageBoxButton.OKCancel,
@@ -625,7 +625,7 @@ namespace WinVClip
             }
             catch (Exception ex)
             {
-                MessageBox.Show(string.Format(Loc.Get("Settings.Admin.RestartFailed", "启动管理员权限失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                AppMessageBox.Show(string.Format(Loc.Get("Settings.Admin.RestartFailed", "启动管理员权限失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -660,12 +660,12 @@ namespace WinVClip
                 
                 RestartExplorer();
 
-                MessageBox.Show(Loc.Get("Settings.Hotkey.WinVDisabled", "系统 Win+V 已禁用，资源管理器已重启。\n\n现在可以使用 Win+V 作为快捷键了。"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
+                AppMessageBox.Show(Loc.Get("Settings.Hotkey.WinVDisabled", "系统 Win+V 已禁用，资源管理器已重启。\n\n现在可以使用 Win+V 作为快捷键了。"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return true;
             }
             catch (Exception ex)
             {
-                MessageBox.Show(string.Format(Loc.Get("Settings.Hotkey.DisableWinVFailed", "禁用系统 Win+V 失败: {0}\n\n请以管理员身份运行程序。"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                AppMessageBox.Show(string.Format(Loc.Get("Settings.Hotkey.DisableWinVFailed", "禁用系统 Win+V 失败: {0}\n\n请以管理员身份运行程序。"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
         }
@@ -713,13 +713,13 @@ namespace WinVClip
                 
                 if (hotkey.Equals(_tempHotkey, StringComparison.OrdinalIgnoreCase))
                 {
-                    MessageBox.Show(Loc.Get("Settings.Hotkey.AlreadyCurrent", "该快捷键已经是当前设置。"), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
+                    AppMessageBox.Show(Loc.Get("Settings.Hotkey.AlreadyCurrent", "该快捷键已经是当前设置。"), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
 
                 if (!HotkeyService.ValidateHotkey(hotkey))
                 {
-                    MessageBox.Show(Loc.Get("Settings.Hotkey.InvalidFormatShort", "快捷键格式不正确。"), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                    AppMessageBox.Show(Loc.Get("Settings.Hotkey.InvalidFormatShort", "快捷键格式不正确。"), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
@@ -728,7 +728,7 @@ namespace WinVClip
 
                 if (!IsHotkeyAvailable(hotkey))
                 {
-                    MessageBox.Show(Loc.Get("Settings.Hotkey.AlreadyInUse", "该快捷键已被占用或无效"), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                    AppMessageBox.Show(Loc.Get("Settings.Hotkey.AlreadyInUse", "该快捷键已被占用或无效"), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
@@ -737,7 +737,7 @@ namespace WinVClip
                 HotkeyTextBox.Text = hotkey;
                 App.UpdateHotkey(hotkey);
 
-                MessageBox.Show(string.Format(Loc.Get("Settings.Hotkey.SetSuccess", "快捷键已设置为 {0}"), hotkey), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
+                AppMessageBox.Show(string.Format(Loc.Get("Settings.Hotkey.SetSuccess", "快捷键已设置为 {0}"), hotkey), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
@@ -745,7 +745,7 @@ namespace WinVClip
         {
             if (!IsAdministrator())
             {
-                var result = MessageBox.Show(
+                var result = AppMessageBox.Show(
                     Loc.Get("Settings.Hotkey.RestoreWinVNeedAdmin", "还原系统 Win+V 需要管理员权限才能修改注册表。\n\n是否以管理员身份重启程序？"),
                     Loc.Get("Settings.Hotkey.NeedAdminTitle", "需要管理员权限"),
                     MessageBoxButton.OKCancel,
@@ -765,11 +765,11 @@ namespace WinVClip
 
                 RestartExplorer();
 
-                MessageBox.Show(Loc.Get("Settings.Hotkey.WinVRestored", "系统 Win+V 已还原，资源管理器已重启。\n\n现在可以使用系统历史剪贴板功能了。"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
+                AppMessageBox.Show(Loc.Get("Settings.Hotkey.WinVRestored", "系统 Win+V 已还原，资源管理器已重启。\n\n现在可以使用系统历史剪贴板功能了。"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(string.Format(Loc.Get("Settings.Hotkey.RestoreWinVFailed", "还原系统 Win+V 失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                AppMessageBox.Show(string.Format(Loc.Get("Settings.Hotkey.RestoreWinVFailed", "还原系统 Win+V 失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -777,11 +777,11 @@ namespace WinVClip
         {
             if (IsAdministrator())
             {
-                MessageBox.Show(Loc.Get("Settings.Admin.AlreadyAdmin", "当前已以管理员权限运行。"), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
+                AppMessageBox.Show(Loc.Get("Settings.Admin.AlreadyAdmin", "当前已以管理员权限运行。"), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
-            var result = MessageBox.Show(
+            var result = AppMessageBox.Show(
                 Loc.Get("Settings.Admin.NeedRestart", "获取管理员权限需要重启程序。\n\n是否以管理员身份重启？"),
                 Loc.Get("Settings.Admin.GetAdminTitle", "获取管理员权限"),
                 MessageBoxButton.OKCancel,
@@ -835,7 +835,7 @@ namespace WinVClip
                     var dbPath = _settingsService.Settings.DatabasePath;
                     if (!File.Exists(dbPath))
                     {
-                        MessageBox.Show(Loc.Get("Settings.Storage.DatabaseNotFound", "数据库文件不存在"), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                        AppMessageBox.Show(Loc.Get("Settings.Storage.DatabaseNotFound", "数据库文件不存在"), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
                         return;
                     }
 
@@ -877,7 +877,7 @@ namespace WinVClip
                             Directory.Delete(tempBackupPath, true);
                         }
 
-                        MessageBox.Show(Loc.Get("Settings.Storage.BackupSuccess", "备份成功！"), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
+                        AppMessageBox.Show(Loc.Get("Settings.Storage.BackupSuccess", "备份成功！"), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
                     }
                     catch
                     {
@@ -890,7 +890,7 @@ namespace WinVClip
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(string.Format(Loc.Get("Settings.Storage.BackupFailed", "备份失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                    AppMessageBox.Show(string.Format(Loc.Get("Settings.Storage.BackupFailed", "备份失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
         }
@@ -914,7 +914,7 @@ namespace WinVClip
 
         private void RestoreBackup_Click(object sender, RoutedEventArgs e)
         {
-            var result = MessageBox.Show(
+            var result = AppMessageBox.Show(
                 Loc.Get("Settings.Storage.RestoreConfirm", "恢复备份将覆盖当前所有数据，程序将自动重启。是否继续？"),
                 Loc.Get("Settings.Storage.RestoreConfirmTitle", "确认恢复"),
                 MessageBoxButton.YesNo,
@@ -949,7 +949,7 @@ namespace WinVClip
                     var extractedDbPath = System.IO.Path.Combine(tempExtractPath, "clipboard_history.db");
                     if (!File.Exists(extractedDbPath))
                     {
-                        MessageBox.Show(Loc.Get("Settings.Storage.DatabaseNotFoundInBackup", "备份文件中未找到数据库"), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                        AppMessageBox.Show(Loc.Get("Settings.Storage.DatabaseNotFoundInBackup", "备份文件中未找到数据库"), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
                         Directory.Delete(tempExtractPath, true);
                         return;
                     }
@@ -978,14 +978,14 @@ namespace WinVClip
                         }
                         catch { }
 
-                        MessageBox.Show(Loc.Get("Settings.Storage.RestoreSuccess", "恢复成功！程序将自动重启。"), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
+                        AppMessageBox.Show(Loc.Get("Settings.Storage.RestoreSuccess", "恢复成功！程序将自动重启。"), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
 
                         Process.Start(Application.ResourceAssembly.Location);
                         Application.Current.Shutdown();
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show(string.Format(Loc.Get("Settings.Storage.RestoreFailed", "恢复失败: {0}\n请手动重启程序。"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                        AppMessageBox.Show(string.Format(Loc.Get("Settings.Storage.RestoreFailed", "恢复失败: {0}\n请手动重启程序。"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
                         Process.Start(Application.ResourceAssembly.Location);
                         Application.Current.Shutdown();
                     }
@@ -994,12 +994,12 @@ namespace WinVClip
                 {
                     if (Directory.Exists(tempExtractPath))
                         Directory.Delete(tempExtractPath, true);
-                    MessageBox.Show(string.Format(Loc.Get("Settings.Storage.ExtractFailed", "解压失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                    AppMessageBox.Show(string.Format(Loc.Get("Settings.Storage.ExtractFailed", "解压失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show(string.Format(Loc.Get("Settings.Storage.RestoreFailed", "恢复失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                AppMessageBox.Show(string.Format(Loc.Get("Settings.Storage.RestoreFailed", "恢复失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -1156,7 +1156,7 @@ namespace WinVClip
                                 message += string.Format(Loc.Get("Settings.Storage.ImportCleaned", "\n已删除 {0} 条未分组重复数据。"), deletedCount);
                             if (skippedCount > 0)
                                 message += string.Format(Loc.Get("Settings.Storage.ImportSkipped", "\n已跳过 {0} 条已分组重复数据（保留）。"), skippedCount);
-                            MessageBox.Show(message, Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
+                            AppMessageBox.Show(message, Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
                         });
                     }
                     catch (Exception ex)
@@ -1164,7 +1164,7 @@ namespace WinVClip
                         await Dispatcher.InvokeAsync(() =>
                         {
                             progressWindow.Close();
-                            MessageBox.Show(string.Format(Loc.Get("Settings.Storage.ImportFailed", "导入失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                            AppMessageBox.Show(string.Format(Loc.Get("Settings.Storage.ImportFailed", "导入失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
                         });
                     }
                 });
@@ -1231,11 +1231,11 @@ namespace WinVClip
                     });
 
                     System.IO.File.WriteAllText(dialog.FileName, json, Encoding.UTF8);
-                    MessageBox.Show(string.Format(Loc.Get("Settings.Storage.ExportJsonSuccess", "导出成功！共导出 {0} 条记录。"), exportItems.Count), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
+                    AppMessageBox.Show(string.Format(Loc.Get("Settings.Storage.ExportJsonSuccess", "导出成功！共导出 {0} 条记录。"), exportItems.Count), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(string.Format(Loc.Get("Settings.Storage.ExportFailed", "导出失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                    AppMessageBox.Show(string.Format(Loc.Get("Settings.Storage.ExportFailed", "导出失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
         }
@@ -1259,7 +1259,7 @@ namespace WinVClip
                     if (root.ValueKind != System.Text.Json.JsonValueKind.Object || 
                         !root.TryGetProperty("Items", out var itemsProp))
                     {
-                        MessageBox.Show(Loc.Get("Settings.Storage.NoDataToImport", "文件中没有可导入的数据。"), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                        AppMessageBox.Show(Loc.Get("Settings.Storage.NoDataToImport", "文件中没有可导入的数据。"), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Warning);
                         return;
                     }
 
@@ -1272,7 +1272,7 @@ namespace WinVClip
 
                     if (importItems == null || importItems.Count == 0)
                     {
-                        MessageBox.Show(Loc.Get("Settings.Storage.NoDataToImport", "文件中没有可导入的数据。"), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                        AppMessageBox.Show(Loc.Get("Settings.Storage.NoDataToImport", "文件中没有可导入的数据。"), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Warning);
                         return;
                     }
 
@@ -1564,11 +1564,11 @@ namespace WinVClip
                         message += string.Format(Loc.Get("Settings.Storage.ImportCleaned", "\n已删除 {0} 条未分组重复数据。"), deletedCount);
                     if (skippedCount > 0)
                         message += string.Format(Loc.Get("Settings.Storage.ImportSkipped", "\n已跳过 {0} 条已分组重复数据（保留）。"), skippedCount);
-                    MessageBox.Show(message, Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
+                    AppMessageBox.Show(message, Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(string.Format(Loc.Get("Settings.Storage.ImportFailed", "导入失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                    AppMessageBox.Show(string.Format(Loc.Get("Settings.Storage.ImportFailed", "导入失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
         }
@@ -1833,7 +1833,7 @@ namespace WinVClip
 
         private void ClearAllHistory_Click(object sender, RoutedEventArgs e)
         {
-            var result = MessageBox.Show(
+            var result = AppMessageBox.Show(
                 Loc.Get("MainWindow.Message.ConfirmClearAll", "确定要删除所有剪贴板历史记录吗？\n\n此操作将删除所有记录（包括已分组的记录）。"),
                 Loc.Get("Message.Confirm", "确认"),
                 MessageBoxButton.YesNo,
@@ -1843,13 +1843,13 @@ namespace WinVClip
             {
                 App.DatabaseService.ClearHistory();
                 App.GetMainWindow()?.ViewModel?.LoadItems();
-                MessageBox.Show(Loc.Get("Message.ClearSuccess", "删除成功"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
+                AppMessageBox.Show(Loc.Get("Message.ClearSuccess", "删除成功"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
         private void ClearUngroupedHistory_Click(object sender, RoutedEventArgs e)
         {
-            var result = MessageBox.Show(
+            var result = AppMessageBox.Show(
                 Loc.Get("MainWindow.Message.ConfirmClearUngrouped", "确定要删除所有未分组的剪贴板历史记录吗？\n\n已分组的记录将保留。"),
                 Loc.Get("Message.Confirm", "确认"),
                 MessageBoxButton.YesNo,
@@ -1859,7 +1859,7 @@ namespace WinVClip
             {
                 App.DatabaseService.ClearUngroupedHistory();
                 App.GetMainWindow()?.ViewModel?.LoadItems();
-                MessageBox.Show(Loc.Get("Message.ClearSuccess", "删除成功"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
+                AppMessageBox.Show(Loc.Get("Message.ClearSuccess", "删除成功"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
@@ -1906,7 +1906,7 @@ namespace WinVClip
                 }
             }
 
-            var result = MessageBox.Show(
+            var result = AppMessageBox.Show(
                 confirmMsg,
                 Loc.Get("Message.Confirm", "确认"),
                 MessageBoxButton.YesNo,
@@ -1916,13 +1916,13 @@ namespace WinVClip
             {
                 App.DatabaseService.DeleteOldItems(cutoffDate, typeFilter);
                 App.GetMainWindow()?.ViewModel?.LoadItems();
-                MessageBox.Show(Loc.Get("Message.ClearSuccess", "删除成功"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
+                AppMessageBox.Show(Loc.Get("Message.ClearSuccess", "删除成功"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
         private void ResetButton_Click(object sender, RoutedEventArgs e)
         {
-            var result = MessageBox.Show(Loc.Get("Settings.Reset.Confirm", "确定要重置所有设置吗？这将恢复到默认配置。"), Loc.Get("Settings.Reset.Title", "确认重置"), 
+            var result = AppMessageBox.Show(Loc.Get("Settings.Reset.Confirm", "确定要重置所有设置吗？这将恢复到默认配置。"), Loc.Get("Settings.Reset.Title", "确认重置"), 
                 MessageBoxButton.YesNo, MessageBoxImage.Warning);
             
             if (result == MessageBoxResult.Yes)
@@ -1962,7 +1962,7 @@ namespace WinVClip
                 LoadGlobalHotkeyEntries();
                 ValidateAllEntries();
 
-                MessageBox.Show(Loc.Get("Settings.Reset.Success", "设置已重置为默认值。点击\"应用\"或\"确定\"保存更改。"), Loc.Get("Settings.Reset.SuccessTitle", "重置成功"), 
+                AppMessageBox.Show(Loc.Get("Settings.Reset.Success", "设置已重置为默认值。点击\"应用\"或\"确定\"保存更改。"), Loc.Get("Settings.Reset.SuccessTitle", "重置成功"), 
                     MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
@@ -2403,7 +2403,7 @@ namespace WinVClip
             ResetEntryBorder(entry);
             if (showMessage)
             {
-                MessageBox.Show(
+                AppMessageBox.Show(
                     string.Format(Loc.Get("Settings.Hotkey.QuickPaste.ConflictMessage", "快捷键冲突：{0}"), conflictDesc),
                     Loc.Get("Settings.Hotkey.QuickPaste.ConflictTitle", "快捷键不可用"),
                     MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -2762,7 +2762,7 @@ namespace WinVClip
                 ResetEntryBorder(entry);
                 if (showMessage)
                 {
-                    MessageBox.Show(
+                    AppMessageBox.Show(
                         Loc.Get("Settings.Hotkey.Global.Invalid", "快捷键无效：需至少一个修饰键+按键，或单独 F1-F12 功能键。"),
                         Loc.Get("Settings.Hotkey.QuickPaste.ConflictTitle", "快捷键不可用"),
                         MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -2775,7 +2775,7 @@ namespace WinVClip
                 ResetEntryBorder(entry);
                 if (showMessage)
                 {
-                    MessageBox.Show(
+                    AppMessageBox.Show(
                         string.Format(Loc.Get("Settings.Hotkey.QuickPaste.ConflictMessage", "快捷键冲突：{0}"), conflictDesc),
                         Loc.Get("Settings.Hotkey.QuickPaste.ConflictTitle", "快捷键不可用"),
                         MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -3823,7 +3823,7 @@ namespace WinVClip
                 ResetEntryBorder(entry);
                 if (showMessage)
                 {
-                    MessageBox.Show(Loc.Get("Settings.QuickCommand.Error.NameEmpty", "快捷命令名称不能为空。"),
+                    AppMessageBox.Show(Loc.Get("Settings.QuickCommand.Error.NameEmpty", "快捷命令名称不能为空。"),
                         Loc.Get("Common.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
                 return false;
@@ -3838,7 +3838,7 @@ namespace WinVClip
                     ResetEntryBorder(entry);
                     if (showMessage)
                     {
-                        MessageBox.Show(
+                        AppMessageBox.Show(
                             string.Format(Loc.Get("Settings.QuickCommand.Error.NameDuplicate", "快捷命令名称已存在：{0}"), current.Name),
                             Loc.Get("Common.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Warning);
                     }
@@ -3864,7 +3864,7 @@ namespace WinVClip
                             string msg = string.Format(
                                 Loc.Get("Settings.QuickCommand.Error.Param1Required", "{0} 的参数一（{1}）不能为空。"),
                                 ruleLabel, ParamToolTip(r.Function, 1));
-                            MessageBox.Show(msg, Loc.Get("Common.Error", "错误"),
+                            AppMessageBox.Show(msg, Loc.Get("Common.Error", "错误"),
                                 MessageBoxButton.OK, MessageBoxImage.Warning);
                         }
                         return false;
@@ -3894,7 +3894,7 @@ namespace WinVClip
                                     Loc.Get("Settings.QuickCommand.Error.RuleRegexInvalid",
                                         "{0} 正则 Pattern 无效：{1}"),
                                     ruleLabel, ex.Message);
-                                MessageBox.Show(msg, Loc.Get("Common.Error", "错误"),
+                                AppMessageBox.Show(msg, Loc.Get("Common.Error", "错误"),
                                     MessageBoxButton.OK, MessageBoxImage.Warning);
                             }
                             return false;

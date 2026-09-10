@@ -67,7 +67,7 @@ namespace WinVClip
         {
             if (ActionComboBox.SelectedItem is not QuickCommand qc)
             {
-                MessageBox.Show(
+                AppMessageBox.Show(
                     Loc.Get("EditItem.Action.NoCommand", "请先选择一个快捷命令"),
                     Loc.Get("Message.Info", "提示"),
                     MessageBoxButton.OK, MessageBoxImage.Information);
@@ -82,7 +82,7 @@ namespace WinVClip
             catch (Exception ex)
             {
                 var msgTemplate = Loc.Get("EditItem.Action.ExecuteFailed", "快捷命令执行失败：{0}");
-                MessageBox.Show(
+                AppMessageBox.Show(
                     string.Format(msgTemplate, ex.Message),
                     Loc.Get("Message.Error", "错误"),
                     MessageBoxButton.OK, MessageBoxImage.Error);
@@ -99,7 +99,7 @@ namespace WinVClip
             var text = ContentTextBox.Text;
             if (string.IsNullOrWhiteSpace(text))
             {
-                MessageBox.Show(
+                AppMessageBox.Show(
                     Loc.Get("EditItem.EmptyNotAllowed", "内容不能为空"),
                     Loc.Get("Message.Error", "错误"),
                     MessageBoxButton.OK, MessageBoxImage.Warning);

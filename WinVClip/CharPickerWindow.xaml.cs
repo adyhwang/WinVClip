@@ -73,9 +73,9 @@ namespace WinVClip
             SelectedTextLabel.Text = Loc.Get("CharPicker.SelectedTextLabel", "待插入文字:");
             InsertButton.Content = Loc.Get("CharPicker.Insert", "插入");
             SelectAllCheckBox.Content = Loc.Get("CharPicker.SelectAll", "全选");
-            InvertButton.ToolTip = Loc.Get("CharPicker.InvertSelection", "反选");
-            CopyButton.ToolTip = Loc.Get("CharPicker.Copy", "复制");
-            SearchButton.ToolTip = Loc.Get("CharPicker.Search", "搜索");
+            InvertButton.Content = "🔄 " + Loc.Get("CharPicker.InvertSelection", "反选");
+            CopyButton.Content = "📋 " + Loc.Get("CharPicker.Copy", "复制");
+            SearchButton.Content = "🔍 " + Loc.Get("CharPicker.Search", "搜索");
             PinButton.ToolTip = Loc.Get("CharPicker.Pin", "置顶");
         }
 

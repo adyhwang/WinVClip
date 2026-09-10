@@ -147,6 +147,10 @@ namespace WinVClip.Services
             
             var settingsItem = CreateMenuItem(Loc.Get("Tray.Settings", "设置"), "⚙️", Loc.Get("Tray.Settings", "打开设置窗口"), () => OnOpenSettings?.Invoke());
             menu.Items.Add(settingsItem);
+
+
+            var dbItem = CreateMenuItem(Loc.Get("Tray.Database", "数据库"), "🗄️", Loc.Get("Tray.Database", "打开数据库所在文件夹"), () => OpenDatabaseFolder());
+            menu.Items.Add(dbItem);
             
             
             menu.Items.Add(CreateSeparator());
@@ -196,6 +200,28 @@ namespace WinVClip.Services
             var separator = new System.Windows.Controls.Separator();
             separator.Style = Application.Current.TryFindResource("SeparatorStyle") as Style;
             return separator;
+        }
+
+        private void OpenDatabaseFolder()
+        {
+            try
+            {
+                var dbPath = App.DatabaseService.DatabasePath;
+                var dir = Path.GetDirectoryName(dbPath);
+                if (string.IsNullOrEmpty(dir)) return;
+
+                if (File.Exists(dbPath))
+                {
+                    System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + dbPath + "\"");
+                }
+                else
+                {
+                    System.Diagnostics.Process.Start("explorer.exe", "\"" + dir + "\"");
+                }
+            }
+            catch
+            {
+            }
         }
 
         private void ToggleMonitoring()

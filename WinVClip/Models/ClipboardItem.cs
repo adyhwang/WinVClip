@@ -93,7 +93,7 @@ namespace WinVClip.Models
 
         public bool ShowFileInvalidBadge
         {
-            get => Type == ClipboardType.FileList && IsFileValid == false;
+            get => (Type == ClipboardType.FileList || Type == ClipboardType.Image) && IsFileValid == false;
         }
 
         public string FileItemForeground

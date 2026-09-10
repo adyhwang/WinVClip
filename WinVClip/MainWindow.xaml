@@ -66,7 +66,7 @@
     </Window.Resources>
 
     <Border x:Name="ContentContainer" MouseLeftButtonDown="WindowDrag_MouseLeftButtonDown" Background="{DynamicResource WindowBackground}" 
-            BorderBrush="{DynamicResource BorderBrush}" 
+            BorderBrush="#e0e0e0ff" 
             BorderThickness="1" 
             CornerRadius="8">
         <Grid Margin="4,8,4,8" MouseLeftButtonDown="WindowDrag_MouseLeftButtonDown" Background="Transparent">
@@ -580,49 +580,107 @@
 
             </Grid>
 
-            <Grid Grid.Row="3" Margin="10,4,10,0">
+            <Grid x:Name="BottomBar" Grid.Row="3" Margin="10,6,10,0" MouseEnter="BottomBar_MouseEnter" MouseLeave="BottomBar_MouseLeave">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding StatusText}"
-                               Foreground="{DynamicResource SecondaryTextForeground}"
-                               FontSize="11"
-                               VerticalAlignment="Center"/>
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <StackPanel x:Name="StatusTextTip" Orientation="Horizontal" ToolTip="文本" Margin="0,0,8,0" Loaded="StatusTextTip_Loaded">
-                        <Border Background="#6B7280" CornerRadius="2" Width="10" Height="10" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding TextCount}"
-                                   Foreground="{DynamicResource SecondaryTextForeground}"
-                                   FontSize="11"
-                                   Margin="4,0,0,0"
-                                   VerticalAlignment="Center"/>
+
+                <Grid.Resources>
+                    <Style x:Key="BottomActionButtonStyle" TargetType="Button">
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Foreground" Value="{DynamicResource SecondaryTextForeground}"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="FontSize" Value="12"/>
+                        <Setter Property="Padding" Value="10,6"/>
+                        <Setter Property="Margin" Value="6,0,0,0"/>
+                        <Setter Property="Cursor" Value="Hand"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}"
+                                            CornerRadius="4"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource TextForeground}"/>
+                                <Setter Property="Background" Value="{DynamicResource HoverBackground}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Resources>
+
+                <TextBlock x:Name="BottomStatsText"
+                           Grid.Column="0"
+                           Text="{Binding BottomRecordStats}"
+                           ToolTip="{Binding BottomStatsToolTip}"
+                           Foreground="{DynamicResource SecondaryTextForeground}"
+                           FontSize="11"
+                           VerticalAlignment="Center"/>
+
+                <StackPanel x:Name="RightActionPanel" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                    <TextBlock x:Name="BottomLabelNormal" Text="删除：" Margin="0,0,2,0" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextForeground}" FontSize="12">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Visible"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMultiSelectMode}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock x:Name="BottomLabelMulti" Text="批量：" Margin="0,0,2,0" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextForeground}" FontSize="12">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMultiSelectMode}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <StackPanel x:Name="NormalActionsPanel" Orientation="Horizontal">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Visible"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMultiSelectMode}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <Button x:Name="BottomDeleteAllButton" Content="全部" Style="{StaticResource BottomActionButtonStyle}" Click="DeleteAll_Click"/>
+                        <Button x:Name="BottomDeleteAllUngroupedButton" Content="无分组" Style="{StaticResource BottomActionButtonStyle}" Click="DeleteAllUngrouped_Click"/>
+                        <Button x:Name="BottomDeleteInvalidButton" Content="无效记录" Style="{StaticResource BottomActionButtonStyle}" Click="DeleteInvalid_Click"/>
                     </StackPanel>
-                    <StackPanel x:Name="StatusImageTip" Orientation="Horizontal" ToolTip="图片" Margin="0,0,8,0" Loaded="StatusImageTip_Loaded">
-                        <Border Background="#10B981" CornerRadius="2" Width="10" Height="10" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding ImageCount}"
-                                   Foreground="{DynamicResource SecondaryTextForeground}"
-                                   FontSize="11"
-                                   Margin="4,0,0,0"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
-                    <StackPanel x:Name="StatusFileTip" Orientation="Horizontal" ToolTip="文件" Margin="0,0,8,0" Loaded="StatusFileTip_Loaded">
-                        <Border Background="#F59E0B" CornerRadius="2" Width="10" Height="10" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding FileCount}"
-                                   Foreground="{DynamicResource SecondaryTextForeground}"
-                                   FontSize="11"
-                                   Margin="4,0,0,0"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
-                    <StackPanel x:Name="StatusRichTextTip" Orientation="Horizontal" ToolTip="富文本" Loaded="StatusRichTextTip_Loaded">
-                        <Border Background="#8B5CF6" CornerRadius="2" Width="10" Height="10" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding RichTextCount}"
-                                   Foreground="{DynamicResource SecondaryTextForeground}"
-                                   FontSize="11"
-                                   Margin="4,0,0,0"
-                                   VerticalAlignment="Center"/>
+                    <StackPanel x:Name="MultiSelectActionsPanel" Orientation="Horizontal">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMultiSelectMode}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <Button x:Name="BottomBatchPasteButton" Content="粘贴" Style="{StaticResource BottomActionButtonStyle}" Click="BatchPaste_Click"/>
+                        <Button x:Name="BottomBatchDeleteButton" Content="删除" Style="{StaticResource BottomActionButtonStyle}" Click="BatchDelete_Click"/>
+                        <Button x:Name="BottomBatchGroupButton" Content="分组" Style="{StaticResource BottomActionButtonStyle}" Click="BatchGroup_Click"/>
                     </StackPanel>
                 </StackPanel>
             </Grid>

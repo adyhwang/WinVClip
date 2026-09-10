@@ -54,7 +54,7 @@ namespace WinVClip
                     Loc.Get("QRCode.Error.TooLarge",
                         "内容过长，超出二维码容量上限（最多 {0} 字节，约 {1} 个汉字），生成失败。\n当前内容：{2} 字节（{3} 字符）"),
                     MaxQrBytes, MaxQrBytes / 3, byteCount, _content.Length);
-                MessageBox.Show(msg,
+                AppMessageBox.Show(msg,
                     Loc.Get("Common.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -87,7 +87,7 @@ namespace WinVClip
             }
             catch (Exception ex)
             {
-                MessageBox.Show(Loc.Get("QRCode.Error.Generate", "生成二维码失败: ") + ex.Message,
+                AppMessageBox.Show(Loc.Get("QRCode.Error.Generate", "生成二维码失败: ") + ex.Message,
                     Loc.Get("Common.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -99,12 +99,12 @@ namespace WinVClip
             try
             {
                 ClipboardWin32Helper.SetImage(_qrCodeBitmap);
-                MessageBox.Show(Loc.Get("QRCode.Message.Copied", "二维码图片已复制到剪贴板"),
+                AppMessageBox.Show(Loc.Get("QRCode.Message.Copied", "二维码图片已复制到剪贴板"),
                     Loc.Get("Common.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(Loc.Get("QRCode.Error.Copy", "复制失败: ") + ex.Message,
+                AppMessageBox.Show(Loc.Get("QRCode.Error.Copy", "复制失败: ") + ex.Message,
                     Loc.Get("Common.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -130,13 +130,13 @@ namespace WinVClip
                     {
                         encoder.Save(fs);
                     }
-                    MessageBox.Show(Loc.Get("QRCode.Message.Saved", "二维码图片已保存"),
+                    AppMessageBox.Show(Loc.Get("QRCode.Message.Saved", "二维码图片已保存"),
                         Loc.Get("Common.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show(Loc.Get("QRCode.Error.Save", "保存失败: ") + ex.Message,
+                AppMessageBox.Show(Loc.Get("QRCode.Error.Save", "保存失败: ") + ex.Message,
                     Loc.Get("Common.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }

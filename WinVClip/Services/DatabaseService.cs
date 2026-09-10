@@ -446,6 +446,24 @@ namespace WinVClip.Services
             return counts;
         }
 
+        public int GetLinkCount()
+        {
+            using var command = _connection.CreateCommand();
+            command.CommandText = @"
+                SELECT COUNT(*) FROM ClipboardItems
+                WHERE (Type = @TextType OR Type = @RichTextType)
+                AND (LOWER(Content) LIKE 'http:%' OR LOWER(Content) LIKE 'http:%/%'
+                    OR LOWER(Content) LIKE 'https:%' OR LOWER(Content) LIKE 'https:%/%'
+                    OR LOWER(Content) LIKE 'www.%')
+            ";
+            command.Parameters.AddWithValue("@TextType", (int)Models.ClipboardType.Text);
+            command.Parameters.AddWithValue("@RichTextType", (int)Models.ClipboardType.RichText);
+            using var reader = command.ExecuteReader();
+            if (reader.Read())
+                return reader.GetInt32(0);
+            return 0;
+        }
+
         public int GetTotalCount(string? searchText = null, int? typeFilter = null, long? groupIdFilter = null)
         {
             using var command = _connection.CreateCommand();
@@ -637,6 +655,86 @@ namespace WinVClip.Services
         public void ClearUngroupedHistory()
         {
             ClearHistoryInternal(ungroupedOnly: true);
+        }
+
+        public void DeleteItemsByFilter(long? groupIdFilter, int? typeFilter, string? searchText, bool ungroupedOnly, bool linkOnly = false)
+        {
+            var whereClause = new StringBuilder("WHERE 1=1");
+            var paramNames = new List<string>();
+            var paramValues = new List<object>();
+
+            if (ungroupedOnly)
+            {
+                whereClause.Append(" AND (GroupId IS NULL OR GroupId = 0)");
+            }
+
+            if (!string.IsNullOrEmpty(searchText))
+            {
+                whereClause.Append(" AND (Content LIKE @Search OR PreviewText LIKE @Search)");
+                paramNames.Add("@Search");
+                paramValues.Add($"%{searchText}%");
+            }
+
+            if (linkOnly)
+            {
+                whereClause.Append(" AND (Type = @TypeText OR Type = @TypeRich)");
+                whereClause.Append(" AND (Content LIKE 'http%' OR Content LIKE 'https%' OR Content LIKE 'www.%')");
+                paramNames.Add("@TypeText");
+                paramValues.Add((int)Models.ClipboardType.Text);
+                paramNames.Add("@TypeRich");
+                paramValues.Add((int)Models.ClipboardType.RichText);
+            }
+            else if (typeFilter.HasValue)
+            {
+                if (typeFilter.Value == (int)Models.ClipboardType.Text)
+                {
+                    whereClause.Append(" AND (Type = @Type OR Type = @RichTextType)");
+                    paramNames.Add("@Type");
+                    paramValues.Add(typeFilter.Value);
+                    paramNames.Add("@RichTextType");
+                    paramValues.Add((int)Models.ClipboardType.RichText);
+                }
+                else
+                {
+                    whereClause.Append(" AND Type = @Type");
+                    paramNames.Add("@Type");
+                    paramValues.Add(typeFilter.Value);
+                }
+            }
+
+            if (groupIdFilter.HasValue)
+            {
+                whereClause.Append(" AND GroupId = @GroupId");
+                paramNames.Add("@GroupId");
+                paramValues.Add(groupIdFilter.Value);
+            }
+
+            var imagePaths = new List<string>();
+            using (var selectCommand = _connection.CreateCommand())
+            {
+                selectCommand.CommandText = $@"
+                    SELECT Id, ImagePath FROM ClipboardItems
+                    {whereClause} AND ImagePath IS NOT NULL AND ImagePath != ''";
+                for (int i = 0; i < paramNames.Count; i++)
+                    selectCommand.Parameters.AddWithValue(paramNames[i], paramValues[i]);
+                using var reader = selectCommand.ExecuteReader();
+                while (reader.Read())
+                {
+                    if (!reader.IsDBNull(1))
+                    {
+                        imagePaths.Add(reader.GetString(1));
+                    }
+                }
+            }
+
+            DeleteImageFiles(imagePaths);
+
+            using var deleteCommand = _connection.CreateCommand();
+            deleteCommand.CommandText = $"DELETE FROM ClipboardItems {whereClause}";
+            for (int i = 0; i < paramNames.Count; i++)
+                deleteCommand.Parameters.AddWithValue(paramNames[i], paramValues[i]);
+            deleteCommand.ExecuteNonQuery();
+            VacuumDatabase();
         }
 
         private void ClearHistoryInternal(bool ungroupedOnly)

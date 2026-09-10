@@ -61,7 +61,7 @@ namespace WinVClip
             string groupIcon = NewGroupIconTextBox.Text.Trim();
             if (string.IsNullOrWhiteSpace(groupName))
             {
-                MessageBox.Show(Loc.Get("Message.GroupNameEmpty", "请输入分组名称"), Loc.Get("Common.OK", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
+                AppMessageBox.Show(Loc.Get("Message.GroupNameEmpty", "请输入分组名称"), Loc.Get("Common.OK", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -74,7 +74,7 @@ namespace WinVClip
             }
             catch (Exception ex)
             {
-                MessageBox.Show(string.Format(Loc.Get("Message.AddGroupFailed", "添加分组失败: {0}"), ex.Message), Loc.Get("Common.OK", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                AppMessageBox.Show(string.Format(Loc.Get("Message.AddGroupFailed", "添加分组失败: {0}"), ex.Message), Loc.Get("Common.OK", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -187,7 +187,7 @@ namespace WinVClip
                         }
                         catch (Exception ex)
                         {
-                            MessageBox.Show(string.Format(Loc.Get("Message.UpdateGroupFailed", "更新分组失败: {0}"), ex.Message), Loc.Get("Common.OK", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                            AppMessageBox.Show(string.Format(Loc.Get("Message.UpdateGroupFailed", "更新分组失败: {0}"), ex.Message), Loc.Get("Common.OK", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
                         }
                     }
                     dialog.Close();
@@ -204,7 +204,7 @@ namespace WinVClip
         {
             if (sender is Button button && button.DataContext is Group selectedGroup)
             {
-                var result = MessageBox.Show(
+                var result = AppMessageBox.Show(
                     string.Format(Loc.Get("GroupManage.ConfirmDelete", "确定要删除分组 \"{0}\" 吗？"), selectedGroup.Name),
                     Loc.Get("Common.Delete", "确认删除"),
                     MessageBoxButton.YesNo,
@@ -219,7 +219,7 @@ namespace WinVClip
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show(string.Format(Loc.Get("Message.DeleteGroupFailed", "删除分组失败: {0}"), ex.Message), Loc.Get("Common.OK", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                        AppMessageBox.Show(string.Format(Loc.Get("Message.DeleteGroupFailed", "删除分组失败: {0}"), ex.Message), Loc.Get("Common.OK", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
                     }
                 }
             }

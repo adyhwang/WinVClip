@@ -546,6 +546,7 @@ namespace WinVClip
             {
                 _isMultiSelectMode = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(BottomRecordStats));
                 if (!_isMultiSelectMode)
                 {
                     ClearSelection();
@@ -660,6 +661,7 @@ namespace WinVClip
                 _totalCount = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(StatusText));
+                OnPropertyChanged(nameof(BottomRecordStats));
             }
         }
 
@@ -671,6 +673,7 @@ namespace WinVClip
             {
                 _textCount = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(BottomStatsToolTip));
             }
         }
 
@@ -682,6 +685,7 @@ namespace WinVClip
             {
                 _imageCount = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(BottomStatsToolTip));
             }
         }
 
@@ -693,6 +697,7 @@ namespace WinVClip
             {
                 _fileCount = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(BottomStatsToolTip));
             }
         }
 
@@ -704,6 +709,19 @@ namespace WinVClip
             {
                 _richTextCount = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(BottomStatsToolTip));
+            }
+        }
+
+        private int _linkCount;
+        public int LinkCount
+        {
+            get => _linkCount;
+            set
+            {
+                _linkCount = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(BottomStatsToolTip));
             }
         }
 
@@ -728,6 +746,31 @@ namespace WinVClip
                 _grandTotalCount = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(StatusText));
+            }
+        }
+
+        public string BottomRecordStats
+        {
+            get
+            {
+                string records = string.Format(Loc.Get("MainWindow.Bottom.RecordsCount", "{0} 条记录"), _totalCount);
+                if (!IsMultiSelectMode)
+                    return records;
+
+                string selected = string.Format(Loc.Get("MainWindow.Bottom.SelectedCount", "选中 {0} 个项目"), SelectedItemIds.Count);
+                return string.Format(Loc.Get("MainWindow.Bottom.RecordsAndSelected", "{0} | {1}"), records, selected);
+            }
+        }
+
+        public string BottomStatsToolTip
+        {
+            get
+            {
+                string text = string.Format(Loc.Get("MainWindow.Bottom.StatsText", "文本 {0} 条"), _textCount);
+                string link = string.Format(Loc.Get("MainWindow.Bottom.StatsLink", "链接 {0} 条"), _linkCount);
+                string image = string.Format(Loc.Get("MainWindow.Bottom.StatsImage", "图片 {0} 条"), _imageCount);
+                string file = string.Format(Loc.Get("MainWindow.Bottom.StatsFile", "文件 {0} 条"), _fileCount);
+                return string.Join("\n", text, link, image, file);
             }
         }
 
@@ -806,6 +849,7 @@ namespace WinVClip
                 int totalCount = 0;
                 int grandTotalCount = 0;
                 int linkFilterCount = 0;
+                int linkCount = 0;
                 await Task.Run(() =>
                 {
                     if (TypeFilter == FilterType.Link)
@@ -824,6 +868,7 @@ namespace WinVClip
                     totalCount = _databaseService.GetTotalCount(SearchText, TypeFilter, GroupFilter);
                     grandTotalCount = _databaseService.GetTotalCount(null, null, null);
                     typeCounts = _databaseService.GetItemCountsByType(null, null);
+                    linkCount = _databaseService.GetLinkCount();
                 });
                 
                 if (newItems == null)
@@ -858,6 +903,7 @@ namespace WinVClip
                         TotalCount = totalCount;
                     }
                     GrandTotalCount = grandTotalCount;
+                    LinkCount = linkCount;
                     if (typeCounts != null)
                     {
                         TextCount = typeCounts.ContainsKey((int)ClipboardType.Text) ? typeCounts[(int)ClipboardType.Text] : 0;
@@ -993,6 +1039,7 @@ namespace WinVClip
             
             item.IsSelected = !isSelected;
             OnPropertyChanged(nameof(SelectedItemIds));
+            OnPropertyChanged(nameof(BottomRecordStats));
         }
 
         public void ClearSelection()
@@ -1003,6 +1050,7 @@ namespace WinVClip
             }
             SelectedItemIds.Clear();
             OnPropertyChanged(nameof(SelectedItemIds));
+            OnPropertyChanged(nameof(BottomRecordStats));
         }
 
         public List<ClipboardItem> GetSelectedItems()
@@ -1099,6 +1147,7 @@ namespace WinVClip
 
         
         private System.Windows.Threading.DispatcherTimer _pasteAndDeleteClearTimer;
+        private System.Windows.Threading.DispatcherTimer _bottomActionDelayTimer;
         
         private string _pasteAndDeleteClearText;
         
@@ -1194,6 +1243,15 @@ namespace WinVClip
             MenuBatchPaste.Header = Loc.Get("MainWindow.ContextMenu.BatchPaste", "批量粘贴");
             MenuBatchGroup.Header = Loc.Get("MainWindow.ContextMenu.BatchGroup", "批量分组");
 
+            BottomDeleteAllButton.Content = Loc.Get("MainWindow.Bottom.DeleteAll", "全部");
+            BottomLabelNormal.Text = Loc.Get("MainWindow.Bottom.DeleteLabel", "删除：");
+            BottomLabelMulti.Text = Loc.Get("MainWindow.Bottom.BatchLabel", "批量：");
+            BottomDeleteAllUngroupedButton.Content = Loc.Get("MainWindow.Bottom.DeleteAllUngrouped", "无分组");
+            BottomDeleteInvalidButton.Content = Loc.Get("MainWindow.Bottom.DeleteInvalid", "无效记录");
+            BottomBatchPasteButton.Content = Loc.Get("MainWindow.Bottom.BatchPaste", "粘贴");
+            BottomBatchDeleteButton.Content = Loc.Get("MainWindow.Bottom.BatchDelete", "删除");
+            BottomBatchGroupButton.Content = Loc.Get("MainWindow.Bottom.BatchGroup", "分组");
+
             LoadingMoreText.Text = Loc.Get("MainWindow.Status.LoadingMore", "加载更多...");
             EmptyStateText.Text = Loc.Get("MainWindow.Status.Empty", "暂无剪贴板记录");
             LoadingText.Text = Loc.Get("MainWindow.Status.Loading", "加载中...");
@@ -1241,6 +1299,8 @@ namespace WinVClip
                 _viewModel.OnPropertyChanged(nameof(MainViewModel.ImageBadgeText));
                 _viewModel.OnPropertyChanged(nameof(MainViewModel.InvalidFileBadgeText));
                 _viewModel.OnPropertyChanged(nameof(MainViewModel.StatusText));
+                _viewModel.OnPropertyChanged(nameof(MainViewModel.BottomRecordStats));
+                _viewModel.OnPropertyChanged(nameof(MainViewModel.BottomStatsToolTip));
             });
         }
 
@@ -1889,7 +1949,7 @@ namespace WinVClip
                 if (!IsPointInWindow(clickPoint))
                 {
                     
-                    if (!IsPointInAnyMenu(clickPoint))
+                    if (!IsPointInAnyMenu(clickPoint) && !AppMessageBox.IsPointInDialog(clickPoint))
                     {
                         
                         Dispatcher.Invoke(() =>
@@ -2056,6 +2116,38 @@ namespace WinVClip
                 else
                     _viewModel.GroupFilter = tab.GroupId;
             }
+        }
+
+        private void BottomBar_MouseEnter(object sender, MouseEventArgs e)
+        {
+            if (_bottomActionDelayTimer != null)
+            {
+                _bottomActionDelayTimer.Stop();
+                _bottomActionDelayTimer = null;
+            }
+            RightActionPanel.Visibility = Visibility.Visible;
+        }
+
+        private void BottomBar_MouseLeave(object sender, MouseEventArgs e)
+        {
+            if (RightActionPanel.Visibility != Visibility.Visible)
+                return;
+
+            if (_bottomActionDelayTimer == null)
+            {
+                _bottomActionDelayTimer = new System.Windows.Threading.DispatcherTimer
+                {
+                    Interval = TimeSpan.FromMilliseconds(400)
+                };
+                _bottomActionDelayTimer.Tick += (s, args) =>
+                {
+                    _bottomActionDelayTimer.Stop();
+                    _bottomActionDelayTimer = null;
+                    RightActionPanel.Visibility = Visibility.Collapsed;
+                };
+            }
+            _bottomActionDelayTimer.Stop();
+            _bottomActionDelayTimer.Start();
         }
 
         private void WindowDrag_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -2321,7 +2413,7 @@ namespace WinVClip
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"{Loc.Get("Message.Error", "错误")}: {ex.Message}", Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                AppMessageBox.Show($"{Loc.Get("Message.Error", "错误")}: {ex.Message}", Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -2363,7 +2455,7 @@ namespace WinVClip
                 return;
             if (item.Type != ClipboardType.Text && item.Type != ClipboardType.RichText)
             {
-                MessageBox.Show(Loc.Get("MainWindow.Message.OnlyTextEdit", "只能编辑文本类型的内容"), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
+                AppMessageBox.Show(Loc.Get("MainWindow.Message.OnlyTextEdit", "只能编辑文本类型的内容"), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -2459,7 +2551,7 @@ namespace WinVClip
                     Loc.Get("QRCode.Error.TooLarge",
                         "内容过长，超出二维码容量上限（最多 {0} 字节，约 {1} 个汉字），生成失败。\n当前内容：{2} 字节（{3} 字符）"),
                     QRCodeWindow.MaxQrBytes, QRCodeWindow.MaxQrBytes / 3, byteCount, text.Length);
-                MessageBox.Show(msg,
+                AppMessageBox.Show(msg,
                     Loc.Get("Common.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -2565,7 +2657,7 @@ namespace WinVClip
             }
             catch (Exception ex)
             {
-                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                AppMessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
@@ -3025,7 +3117,7 @@ namespace WinVClip
             }
             catch (Exception ex)
             {
-                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                AppMessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
@@ -3050,7 +3142,7 @@ namespace WinVClip
             }
             catch (Exception ex)
             {
-                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                AppMessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
@@ -3152,19 +3244,12 @@ namespace WinVClip
             int idx = gh.ItemIndex - 1;
             if (idx < 0) idx = 0;
 
-            
-            var items = _viewModel?.ClipboardItems;
-            if (items == null || items.Count == 0)
-            {
-                _viewModel?.LoadItems();
-                items = _viewModel?.ClipboardItems;
-            }
-            if (items == null || idx >= items.Count) return;
+            var items = _databaseService.GetItems(1, idx, null, null, null);
+            if (items == null || items.Count == 0) return;
 
-            var item = items[idx];
+            var item = items[0];
             if (item == null) return;
 
-            
             ExecuteQuickPasteAction(item, gh.Action, gh.QuickCommandName);
         }
 
@@ -3207,7 +3292,7 @@ namespace WinVClip
                         string err = string.Format(
                             Loc.Get("MainWindow.Message.QcRuleFailed", "快捷命令执行失败：规则 #{0} [{1}] 报错：{2}"),
                             stepIndex, fnName, ruleEx.Message);
-                        MessageBox.Show(err, Loc.Get("Message.Error", "错误"),
+                        AppMessageBox.Show(err, Loc.Get("Message.Error", "错误"),
                             MessageBoxButton.OK, MessageBoxImage.Error);
                         return;
                     }
@@ -3218,7 +3303,7 @@ namespace WinVClip
             }
             catch (Exception ex)
             {
-                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message),
+                AppMessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message),
                     Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
@@ -3341,7 +3426,7 @@ namespace WinVClip
             }
             catch (Exception ex)
             {
-                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                AppMessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
@@ -3558,7 +3643,7 @@ namespace WinVClip
             }
             catch (Exception ex)
             {
-                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.CopyFailed", "复制失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                AppMessageBox.Show(string.Format(Loc.Get("MainWindow.Message.CopyFailed", "复制失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -3580,7 +3665,7 @@ namespace WinVClip
             }
             catch (Exception ex)
             {
-                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                AppMessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
@@ -3666,7 +3751,7 @@ namespace WinVClip
             }
             catch (Exception ex)
             {
-                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                AppMessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
@@ -3700,7 +3785,7 @@ namespace WinVClip
             }
             catch (Exception ex)
             {
-                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                AppMessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
@@ -3746,7 +3831,7 @@ namespace WinVClip
             }
             catch (Exception ex)
             {
-                MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+                AppMessageBox.Show(string.Format(Loc.Get("MainWindow.Message.PasteFailed", "粘贴失败: {0}"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
@@ -3759,7 +3844,7 @@ namespace WinVClip
             var selectedItems = GetSelectedItemsOrShowMessage(Loc.Get("MainWindow.Message.SelectItemsToDelete", "请先选择要删除的项"));
             if (selectedItems == null) return;
 
-            if (MessageBox.Show(string.Format(Loc.Get("MainWindow.Message.ConfirmDeleteSelected", "确定要删除选中的 {0} 项吗？"), selectedItems.Count), 
+            if (AppMessageBox.Show(string.Format(Loc.Get("MainWindow.Message.ConfirmDeleteSelected", "确定要删除选中的 {0} 项吗？"), selectedItems.Count), 
                 Loc.Get("Message.Confirm", "确认"), MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
             {
                 foreach (var item in selectedItems)
@@ -3787,12 +3872,84 @@ namespace WinVClip
             menu.IsOpen = true;
         }
 
+        private void DeleteAll_Click(object sender, RoutedEventArgs e)
+        {
+            if (AppMessageBox.Show(Loc.Get("MainWindow.Message.ConfirmDeleteAll", "是否删除本页面'全部记录'？"),
+                Loc.Get("Message.Confirm", "确认"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                bool isLink = _viewModel.TypeFilter == FilterType.Link;
+                _databaseService.DeleteItemsByFilter(_viewModel.GroupFilter, isLink ? (int?)null : _viewModel.TypeFilter, _viewModel.SearchText, ungroupedOnly: false, linkOnly: isLink);
+                _viewModel.ClearSelection();
+                _viewModel.LoadItems();
+            }
+            catch (Exception ex)
+            {
+                AppMessageBox.Show(string.Format(Loc.Get("MainWindow.Message.DeleteFailed", "删除失败: {0}"), ex.Message),
+                    Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void DeleteAllUngrouped_Click(object sender, RoutedEventArgs e)
+        {
+            if (AppMessageBox.Show(Loc.Get("MainWindow.Message.ConfirmDeleteAllUngrouped", "是否删除本页面'所有未分组的记录'？"),
+                Loc.Get("Message.Confirm", "确认"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                bool isLink = _viewModel.TypeFilter == FilterType.Link;
+                _databaseService.DeleteItemsByFilter(null, isLink ? (int?)null : _viewModel.TypeFilter, _viewModel.SearchText, ungroupedOnly: true, linkOnly: isLink);
+                _viewModel.ClearSelection();
+                _viewModel.LoadItems();
+            }
+            catch (Exception ex)
+            {
+                AppMessageBox.Show(string.Format(Loc.Get("MainWindow.Message.DeleteFailed", "删除失败: {0}"), ex.Message),
+                    Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void DeleteInvalid_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var allFileItems = _databaseService.GetItems(int.MaxValue, 0, null, (int)ClipboardType.FileList, null);
+                var allImageItems = _databaseService.GetItems(int.MaxValue, 0, null, (int)ClipboardType.Image, null);
+                var invalidItems = allFileItems
+                    .Concat(allImageItems)
+                    .Where(FileValidationService.IsItemInvalid)
+                    .ToList();
+
+                if (invalidItems.Count == 0)
+                {
+                    AppMessageBox.Show(Loc.Get("MainWindow.Message.NoInvalid", "没有需要清理的无效记录"),
+                        Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                foreach (var item in invalidItems)
+                    _databaseService.DeleteItem(item.Id);
+                _viewModel.LoadItems();
+
+                AppMessageBox.Show(string.Format(Loc.Get("MainWindow.Message.DeletedInvalid", "已删除 {0} 条无效记录"), invalidItems.Count),
+                    Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                AppMessageBox.Show(string.Format(Loc.Get("MainWindow.Message.DeleteFailed", "删除失败: {0}"), ex.Message),
+                    Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private List<ClipboardItem> GetSelectedItemsOrShowMessage(string emptyMessage)
         {
             var selectedItems = _viewModel.GetSelectedItems();
             if (selectedItems.Count == 0)
             {
-                MessageBox.Show(emptyMessage, Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
+                AppMessageBox.Show(emptyMessage, Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return null;
             }
             return selectedItems;
