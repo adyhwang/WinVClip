@@ -2510,8 +2510,7 @@ namespace WinVClip
                 return;
 
             
-            var focusService = App.GetFocusService();
-            var targetHwnd = focusService?.LastFocusHwnd ?? IntPtr.Zero;
+            var targetHwnd = ResolvePasteTargetHwnd();
 
             var charPickerWindow = new CharPickerWindow(text);
             charPickerWindow.OnInsert += (sender, selectedText) =>
