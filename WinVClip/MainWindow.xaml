@@ -69,7 +69,7 @@
             BorderBrush="#e0e0e0ff" 
             BorderThickness="1" 
             CornerRadius="8">
-        <Grid Margin="4,8,4,8" MouseLeftButtonDown="WindowDrag_MouseLeftButtonDown" Background="Transparent">
+        <Grid Margin="4,0,4,4" MouseLeftButtonDown="WindowDrag_MouseLeftButtonDown" Background="Transparent">
             <Grid.RowDefinitions>
                 <RowDefinition Height="50"/>
                 <RowDefinition Height="Auto"/>
@@ -243,7 +243,7 @@
                         </TabControl.ItemTemplate>
                     </TabControl>
 
-                    <Grid Grid.Column="1" Margin="0,0,-8,0">
+                    <Grid Grid.Column="1" Margin="0,0,-6,0">
                         <ListBox x:Name="ClipboardListBox"
                                  Background="Transparent" BorderThickness="0"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"

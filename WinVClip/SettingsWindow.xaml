@@ -84,12 +84,12 @@
 
                 
                 <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                              Margin="12,8" Background="{DynamicResource WindowBackground}">
+                              Margin="12,8,-1,8" Background="{DynamicResource WindowBackground}">
                     <ScrollViewer.Resources>
                         <Style TargetType="ScrollBar" BasedOn="{StaticResource ScrollBarStyle}"/>
                     </ScrollViewer.Resources>
                     
-                    <StackPanel x:Name="ContentPanel">
+                    <StackPanel x:Name="ContentPanel" Margin="0,0,4,0">
                         
                         <StackPanel x:Name="PanelGeneral">
                             <TextBlock x:Name="GeneralTitleText" Text="常规" FontSize="24" FontWeight="SemiBold" 
