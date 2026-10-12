@@ -25,7 +25,8 @@ WinVClip 是一款使用 AI 辅助开发的 Windows 剪贴板管理工具，旨�
 <img width="416" height="605" alt="7" src="https://github.com/user-attachments/assets/f8d4ab30-e755-4aac-af7a-e87546dd57e2" />
 <img width="600" height="500" alt="8" src="https://github.com/user-attachments/assets/fc1d2128-8816-4e91-986a-d4b1ec573445" />
 <img width="750" height="620" alt="1" src="https://github.com/user-attachments/assets/991a48f2-b882-45a3-bef4-230fa1e6ca1c" />
-<img width="750" height="618" alt="2" src="https://github.com/user-attachments/assets/3a4b708c-86d5-4e59-9f52-8056a331c5e6" />
+<img width="750" height="620" alt="顺序粘贴1" src="https://github.com/user-attachments/assets/9f8e03fe-1735-4a43-9288-b33c26e14e51" />
+<img width="693" height="592" alt="顺序粘贴2" src="https://github.com/user-attachments/assets/0c1341da-f8d7-4540-81ec-fd97c6667c9f" />
 <img width="750" height="620" alt="3" src="https://github.com/user-attachments/assets/b8b00604-033c-4796-bfd8-6d060801b520" />
 <img width="750" height="620" alt="4" src="https://github.com/user-attachments/assets/97f513f4-1d34-4267-b631-d413dd31d497" />
 <img width="750" height="620" alt="5" src="https://github.com/user-attachments/assets/cba6fbe9-825c-462e-aedc-4324aa433674" />
@@ -65,6 +66,7 @@ WinVClip 是一款使用 AI 辅助开发的 Windows 剪贴板管理工具，旨�
 | 🔠 **字体大小** | 可调整界面字体大小（10-30），主界面和拆分选字界面即时生效 |
 | ⚙️ **快捷命令** | 自定义文本处理规则链，支持正则替换、提取、格式化等功能 |
 | 🎹 **全局快捷键** | 自定义全局键盘快捷键，一键访问历史记录并执行操作 |
+| 🎹 **顺序粘贴快捷键** | 自定义顺序粘贴快捷键，先进先出、后进先出 |
 | 🖱️ **主界面快捷键** | 自定义"修饰键+鼠标"组合，对剪贴板条目执行快速操作 |
 | 🌐 **多语言** | 支持中英文切换，语言修改即时生效无需重启 |
 | ⚡ **内存优化** | 后台自动内存回收，最小化后自动释放内存，资源占用更低 |
