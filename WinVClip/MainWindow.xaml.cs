@@ -1143,6 +1143,15 @@ namespace WinVClip
         private bool _isPasting = false;
         private IntPtr _lastFocusHwndWhenShow = IntPtr.Zero;
         private IntPtr _capturedTargetHwnd = IntPtr.Zero;
+
+        // 顺序粘贴状态：后进先出/先进先出各自独立维护队列、索引与上次按键时间，互不影响
+        private List<ClipboardItem> _seqPasteQueueLifo;
+        private int _seqPasteIndexLifo;
+        private DateTime _seqPasteLastPressLifo = DateTime.MinValue;
+
+        private List<ClipboardItem> _seqPasteQueueFifo;
+        private int _seqPasteIndexFifo;
+        private DateTime _seqPasteLastPressFifo = DateTime.MinValue;
         private List<Models.QuickPasteShortcut> _quickPasteShortcuts = new List<Models.QuickPasteShortcut>();
 
         
@@ -3250,6 +3259,80 @@ namespace WinVClip
             if (item == null) return;
 
             ExecuteQuickPasteAction(item, gh.Action, gh.QuickCommandName);
+        }
+
+        /// <summary>
+        /// 顺序粘贴热键处理（全局热键触发）。数据始终基于数据库全量记录。
+        /// fifo=true：先进先出，取最新一批记录（相邻记录间隔时间≤设定秒数视为同一批），按复制先后顺序依次粘贴；
+        /// fifo=false：后进先出，从最新记录开始按列表顺序依次粘贴。
+        /// 连续按下依次粘贴下一条；两次按下间隔超过设定秒数则重新基于数据库从头开始。
+        /// 后进先出/先进先出的序列状态各自独立、互不影响。
+        /// </summary>
+        public void OnSequentialPasteHotkey(bool fifo)
+        {
+            try
+            {
+                int intervalSeconds = Math.Max(1, App.SettingsService?.Settings?.SequentialPasteIntervalSeconds ?? 8);
+                var now = DateTime.Now;
+
+                var queue = fifo ? _seqPasteQueueFifo : _seqPasteQueueLifo;
+                var lastPress = fifo ? _seqPasteLastPressFifo : _seqPasteLastPressLifo;
+                bool continueSequence = queue != null && queue.Count > 0 &&
+                                        (now - lastPress).TotalSeconds <= intervalSeconds;
+
+                if (fifo) _seqPasteLastPressFifo = now;
+                else _seqPasteLastPressLifo = now;
+
+                if (!continueSequence)
+                {
+                    // 新批次：始终基于数据库全量记录重建
+                    var items = _databaseService.GetItems(int.MaxValue, 0, null, null, null);
+                    if (items == null || items.Count == 0) return;
+
+                    if (fifo)
+                    {
+                        // 从最新记录向前收集同一批记录（相邻两条记录的时间间隔不超过设定秒数）
+                        var batch = new List<ClipboardItem> { items[0] };
+                        for (int i = 1; i < items.Count; i++)
+                        {
+                            var gap = (items[i - 1].CreatedAt - items[i].CreatedAt).TotalSeconds;
+                            if (gap > intervalSeconds) break;
+                            batch.Add(items[i]);
+                        }
+                        batch.Reverse(); // 批内按复制先后顺序（先进先出）
+                        queue = batch;
+                        _seqPasteQueueFifo = queue;
+                        _seqPasteIndexFifo = 0;
+                    }
+                    else
+                    {
+                        queue = items;
+                        _seqPasteQueueLifo = queue;
+                        _seqPasteIndexLifo = 0;
+                    }
+                }
+                else
+                {
+                    // 超出队列末尾后回绕到开头继续
+                    if (fifo)
+                    {
+                        _seqPasteIndexFifo = (_seqPasteIndexFifo + 1) % _seqPasteQueueFifo.Count;
+                    }
+                    else
+                    {
+                        _seqPasteIndexLifo = (_seqPasteIndexLifo + 1) % _seqPasteQueueLifo.Count;
+                    }
+                }
+
+                var index = fifo ? _seqPasteIndexFifo : _seqPasteIndexLifo;
+                var item = queue[index];
+                if (item == null) return;
+                PasteItem(item);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[SequentialPaste] {ex.Message}");
+            }
         }
 
         

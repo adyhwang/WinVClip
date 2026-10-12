@@ -827,7 +827,7 @@
     </Style>
 
     <Style x:Key="ScrollBarStyle" TargetType="ScrollBar">
-        <Setter Property="Width" Value="8"/>
+        <Setter Property="Width" Value="12"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -838,7 +838,7 @@
                                 <Thumb Name="PART_Thumb" Margin="0">
                                     <Thumb.Style>
                                         <Style TargetType="Thumb">
-                                            <Setter Property="Width" Value="8"/>
+                                            <Setter Property="Width" Value="6"/>
                                             <Setter Property="Background" Value="#C0C0C0"/>
                                             <Setter Property="Template">
                                                 <Setter.Value>
@@ -851,9 +851,10 @@
                                                 </Setter.Value>
                                             </Setter>
                                             <Style.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
+                                                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ScrollBar}}" Value="True">
+                                                    <Setter Property="Width" Value="12"/>
                                                     <Setter Property="Background" Value="#A0A0A0"/>
-                                                </Trigger>
+                                                </DataTrigger>
                                                 <Trigger Property="IsDragging" Value="True">
                                                     <Setter Property="Background" Value="#808080"/>
                                                 </Trigger>

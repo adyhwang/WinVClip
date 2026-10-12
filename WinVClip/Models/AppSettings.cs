@@ -28,6 +28,15 @@ namespace WinVClip.Models
         public DateTime? LastVacuumDate { get; set; } = null;
         public string StartupLastExePath { get; set; } = "";
 
+        // 顺序粘贴：后进先出（LIFO）热键，默认 Ctrl+Shift+Z（Ctrl+Win+V 常被微信输入法等占用，Alt 组合易被软件内快捷键占用）
+        public string SequentialPasteLifoHotkey { get; set; } = "Ctrl+Shift+Z";
+
+        // 顺序粘贴：先进先出（FIFO）热键，默认 Ctrl+Shift+X
+        public string SequentialPasteFifoHotkey { get; set; } = "Ctrl+Shift+X";
+
+        // 顺序粘贴：判定同一批记录/同一批按键的间隔秒数
+        public int SequentialPasteIntervalSeconds { get; set; } = 8;
+
         
         public List<QuickPasteShortcut> QuickPasteShortcuts { get; set; } = QuickPasteShortcut.CreateDefaults();
 

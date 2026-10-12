@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -133,11 +134,11 @@ namespace WinVClip
                 });
             };
 
-            if (!hotkeyRegistered)
+            if (LastFailedHotkeys is { Count: > 0 })
             {
                 _trayService.ShowNotification(
-                    Loc.Get("App.HotkeyRegisterFailed"),
-                    Loc.Get("App.HotkeyRegisterFailedMessage"));
+                    Loc.Get("App.HotkeyRegisterFailed", "快捷键注册失败"),
+                    string.Join("、", LastFailedHotkeys) + Loc.Get("App.HotkeyRegisterFailedOccupied", " 注册失败，可能已被其他程序占用"));
             }
             else if (_settingsService.Settings.ShowHotkeyTipOnStartup)
             {
@@ -245,19 +246,21 @@ namespace WinVClip
             if (_hotkeyService == null) return false;
             _hotkeyService.UnregisterAll();
 
+            var failedHotkeys = new List<string>();
             bool showHideOk = false;
             var settings = _settingsService?.Settings;
             if (settings != null)
             {
-                
+
                 var hk = settings.Hotkey;
                 if (!string.IsNullOrWhiteSpace(hk))
                 {
                     showHideOk = _hotkeyService.RegisterHotkey(hk, () =>
                         Current.Dispatcher.Invoke(() => _mainWindow?.ToggleVisibility()));
+                    if (!showHideOk) failedHotkeys.Add(hk);
                 }
 
-                
+
                 var list = settings.GlobalHotkeys;
                 if (list != null)
                 {
@@ -268,13 +271,53 @@ namespace WinVClip
                         var captured = gh;
                         var hotkeyStr = gh.ToHotkeyString();
                         if (string.IsNullOrWhiteSpace(hotkeyStr)) continue;
-                        _hotkeyService.RegisterHotkey(hotkeyStr, () =>
-                            Current.Dispatcher.Invoke(() => _mainWindow?.ExecuteGlobalHotkeyAction(captured)));
+                        if (!_hotkeyService.RegisterHotkey(hotkeyStr, () =>
+                            Current.Dispatcher.Invoke(() => _mainWindow?.ExecuteGlobalHotkeyAction(captured))))
+                        {
+                            failedHotkeys.Add(hotkeyStr);
+                        }
+                    }
+                }
+
+                // 顺序粘贴热键：后进先出 / 先进先出
+                var lifoHotkey = settings.SequentialPasteLifoHotkey;
+                if (!string.IsNullOrWhiteSpace(lifoHotkey))
+                {
+                    if (!_hotkeyService.RegisterHotkey(lifoHotkey, () =>
+                        Current.Dispatcher.Invoke(() => _mainWindow?.OnSequentialPasteHotkey(false))))
+                    {
+                        failedHotkeys.Add(lifoHotkey);
+                    }
+                }
+
+                var fifoHotkey = settings.SequentialPasteFifoHotkey;
+                if (!string.IsNullOrWhiteSpace(fifoHotkey))
+                {
+                    if (!_hotkeyService.RegisterHotkey(fifoHotkey, () =>
+                        Current.Dispatcher.Invoke(() => _mainWindow?.OnSequentialPasteHotkey(true))))
+                    {
+                        failedHotkeys.Add(fifoHotkey);
                     }
                 }
             }
+
+            if (failedHotkeys.Count > 0)
+            {
+                LastFailedHotkeys = failedHotkeys;
+                System.Diagnostics.Debug.WriteLine($"[Hotkey] 注册失败（可能被其他程序占用）: {string.Join(", ", failedHotkeys)}");
+                _trayService?.ShowNotification(
+                    Loc.Get("App.HotkeyRegisterFailed", "快捷键注册失败"),
+                    string.Join("、", failedHotkeys) + Loc.Get("App.HotkeyRegisterFailedOccupied", " 注册失败，可能已被其他程序占用"));
+            }
+            else
+            {
+                LastFailedHotkeys = null;
+            }
             return showHideOk;
         }
+
+        // 最近一次 RegisterAllHotkeys 中注册失败的热键（用于启动后托盘提示）
+        public static List<string>? LastFailedHotkeys { get; private set; }
 
         
         public static void ProcessHotkey(int id)

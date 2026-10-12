@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:WinVClip.Controls"
         mc:Ignorable="d"
         x:Name="SettingsWnd" Title="设置" Height="620" Width="750"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize"  WindowStyle="None" 
@@ -254,14 +255,14 @@
                                         <TextBlock x:Name="HotkeyCardTitle" Text="全局快捷键" FontSize="16" FontWeight="SemiBold" 
                                                    Foreground="{DynamicResource TextForeground}"/>
                                     </StackPanel>
-
-                                    <TextBlock x:Name="HotkeyShowHideText" Text="显示/隐藏主界面" Foreground="{DynamicResource SecondaryTextForeground}" 
-                                               FontSize="13" Margin="0,0,0,8"/>
                                     
                                     <Border BorderBrush="{DynamicResource AccentColor}" BorderThickness="1"
                                             CornerRadius="6" Padding="10" Margin="0,0,0,12"
                                             Background="{DynamicResource InputBackground}">
+
                                         <StackPanel>
+                                    <TextBlock x:Name="HotkeyShowHideText" Text="显示/隐藏主界面" Foreground="{DynamicResource SecondaryTextForeground}" 
+                                               FontSize="13" Margin="0,0,0,8"/>
                                             <Border Background="{DynamicResource InputBackground}" 
                                                     BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1"
                                                     CornerRadius="6" Padding="12,10" Margin="0,0,0,8">
@@ -292,7 +293,7 @@
                                                 </Grid>
                                             </Border>
 
-                                            <TextBlock x:Name="CommonShortcutsText" Text="常用快捷键" Foreground="{DynamicResource SecondaryTextForeground}" 
+                                            <TextBlock x:Name="CommonShortcutsText" Text="⬆常用快捷键推荐（点击使用）" Foreground="{DynamicResource SecondaryTextForeground}" 
                                                        FontSize="12" Margin="0,0,0,8"/>
                                             <WrapPanel Margin="0,0,0,8">
                                                 <Button Content="Win+V" Margin="0,0,8,6" Padding="12,6" 
@@ -318,6 +319,101 @@
                                     </Border>
 
                                     
+                                    <Border BorderBrush="{DynamicResource AccentColor}" BorderThickness="1"
+                                            CornerRadius="6" Padding="10" Margin="0,0,0,8"
+                                            Background="{DynamicResource InputBackground}">
+                                        <StackPanel Grid.IsSharedSizeScope="True">
+                                            <TextBlock x:Name="SequentialPasteTitleText" Text="顺序粘贴" Foreground="{DynamicResource SecondaryTextForeground}"
+                                                       FontSize="13" Margin="0,0,0,8"/>
+
+                                            <Grid Margin="0,0,0,8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="SequentialPasteLabel"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock x:Name="SequentialPasteLifoText" Text="后进先出" Margin="0,0,12,0" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource SecondaryTextForeground}" FontSize="13"/>
+                                                <Border Grid.Column="1" Background="{DynamicResource InputBackground}"
+                                                        BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1"
+                                                        CornerRadius="6" Padding="12,10">
+                                                    <Grid>
+                                                        <TextBox x:Name="SequentialLifoHotkeyTextBox"
+                                                                 Text="{Binding SequentialPasteLifoHotkey, Mode=OneWay}"
+                                                                 IsReadOnly="True"
+                                                                 GotFocus="SeqHotkeyTextBox_GotFocus"
+                                                                 LostFocus="SeqHotkeyTextBox_LostFocus"
+                                                                 PreviewKeyDown="SeqHotkeyTextBox_PreviewKeyDown"
+                                                                 Background="Transparent" BorderThickness="0"
+                                                                 Foreground="{DynamicResource TextForeground}"
+                                                                 FontSize="14" FontWeight="SemiBold"/>
+                                                        <TextBlock x:Name="SequentialLifoHotkeyPlaceholder" Text="点击输入快捷键" Foreground="{DynamicResource SecondaryTextForeground}"
+                                                                   FontSize="13" VerticalAlignment="Center" IsHitTestVisible="False">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding ElementName=SequentialLifoHotkeyTextBox, Path=Text}" Value="">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Grid>
+                                                </Border>
+                                            </Grid>
+
+                                            <Grid Margin="0,0,0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="SequentialPasteLabel"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock x:Name="SequentialPasteFifoText" Text="先进先出" Margin="0,0,12,0" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource SecondaryTextForeground}" FontSize="13"/>
+                                                <Border Grid.Column="1" Background="{DynamicResource InputBackground}"
+                                                        BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1"
+                                                        CornerRadius="6" Padding="12,10">
+                                                    <Grid>
+                                                        <TextBox x:Name="SequentialFifoHotkeyTextBox"
+                                                                 Text="{Binding SequentialPasteFifoHotkey, Mode=OneWay}"
+                                                                 IsReadOnly="True"
+                                                                 GotFocus="SeqHotkeyTextBox_GotFocus"
+                                                                 LostFocus="SeqHotkeyTextBox_LostFocus"
+                                                                 PreviewKeyDown="SeqHotkeyTextBox_PreviewKeyDown"
+                                                                 Background="Transparent" BorderThickness="0"
+                                                                 Foreground="{DynamicResource TextForeground}"
+                                                                 FontSize="14" FontWeight="SemiBold"/>
+                                                        <TextBlock x:Name="SequentialFifoHotkeyPlaceholder" Text="点击输入快捷键" Foreground="{DynamicResource SecondaryTextForeground}"
+                                                                   FontSize="13" VerticalAlignment="Center" IsHitTestVisible="False">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding ElementName=SequentialFifoHotkeyTextBox, Path=Text}" Value="">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Grid>
+                                                </Border>
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                                                    <controls:NumericUpDown x:Name="SequentialPasteIntervalUpDown"
+                                                                            Width="90" Minimum="1" Maximum="3600" Step="1"
+                                                                            Value="{Binding SequentialPasteIntervalSeconds, Mode=TwoWay}"/>
+                                                    <TextBlock x:Name="SequentialPasteIntervalUnitText" Text="秒" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource SecondaryTextForeground}" FontSize="13"/>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <TextBlock x:Name="SequentialPasteHintText" Text="连续按下快捷键依次粘贴；两次按下间隔超过设定秒数后，重新从头开始"
+                                                       Foreground="{DynamicResource TertiaryTextForeground}"
+                                                       FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
+
                                     <StackPanel x:Name="GlobalHotkeyEntriesPanel" Margin="0,4,0,0"/>
                                     <Button x:Name="AddGlobalHotkeyButton" Margin="0,4,0,0"
                                             Style="{DynamicResource SecondaryButtonStyle}" HorizontalAlignment="Left"
@@ -325,7 +421,7 @@
                                 </StackPanel>
                             </Border>
 
-                            
+
                             <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
                                 <StackPanel>
                                     <DockPanel LastChildFill="True" Margin="0,0,0,8">
@@ -541,26 +637,17 @@
                                                FontSize="13" Margin="0,0,0,8"/>
                                     <Grid Margin="0,0,0,4">
                                         <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <Slider x:Name="ClearBeforeDaysSlider" Grid.Column="0"
-                                                Minimum="0" Maximum="90" Value="7"
-                                                IsSnapToTickEnabled="True" TickFrequency="1"
-                                                Style="{DynamicResource SliderStyle}"
-                                                VerticalAlignment="Center" Margin="0,0,8,0"
-                                                ValueChanged="ClearBeforeDaysSlider_ValueChanged"/>
-                                        <TextBlock x:Name="ClearBeforeDaysValueText" Grid.Column="1"
-                                                   Text="7" 
-                                                   FontSize="14" FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource TextForeground}"
-                                                   VerticalAlignment="Center" Width="40" TextAlignment="Center" Margin="0,0,8,0"/>
-                                        <ComboBox x:Name="ClearBeforeTypeComboBox" Grid.Column="2"
-                                                  Width="90"
+                                        <controls:NumericUpDown x:Name="ClearBeforeDaysUpDown" Grid.Column="0"
+                                                                Width="110" Minimum="0" Maximum="90" Step="1" Value="7"
+                                                                VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                        <ComboBox x:Name="ClearBeforeTypeComboBox" Grid.Column="1"
+                                                  Width="100"
                                                   Style="{DynamicResource ModernComboBoxStyle}"
-                                                  VerticalAlignment="Center" Margin="0,0,8,0">
+                                                  VerticalAlignment="Center" Margin="0,0,12,0">
                                             <ComboBoxItem x:Name="ClearTypeAll" Tag="-1">全部</ComboBoxItem>
                                             <ComboBoxItem x:Name="ClearTypeText" Tag="0">文本</ComboBoxItem>
                                             <ComboBoxItem x:Name="ClearTypeRichText" Tag="3">富文本</ComboBoxItem>
@@ -568,9 +655,10 @@
                                             <ComboBoxItem x:Name="ClearTypeImage" Tag="1">图片</ComboBoxItem>
                                             <ComboBoxItem x:Name="ClearTypeFile" Tag="2">文件</ComboBoxItem>
                                         </ComboBox>
-                                        <Button x:Name="ClearBeforeDaysButton" Grid.Column="3" Content="执行" 
+                                        <Button x:Name="ClearBeforeDaysButton" Grid.Column="2" Content="执行" 
                                                 Style="{DynamicResource PrimaryButtonStyle}"
-                                                Padding="16,8"
+                                                Padding="16,8" HorizontalAlignment="Left"
+                                                VerticalAlignment="Center"
                                                 Click="ClearBeforeDays_Click"/>
                                     </Grid>
                                     <TextBlock x:Name="ClearBeforeDaysHint" Text="仅删除未分组的记录，已分组的记录将被保留" 

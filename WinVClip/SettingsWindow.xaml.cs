@@ -53,6 +53,9 @@ namespace WinVClip
                 FontSize = _settingsService.Settings.FontSize,
                 ShowHotkeyTipOnStartup = _settingsService.Settings.ShowHotkeyTipOnStartup,
                 UseSystemCharPanel = _settingsService.Settings.UseSystemCharPanel,
+                SequentialPasteLifoHotkey = _settingsService.Settings.SequentialPasteLifoHotkey,
+                SequentialPasteFifoHotkey = _settingsService.Settings.SequentialPasteFifoHotkey,
+                SequentialPasteIntervalSeconds = _settingsService.Settings.SequentialPasteIntervalSeconds,
                 QuickPasteShortcuts = _settingsService.Settings.QuickPasteShortcuts?
                     .Select(s => s.Clone()).ToList() ?? new List<QuickPasteShortcut>(),
                 QuickCommands = _settingsService.Settings.QuickCommands?
@@ -182,6 +185,14 @@ namespace WinVClip
             QuickPasteDescription.Text = Loc.Get("Settings.Hotkey.QuickPaste.Description", "为不同类型的剪贴板项配置鼠标快捷操作（修饰键 + 鼠标按键 → 操作）");
             AddGlobalHotkeyButton.Content = Loc.Get("Settings.Hotkey.Global.Add", "➕ 新增全局快捷键");
             AddQuickPasteButton.Content = Loc.Get("Settings.Hotkey.QuickPaste.Add", "➕ 新增主界面快捷键");
+
+            SequentialPasteTitleText.Text = Loc.Get("Settings.Hotkey.SequentialPaste.Title", "顺序粘贴");
+            SequentialPasteLifoText.Text = Loc.Get("Settings.Hotkey.SequentialPaste.Lifo", "后进先出");
+            SequentialPasteFifoText.Text = Loc.Get("Settings.Hotkey.SequentialPaste.Fifo", "先进先出");
+            SequentialPasteIntervalUnitText.Text = Loc.Get("Settings.Hotkey.SequentialPaste.Unit", "秒");
+            SequentialPasteHintText.Text = Loc.Get("Settings.Hotkey.SequentialPaste.Hint", "连续按下快捷键依次粘贴；两次按下间隔超过设定秒数后，重新从头开始");
+            SequentialLifoHotkeyPlaceholder.Text = Loc.Get("Settings.General.Hotkey.ClickToInput", "点击输入快捷键");
+            SequentialFifoHotkeyPlaceholder.Text = Loc.Get("Settings.General.Hotkey.ClickToInput", "点击输入快捷键");
         }
 
         private void ApplyPanelQuickCommandLocalization()
@@ -554,6 +565,197 @@ namespace WinVClip
                 return false;
             }
         }
+
+        #region 顺序粘贴热键输入
+
+        private sealed class SeqHotkeyEditState
+        {
+            public string TempHotkey = "";
+            public readonly List<string> PressedModifiers = new List<string>();
+        }
+
+        private readonly Dictionary<TextBox, SeqHotkeyEditState> _seqHotkeyStates = new Dictionary<TextBox, SeqHotkeyEditState>();
+
+        private SeqHotkeyEditState GetSeqHotkeyState(TextBox box)
+        {
+            if (!_seqHotkeyStates.TryGetValue(box, out var state))
+            {
+                state = new SeqHotkeyEditState();
+                _seqHotkeyStates[box] = state;
+            }
+            return state;
+        }
+
+        private void SeqHotkeyTextBox_GotFocus(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is TextBox box)) return;
+            var state = GetSeqHotkeyState(box);
+            state.TempHotkey = box.Text;
+            state.PressedModifiers.Clear();
+            box.Text = Loc.Get("Settings.General.Hotkey.PressingKeys", "按下快捷键组合...");
+        }
+
+        private void SeqHotkeyTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (!(sender is TextBox box)) return;
+            var state = GetSeqHotkeyState(box);
+            e.Handled = true;
+
+            if (e.Key == Key.System)
+            {
+                var systemKey = e.SystemKey;
+                string? modifier = GetModifierKeyName(systemKey);
+                if (modifier != null)
+                {
+                    if (!state.PressedModifiers.Contains(modifier, StringComparer.OrdinalIgnoreCase))
+                    {
+                        state.PressedModifiers.Add(modifier);
+                        UpdateSeqHotkeyDisplay(box, state);
+                    }
+                    return;
+                }
+            }
+
+            string? modifierKey = GetModifierKeyName(e.Key);
+            if (modifierKey != null)
+            {
+                if (!state.PressedModifiers.Contains(modifierKey, StringComparer.OrdinalIgnoreCase))
+                {
+                    state.PressedModifiers.Add(modifierKey);
+                    UpdateSeqHotkeyDisplay(box, state);
+                }
+                return;
+            }
+
+            if (e.Key == Key.Escape)
+            {
+                state.PressedModifiers.Clear();
+                box.Text = "";
+                return;
+            }
+
+            if (e.Key == Key.Back)
+            {
+                if (state.PressedModifiers.Count > 0)
+                {
+                    state.PressedModifiers.RemoveAt(state.PressedModifiers.Count - 1);
+                    UpdateSeqHotkeyDisplay(box, state);
+                }
+                return;
+            }
+
+            if (e.Key != Key.System && !IsModifierKey(e.Key))
+            {
+                var keyName = GetKeyDisplayName(e.Key);
+                var allKeys = new List<string>(state.PressedModifiers);
+                allKeys.Add(keyName);
+                box.Text = string.Join("+", allKeys);
+                state.PressedModifiers.Clear();
+
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(100);
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        if (box.IsFocused)
+                        {
+                            box.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+                        }
+                    });
+                });
+            }
+        }
+
+        private void UpdateSeqHotkeyDisplay(TextBox box, SeqHotkeyEditState state)
+        {
+            var orderedModifiers = ModifierOrder
+                .Where(m => state.PressedModifiers.Contains(m, StringComparer.OrdinalIgnoreCase));
+            box.Text = string.Join("+", orderedModifiers);
+        }
+
+        private void SeqHotkeyTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is TextBox box)) return;
+            var state = GetSeqHotkeyState(box);
+            var temp = state.TempHotkey;
+            var newHotkey = box.Text;
+
+            if (string.IsNullOrWhiteSpace(newHotkey) || newHotkey == Loc.Get("Settings.General.Hotkey.PressingKeys", "按下快捷键组合..."))
+            {
+                box.Text = temp;
+                return;
+            }
+
+            newHotkey = HotkeyService.NormalizeHotkey(newHotkey);
+
+            if (!HotkeyService.ValidateHotkey(newHotkey))
+            {
+                box.Text = temp;
+                AppMessageBox.Show(Loc.Get("Settings.Hotkey.InvalidFormat", "快捷键格式不正确。支持的格式：\n• 修饰键+按键（如 Ctrl+V、Alt+F1）\n• 单独的功能键 F1-F12"), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (newHotkey.Equals(temp, StringComparison.OrdinalIgnoreCase))
+            {
+                box.Text = newHotkey;
+                return;
+            }
+
+            // 与显示/隐藏主界面热键冲突
+            var showHide = HotkeyService.NormalizeHotkey(_settingsService.Settings.Hotkey);
+            if (!string.IsNullOrEmpty(showHide) && newHotkey.Equals(showHide, StringComparison.OrdinalIgnoreCase))
+            {
+                box.Text = temp;
+                AppMessageBox.Show(newHotkey + " (" + Loc.Get("Settings.Hotkey.Global.ConflictShowHide", "与显示/隐藏主界面热键冲突") + ")",
+                    Loc.Get("Settings.Hotkey.QuickPaste.ConflictTitle", "快捷键不可用"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // 与另一个顺序粘贴热键冲突
+            var otherText = box == SequentialLifoHotkeyTextBox
+                ? SequentialFifoHotkeyTextBox.Text
+                : SequentialLifoHotkeyTextBox.Text;
+            var other = HotkeyService.NormalizeHotkey(otherText ?? "");
+            if (!string.IsNullOrEmpty(other) && newHotkey.Equals(other, StringComparison.OrdinalIgnoreCase))
+            {
+                box.Text = temp;
+                AppMessageBox.Show(newHotkey + " (" + Loc.Get("Settings.Hotkey.SequentialPaste.Conflict", "与顺序粘贴热键冲突") + ")",
+                    Loc.Get("Settings.Hotkey.QuickPaste.ConflictTitle", "快捷键不可用"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // 与全局快捷键条目冲突
+            foreach (var child in GlobalHotkeyEntriesPanel.Children)
+            {
+                if (!(child is Border entry)) continue;
+                var gh = ReadGlobalHotkeyEntry(entry);
+                var s = HotkeyService.NormalizeHotkey(gh.ToHotkeyString());
+                if (!string.IsNullOrEmpty(s) && newHotkey.Equals(s, StringComparison.OrdinalIgnoreCase))
+                {
+                    box.Text = temp;
+                    AppMessageBox.Show(newHotkey + " (" + Loc.Get("Settings.Hotkey.AlreadyInUse", "该快捷键已被占用或无效") + ")",
+                        Loc.Get("Settings.Hotkey.QuickPaste.ConflictTitle", "快捷键不可用"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+            }
+
+            if (!IsHotkeyAvailable(newHotkey))
+            {
+                box.Text = temp;
+                AppMessageBox.Show(Loc.Get("Settings.Hotkey.AlreadyInUse", "该快捷键已被占用或无效"), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (box == SequentialLifoHotkeyTextBox)
+                _settingsService.Settings.SequentialPasteLifoHotkey = newHotkey;
+            else
+                _settingsService.Settings.SequentialPasteFifoHotkey = newHotkey;
+
+            box.Text = newHotkey;
+            App.RegisterAllHotkeys();
+        }
+
+        #endregion
 
         private bool CheckAndHandleWinVConflict(string hotkey)
         {
@@ -1635,6 +1837,8 @@ namespace WinVClip
         private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
             var hotkeyChanged = _settingsService.Settings.Hotkey != _originalSettings.Hotkey;
+            var sequentialHotkeyChanged = _settingsService.Settings.SequentialPasteLifoHotkey != _originalSettings.SequentialPasteLifoHotkey ||
+                                          _settingsService.Settings.SequentialPasteFifoHotkey != _originalSettings.SequentialPasteFifoHotkey;
             var cleanupChanged = _settingsService.Settings.EnableAutoCleanup != _originalSettings.EnableAutoCleanup ||
                                 _settingsService.Settings.RetentionDays != _originalSettings.RetentionDays;
             var themeChanged = _settingsService.Settings.Theme != _originalSettings.Theme;
@@ -1656,6 +1860,11 @@ namespace WinVClip
             _settingsService.Settings.Language = _originalSettings.Language;
             _settingsService.Settings.FontSize = _originalSettings.FontSize;
             _settingsService.Settings.ShowHotkeyTipOnStartup = _originalSettings.ShowHotkeyTipOnStartup;
+            _settingsService.Settings.SequentialPasteLifoHotkey = _originalSettings.SequentialPasteLifoHotkey;
+            _settingsService.Settings.SequentialPasteFifoHotkey = _originalSettings.SequentialPasteFifoHotkey;
+            _settingsService.Settings.SequentialPasteIntervalSeconds = _originalSettings.SequentialPasteIntervalSeconds;
+            // AppSettings 未实现 INPC，手动刷新控件显示
+            SequentialPasteIntervalUpDown.Value = _originalSettings.SequentialPasteIntervalSeconds;
             _settingsService.Settings.QuickPasteShortcuts = _originalSettings.QuickPasteShortcuts?
                 .Select(s => s.Clone()).ToList() ?? new List<QuickPasteShortcut>();
             _settingsService.Settings.QuickCommands = _originalSettings.QuickCommands?
@@ -1666,7 +1875,7 @@ namespace WinVClip
             LoadGlobalHotkeyEntries();
             ValidateAllEntries();
 
-            if (hotkeyChanged)
+            if (hotkeyChanged || sequentialHotkeyChanged)
             {
                 App.UpdateHotkey(_originalSettings.Hotkey);
             }
@@ -1724,6 +1933,9 @@ namespace WinVClip
             _originalSettings.MaxHistoryItems = _settingsService.Settings.MaxHistoryItems;
             _originalSettings.FontSize = _settingsService.Settings.FontSize;
             _originalSettings.ShowHotkeyTipOnStartup = _settingsService.Settings.ShowHotkeyTipOnStartup;
+            _originalSettings.SequentialPasteLifoHotkey = _settingsService.Settings.SequentialPasteLifoHotkey;
+            _originalSettings.SequentialPasteFifoHotkey = _settingsService.Settings.SequentialPasteFifoHotkey;
+            _originalSettings.SequentialPasteIntervalSeconds = _settingsService.Settings.SequentialPasteIntervalSeconds;
             _originalSettings.QuickPasteShortcuts = _settingsService.Settings.QuickPasteShortcuts?
                 .Select(s => s.Clone()).ToList() ?? new List<QuickPasteShortcut>();
             _originalSettings.QuickCommands = _settingsService.Settings.QuickCommands?
@@ -1823,14 +2035,6 @@ namespace WinVClip
             }
         }
 
-        private void ClearBeforeDaysSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        {
-            if (ClearBeforeDaysValueText != null)
-            {
-                ClearBeforeDaysValueText.Text = ((int)e.NewValue).ToString();
-            }
-        }
-
         private void ClearAllHistory_Click(object sender, RoutedEventArgs e)
         {
             var result = AppMessageBox.Show(
@@ -1865,7 +2069,7 @@ namespace WinVClip
 
         private void ClearBeforeDays_Click(object sender, RoutedEventArgs e)
         {
-            var days = (int)ClearBeforeDaysSlider.Value;
+            var days = ClearBeforeDaysUpDown.Value;
             var cutoffDate = days > 0 ? DateTime.Now.AddDays(-days) : DateTime.MinValue;
 
             int? typeFilter = null;
@@ -2874,6 +3078,16 @@ namespace WinVClip
             if (!string.IsNullOrEmpty(showHide) && string.Equals(curStr, showHide, StringComparison.OrdinalIgnoreCase))
             {
                 conflictDesc = curStr + " (" + Loc.Get("Settings.Hotkey.Global.ConflictShowHide", "与显示/隐藏主界面热键冲突") + ")";
+                return false;
+            }
+
+            // 与顺序粘贴热键冲突
+            var seqLifo = HotkeyService.NormalizeHotkey(_settingsService.Settings.SequentialPasteLifoHotkey ?? "");
+            var seqFifo = HotkeyService.NormalizeHotkey(_settingsService.Settings.SequentialPasteFifoHotkey ?? "");
+            if ((!string.IsNullOrEmpty(seqLifo) && string.Equals(curStr, seqLifo, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(seqFifo) && string.Equals(curStr, seqFifo, StringComparison.OrdinalIgnoreCase)))
+            {
+                conflictDesc = curStr + " (" + Loc.Get("Settings.Hotkey.SequentialPaste.Conflict", "与顺序粘贴热键冲突") + ")";
                 return false;
             }
             
