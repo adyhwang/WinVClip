@@ -64,6 +64,7 @@ WinVClip is a Windows clipboard manager developed with AI assistance, designed t
 | 🔠 **Font Size** | Adjustable interface font size (10-30), applies to main window and character picker instantly |
 | ⚙️ **Quick Commands** | Custom text processing rule chains, supporting regex replacement, extraction, formatting, etc. |
 | 🎹 **Global Hotkeys** | Custom global keyboard shortcuts to quickly access history records and perform actions |
+| 🎹 **Sequential Paste Hotkeys** | Paste clipboard history one by one with repeated key presses, without opening the main UI; supports LIFO/FIFO modes with customizable hotkeys and batch interval |
 | 🖱️ **Main UI Shortcuts** | Custom "modifier + mouse" combinations to perform quick actions on clipboard items |
 | 🌐 **Multi-language** | Supports Chinese and English, language changes apply instantly without restart |
 | ⚡ **Memory Optimization** | Background automatic memory cleanup, auto releases memory when minimized, lower resource usage |
@@ -110,6 +111,8 @@ Build with Visual Studio:
 |--------|----------|
 | `Ctrl+Shift+V` | Show/hide main window (default, customizable) |
 | `Esc` | Hide main window |
+| `Ctrl+Shift+Z` | Sequential Paste - LIFO (default, customizable): press repeatedly to paste records from newest to oldest |
+| `Ctrl+Shift+X` | Sequential Paste - FIFO (default, customizable): press repeatedly to paste the latest batch of records in their original copy order |
 | `Ctrl+Left Click` | Paste as plain text (in main UI, customizable) |
 | `Shift+Left Click` | Paste as plain text (remove newlines, in main UI, customizable) |
 | `Middle Click` | Paste as plain text (remove newlines, in main UI, customizable) |
@@ -164,6 +167,13 @@ Build with Visual Studio:
 - **Function**: Custom global keyboard shortcuts to quickly operate without opening the main window
 - **Configuration**: Set shortcut combination (Ctrl/Shift/Alt/Win + key), specify which history item (1-N) to act on
 - **Supported Actions**: Direct paste, paste as plain text, execute quick command, etc.
+
+#### Sequential Paste
+- **Function**: Paste clipboard history records one by one with repeated key presses, without opening the main UI; data is always based on the full history (database)
+- **LIFO (Last In, First Out)** (default `Ctrl+Shift+Z`): The first press pastes the newest record; subsequent presses paste progressively older records
+- **FIFO (First In, First Out)** (default `Ctrl+Shift+X`): Automatically groups the latest batch of records (adjacent records copied within the configured seconds are treated as one batch) and pastes them in their original copy order — ideal for refilling forms in the original order
+- **Interval Seconds** (default 8, minimum 1): If the gap between two presses exceeds the configured seconds, the sequence restarts from the beginning; also used as the time threshold for FIFO batch detection
+- **Others**: Wraps around to the beginning after reaching the end; hotkey conflicts are validated instantly, and a tray notification pops up if registration fails
 
 #### Main UI Shortcuts
 - **Function**: Perform quick actions on clipboard items through "modifier + mouse" combinations when main UI is open
@@ -222,6 +232,9 @@ Build with Visual Studio:
 
 ```
 WinVClip/
+├── Controls/                    # Shared controls
+│   └── NumericUpDown.xaml      # Numeric input control (with step buttons)
+│
 ├── Models/                      # Data model layer
 │   ├── AppSettings.cs          # Application settings model
 │   ├── CharGroupData.cs        # Character group data model
