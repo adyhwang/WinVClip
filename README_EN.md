@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![.NET Framework](https://img.shields.io/badge/.NET%20Framework-4.8-purple.svg)
+![.NET 10](https://img.shields.io/badge/.NET-10%20LTS-purple.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
@@ -73,35 +73,16 @@ WinVClip is a Windows clipboard manager developed with AI assistance, designed t
 
 ## 🖥️ System Requirements
 
-- **Operating System**: Windows 7 SP1 or higher
-- **Runtime**: .NET Framework 4.8 or higher
+- **Operating System**: Windows 10 1809 or higher
+- **Runtime**: Framework-dependent build requires the [.NET 10 Desktop Runtime (x64)](https://dotnet.microsoft.com/download/dotnet/10.0); 
 
 ---
 
 ## 📥 Installation
 
-### Option 1: Direct Run
-
 1. Go to the [Releases](https://github.com/adyhwang/WinVClip/releases) page to download the latest version
 2. Extract the downloaded archive
 3. Double-click to run `WinVClip.exe`
-
-### Option 2: Build from Source
-
-```bash
-# Clone the repository
-git clone https://github.com/adyhwang/WinVClip.git
-cd WinVClip
-```
-
-Build with Visual Studio:
-
-1. Open the `WinVClip.sln` solution
-2. Select `Release` configuration
-3. Click `Build` → `Build Solution`
-4. Build output is located in `WinVClip\bin\Release\net48\` directory
-
----
 
 ## 📚 Usage Guide
 
@@ -217,7 +198,7 @@ Build with Visual Studio:
 | Technology | Usage |
 |------------|-------|
 | **WPF** | User interface framework |
-| **.NET Framework 4.8** | Runtime environment |
+| **.NET 10 (LTS)** | Runtime environment |
 | **SQLite** | Data persistence storage |
 | **Windows API** | System-level functionality |
 
@@ -225,9 +206,11 @@ Build with Visual Studio:
 
 | Package | Version | Usage |
 |---------|---------|-------|
-| Microsoft.Data.Sqlite | 6.0.31 | SQLite database access |
-| System.Text.Json | 6.0.9 | JSON serialization |
-| System.Drawing.Common | 6.0.0 | Image processing |
+| Microsoft.Data.Sqlite | 10.0.0 | SQLite database access |
+| QRCoder | 1.8.0 | QR code generation (PngByteQRCode, no GDI+ dependency) |
+| SQLitePCLRaw.bundle_e_sqlite3 | 2.1.13 | SQLite native library |
+
+> JSON serialization uses the built-in System.Text.Json Source Generator (compile-time code generation). Only Chinese and English are embedded in the executable; other languages ship as external files that you can add, edit, or remove freely.
 
 ### Project Structure
 
@@ -250,6 +233,7 @@ WinVClip/
 │   └── SearchEngine.cs         # Search engine model
 │
 ├── Services/                    # Service layer
+│   ├── AppJsonContext.cs       # JSON serialization Source Generator context
 │   ├── BackupService.cs        # Data backup service
 │   ├── CleanupService.cs       # Auto cleanup service
 │   ├── ClipboardMonitor.cs     # Clipboard monitoring service
@@ -358,25 +342,6 @@ Implements following system theme by listening to registry changes:
 Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
 ```
 
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
-
----
-
-## 🙏 Acknowledgments
-
-Thanks to the following AI tools for their help during development:
-
-- **Trae**
-- **Doubao** 
-- **GLM**
-- **Kimi**
-- **DeepSeek**
-
----
 
 <div align="center">
 
