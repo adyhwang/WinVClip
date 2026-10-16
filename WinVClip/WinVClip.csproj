@@ -10,9 +10,9 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- 仅复制 en/zh 运行时卫星资源，剔除 cs/de/es 等 .NET 异常消息翻译（应用 UI 语言独立实现，不受影响） -->
     <SatelliteResourceLanguages>en;zh-Hans;zh-Hant</SatelliteResourceLanguages>
-    <Version>3.2</Version>
-    <AssemblyVersion>3.2</AssemblyVersion>
-    <FileVersion>3.2</FileVersion>
+    <Version>3.3</Version>
+    <AssemblyVersion>3.3</AssemblyVersion>
+    <FileVersion>3.3</FileVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
