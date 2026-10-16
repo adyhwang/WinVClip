@@ -77,7 +77,7 @@ namespace WinVClip.Services
                 if (File.Exists(_settingsPath))
                 {
                     var json = File.ReadAllText(_settingsPath);
-                    _settings = JsonSerializer.Deserialize<Models.AppSettings>(json) ?? new Models.AppSettings();
+                    _settings = JsonSerializer.Deserialize(json, AppJsonContext.Default.AppSettings) ?? new Models.AppSettings();
                 }
                 else
                 {
@@ -125,9 +125,8 @@ namespace WinVClip.Services
             {
                 lock (_lock)
                 {
-                    var options = new JsonSerializerOptions
+                    var options = new JsonSerializerOptions(AppJsonContext.Default.Options)
                     {
-                        WriteIndented = true,
                         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                     };
                     var json = JsonSerializer.Serialize(_settings, options);
@@ -173,7 +172,7 @@ namespace WinVClip.Services
 
         public Services.PasteShortcutMode GetPasteShortcutMode()
         {
-            return Settings.PasteShortcutMode?.ToLower() switch
+            return Settings.PasteShortcutMode?.ToLowerInvariant() switch
             {
                 "ctrlv" or "ctrl_v" or "ctrl-v" => Services.PasteShortcutMode.CtrlV,
                 "shiftinsert" or "shift_insert" or "shift-insert" => Services.PasteShortcutMode.ShiftInsert,

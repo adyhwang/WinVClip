@@ -822,7 +822,7 @@ namespace WinVClip
             {
                 var processInfo = new System.Diagnostics.ProcessStartInfo
                 {
-                    FileName = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName ?? System.Reflection.Assembly.GetExecutingAssembly().Location,
+                    FileName = Environment.ProcessPath,
                     UseShellExecute = true,
                     Verb = "runas" 
                 };
@@ -1187,13 +1187,13 @@ namespace WinVClip
 
                         AppMessageBox.Show(Loc.Get("Settings.Storage.RestoreSuccess", "恢复成功！程序将自动重启。"), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
 
-                        Process.Start(Application.ResourceAssembly.Location);
+                        Process.Start(Environment.ProcessPath ?? "WinVClip.exe");
                         Application.Current.Shutdown();
                     }
                     catch (Exception ex)
                     {
                         AppMessageBox.Show(string.Format(Loc.Get("Settings.Storage.RestoreFailed", "恢复失败: {0}\n请手动重启程序。"), ex.Message), Loc.Get("Message.Error", "错误"), MessageBoxButton.OK, MessageBoxImage.Error);
-                        Process.Start(Application.ResourceAssembly.Location);
+                        Process.Start(Environment.ProcessPath ?? "WinVClip.exe");
                         Application.Current.Shutdown();
                     }
                 }

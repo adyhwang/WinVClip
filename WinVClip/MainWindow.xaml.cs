@@ -652,74 +652,68 @@ namespace WinVClip
 
         public bool IsEmpty => ClipboardItems.Count == 0;
 
-        private int _totalCount;
         public int TotalCount
         {
-            get => _totalCount;
+            get => field;
             set
             {
-                _totalCount = value;
+                field = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(StatusText));
                 OnPropertyChanged(nameof(BottomRecordStats));
             }
         }
 
-        private int _textCount;
         public int TextCount
         {
-            get => _textCount;
+            get => field;
             set
             {
-                _textCount = value;
+                field = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(BottomStatsToolTip));
             }
         }
 
-        private int _imageCount;
         public int ImageCount
         {
-            get => _imageCount;
+            get => field;
             set
             {
-                _imageCount = value;
+                field = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(BottomStatsToolTip));
             }
         }
 
-        private int _fileCount;
         public int FileCount
         {
-            get => _fileCount;
+            get => field;
             set
             {
-                _fileCount = value;
+                field = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(BottomStatsToolTip));
             }
         }
 
-        private int _richTextCount;
         public int RichTextCount
         {
-            get => _richTextCount;
+            get => field;
             set
             {
-                _richTextCount = value;
+                field = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(BottomStatsToolTip));
             }
         }
 
-        private int _linkCount;
         public int LinkCount
         {
-            get => _linkCount;
+            get => field;
             set
             {
-                _linkCount = value;
+                field = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(BottomStatsToolTip));
             }
@@ -731,19 +725,18 @@ namespace WinVClip
             {
                 if (IsAnyFilterActive || !string.IsNullOrEmpty(SearchText))
                 {
-                    return Loc.Get("MainWindow.Status.Filtered", _totalCount, _grandTotalCount);
+                    return Loc.Get("MainWindow.Status.Filtered", TotalCount, GrandTotalCount);
                 }
-                return Loc.Get("MainWindow.Status.Total", _totalCount);
+                return Loc.Get("MainWindow.Status.Total", TotalCount);
             }
         }
 
-        private int _grandTotalCount;
         public int GrandTotalCount
         {
-            get => _grandTotalCount;
+            get => field;
             set
             {
-                _grandTotalCount = value;
+                field = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(StatusText));
             }
@@ -753,7 +746,7 @@ namespace WinVClip
         {
             get
             {
-                string records = string.Format(Loc.Get("MainWindow.Bottom.RecordsCount", "{0} 条记录"), _totalCount);
+                string records = string.Format(Loc.Get("MainWindow.Bottom.RecordsCount", "{0} 条记录"), TotalCount);
                 if (!IsMultiSelectMode)
                     return records;
 
@@ -766,20 +759,15 @@ namespace WinVClip
         {
             get
             {
-                string text = string.Format(Loc.Get("MainWindow.Bottom.StatsText", "文本 {0} 条"), _textCount);
-                string link = string.Format(Loc.Get("MainWindow.Bottom.StatsLink", "链接 {0} 条"), _linkCount);
-                string image = string.Format(Loc.Get("MainWindow.Bottom.StatsImage", "图片 {0} 条"), _imageCount);
-                string file = string.Format(Loc.Get("MainWindow.Bottom.StatsFile", "文件 {0} 条"), _fileCount);
+                string text = string.Format(Loc.Get("MainWindow.Bottom.StatsText", "文本 {0} 条"), TextCount);
+                string link = string.Format(Loc.Get("MainWindow.Bottom.StatsLink", "链接 {0} 条"), LinkCount);
+                string image = string.Format(Loc.Get("MainWindow.Bottom.StatsImage", "图片 {0} 条"), ImageCount);
+                string file = string.Format(Loc.Get("MainWindow.Bottom.StatsFile", "文件 {0} 条"), FileCount);
                 return string.Join("\n", text, link, image, file);
             }
         }
 
-        private bool _isWindowVisible = false;
-        public bool IsWindowVisible
-        {
-            get => _isWindowVisible;
-            set => _isWindowVisible = value;
-        }
+        public bool IsWindowVisible { get; set; }
 
         private bool _isLoading = false;
         public bool IsLoading
@@ -4357,7 +4345,7 @@ namespace WinVClip
                     File.WriteAllText(path, json, Encoding.UTF8);
                 }
 
-                var data = System.Text.Json.JsonSerializer.Deserialize<CharDataRoot>(json);
+                var data = System.Text.Json.JsonSerializer.Deserialize(json, Services.AppJsonContext.Default.CharDataRoot);
                 return data?.Groups;
             }
             catch

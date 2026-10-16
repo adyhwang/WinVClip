@@ -38,7 +38,7 @@ namespace WinVClip
                 try
                 {
                     var json = File.ReadAllText(settingsPath);
-                    var settings = System.Text.Json.JsonSerializer.Deserialize<AppSettings>(json);
+                    var settings = System.Text.Json.JsonSerializer.Deserialize(json, AppJsonContext.Default.AppSettings);
                     if (!string.IsNullOrEmpty(settings?.DatabasePath))
                         return settings.DatabasePath;
                 }
@@ -419,8 +419,7 @@ namespace WinVClip
             {
                 var processInfo = new System.Diagnostics.ProcessStartInfo
                 {
-                    FileName = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName 
-                        ?? System.Reflection.Assembly.GetExecutingAssembly().Location,
+                    FileName = Environment.ProcessPath,
                     UseShellExecute = true,
                     Verb = "runas"
                 };

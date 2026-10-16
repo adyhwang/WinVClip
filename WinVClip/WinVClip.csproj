@@ -1,13 +1,15 @@
-<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>app.ico</ApplicationIcon>
-    <LangVersion>9.0</LangVersion>
     <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- 仅复制 en/zh 运行时卫星资源，剔除 cs/de/es 等 .NET 异常消息翻译（应用 UI 语言独立实现，不受影响） -->
+    <SatelliteResourceLanguages>en;zh-Hans;zh-Hant</SatelliteResourceLanguages>
     <Version>3.2</Version>
     <AssemblyVersion>3.2</AssemblyVersion>
     <FileVersion>3.2</FileVersion>
@@ -17,16 +19,10 @@
     <DebugType>embedded</DebugType>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <DebugType>embedded</DebugType>
-  </PropertyGroup>
-
   <ItemGroup>
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="6.0.31" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
     <PackageReference Include="QRCoder" Version="1.8.0" />
-    <PackageReference Include="System.Text.Json" Version="6.0.9" />
-    <PackageReference Include="System.Drawing.Common" Version="6.0.0" />
-    <PackageReference Include="System.IO.Compression" Version="4.3.0" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.13" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,19 +31,35 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Resources\Languages\en.json" />
+    <!-- 内置保底语言（启动时自动释放到输出目录 Resources\Languages） -->
     <EmbeddedResource Include="Resources\Languages\zh-CN.json" />
-    <EmbeddedResource Include="Resources\Languages\zh-TW.json" />
-    <EmbeddedResource Include="Resources\Languages\ja.json" />
-    <EmbeddedResource Include="Resources\Languages\ko.json" />
-    <EmbeddedResource Include="Resources\Languages\es.json" />
-    <EmbeddedResource Include="Resources\Languages\ru.json" />
-    <EmbeddedResource Include="Resources\Languages\fr.json" />
-    <EmbeddedResource Include="Resources\Languages\de.json" />
+    <EmbeddedResource Include="Resources\Languages\en.json" />
     <EmbeddedResource Include="Resources\Characters\characters.json" />
   </ItemGroup>
 
   <ItemGroup>
+    <!-- 其余语言不嵌入 exe，构建时复制到输出 Resources\Languages，可运行时增删 -->
+    <Content Include="Resources\Languages\zh-TW.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Languages\ja.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Languages\ko.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Languages\es.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Languages\ru.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Languages\fr.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Languages\de.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\Characters\characters.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

@@ -116,7 +116,7 @@ namespace WinVClip.Services
                 try
                 {
                     var json = File.ReadAllText(file);
-                    var data = JsonSerializer.Deserialize<LanguageData>(json);
+                    var data = JsonSerializer.Deserialize(json, AppJsonContext.Default.LanguageData);
                     if (data != null && !string.IsNullOrEmpty(data.Code))
                     {
                         _availableLanguages[data.Code] = new LanguageInfo
@@ -193,7 +193,7 @@ namespace WinVClip.Services
             try
             {
                 var json = File.ReadAllText(filePath);
-                var data = JsonSerializer.Deserialize<LanguageData>(json);
+                var data = JsonSerializer.Deserialize(json, AppJsonContext.Default.LanguageData);
                 if (data != null)
                 {
                     _currentLanguage = data;

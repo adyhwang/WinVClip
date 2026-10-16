@@ -63,24 +63,20 @@ namespace WinVClip
             {
                 var generator = new QRCodeGenerator();
                 var qrCodeData = generator.CreateQrCode(_content, QRCodeGenerator.ECCLevel.M);
-                var qrCode = new QRCode(qrCodeData);
+                var qrCode = new PngByteQRCode(qrCodeData);
 
-                var qrCodeImage = qrCode.GetGraphic(20,
-                    System.Drawing.Color.FromArgb(0, 0, 0),
-                    System.Drawing.Color.FromArgb(255, 255, 255),
-                    true);
+                // PngByteQRCode 直接输出 PNG 字节，不依赖 System.Drawing/GDI+
+                var pngBytes = qrCode.GetGraphic(20,
+                    [0, 0, 0, 255],
+                    [255, 255, 255, 255]);
 
                 var bitmap = new BitmapImage();
-                using (var ms = new MemoryStream())
-                {
-                    qrCodeImage.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-                    ms.Position = 0;
-                    bitmap.BeginInit();
-                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                    bitmap.StreamSource = ms;
-                    bitmap.EndInit();
-                    bitmap.Freeze();
-                }
+                using var ms = new MemoryStream(pngBytes);
+                bitmap.BeginInit();
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.StreamSource = ms;
+                bitmap.EndInit();
+                bitmap.Freeze();
 
                 _qrCodeBitmap = bitmap;
                 QRCodeImage.Source = bitmap;

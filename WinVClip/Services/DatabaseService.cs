@@ -20,7 +20,9 @@ namespace WinVClip.Services
         {
             _dbPath = dbPath;
             Directory.CreateDirectory(Path.GetDirectoryName(dbPath) ?? ".");
-            _connection = new SqliteConnection($"Data Source={dbPath}");
+            // Pooling=False 保持 .NET Framework 版行为：关闭连接后立即释放 db 文件句柄，
+            // 避免备份/还原等直接覆盖 db 文件的操作因连接池持有句柄而失败
+            _connection = new SqliteConnection($"Data Source={dbPath};Pooling=False");
             _connection.Open();
             ConfigurePragmas();
             InitializeDatabase();
