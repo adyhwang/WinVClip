@@ -30,7 +30,6 @@ namespace WinVClip.Models
             var list = items as IList<T> ?? new List<T>(items);
             if (list.Count == 0) return;
 
-            
             _suppressNotification = true;
             try
             {
@@ -43,10 +42,6 @@ namespace WinVClip.Models
                 _suppressNotification = false;
             }
 
-            
-            
-            
-            
             for (int i = 0; i < list.Count; i++)
             {
                 OnCollectionChanged(new NotifyCollectionChangedEventArgs(

@@ -8,17 +8,9 @@ using System.Windows.Threading;
 
 namespace WinVClip.Services
 {
-    
-    
-    
-    
-    
-    
+
     public static class ClipboardWin32Helper
     {
-        
-        
-        
 
         private const int MaxRetries = 5;
         private const int RetryDelayMs = 50;
@@ -26,10 +18,6 @@ namespace WinVClip.Services
         private const uint CF_UNICODETEXT = 13;
         private const uint CF_TEXT = 1;
         private const uint GMEM_MOVEABLE = 0x0002;
-
-        
-        
-        
 
         [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -53,10 +41,6 @@ namespace WinVClip.Services
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool IsClipboardFormatAvailable(uint uFormat);
 
-        
-        
-        
-
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern IntPtr GlobalAlloc(uint uFlags, UIntPtr dwBytes);
 
@@ -70,43 +54,20 @@ namespace WinVClip.Services
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern IntPtr GlobalFree(IntPtr hMem);
 
-        
-        
-        
-
-        
         private static readonly object _syncLock = new object();
 
-        
         private static IntPtr _hwnd = IntPtr.Zero;
-
-        
-        
-        
 
         private static readonly object _loadingLock = new object();
         private static Thread _loadingThread;
         private static WinVClip.LoadingTipWindow _loadingWindow;
         private static volatile bool _closeRequested;
 
-        
-        
-        
-
-        
         public static void SetWindowHandle(IntPtr hwnd)
         {
             _hwnd = hwnd;
         }
 
-        
-        
-        
-
-        
-        
-        
-        
         public static void ShowClipboardLoading()
         {
             lock (_loadingLock)
@@ -124,7 +85,6 @@ namespace WinVClip.Services
                         _loadingWindow = window;
                     }
 
-                    
                     if (_closeRequested)
                     {
                         lock (_loadingLock)
@@ -143,7 +103,6 @@ namespace WinVClip.Services
                     window.Show();
                     Dispatcher.Run();
 
-                    
                     lock (_loadingLock)
                     {
                         _loadingWindow = null;
@@ -157,7 +116,6 @@ namespace WinVClip.Services
             }
         }
 
-        
         public static void CloseClipboardLoading()
         {
             WinVClip.LoadingTipWindow window;
@@ -177,18 +135,11 @@ namespace WinVClip.Services
             }
         }
 
-        
         public static void Shutdown()
         {
             CloseClipboardLoading();
         }
 
-        
-        
-        
-
-        
-        
         public static void SetText(string text)
         {
             if (text == null) text = "";
@@ -198,13 +149,12 @@ namespace WinVClip.Services
                 bool loadingShown = false;
                 try
                 {
-                    
+
                     for (int i = 0; i < MaxRetries; i++)
                     {
                         if (TrySetTextNative(text))
                             return;
 
-                        
                         if (!loadingShown)
                         {
                             ShowClipboardLoading();
@@ -214,7 +164,6 @@ namespace WinVClip.Services
                         Thread.Sleep(RetryDelayMs);
                     }
 
-                    
                     WpfRetry(() => System.Windows.Clipboard.SetText(text));
                 }
                 finally
@@ -225,12 +174,11 @@ namespace WinVClip.Services
             }
         }
 
-        
         public static string GetText()
         {
             lock (_syncLock)
             {
-                
+
                 for (int i = 0; i < MaxRetries; i++)
                 {
                     string result = TryGetTextNative();
@@ -239,12 +187,10 @@ namespace WinVClip.Services
                     Thread.Sleep(RetryDelayMs);
                 }
 
-                
                 return WpfRetry(() => System.Windows.Clipboard.GetText());
             }
         }
 
-        
         public static bool ContainsText()
         {
             lock (_syncLock)
@@ -253,10 +199,6 @@ namespace WinVClip.Services
                     || IsClipboardFormatAvailable(CF_TEXT);
             }
         }
-
-        
-        
-        
 
         public static void SetImage(BitmapSource image)
         {
@@ -282,10 +224,6 @@ namespace WinVClip.Services
             }
         }
 
-        
-        
-        
-
         public static void SetFileDropList(StringCollection fileDropList)
         {
             lock (_syncLock)
@@ -302,10 +240,6 @@ namespace WinVClip.Services
             }
         }
 
-        
-        
-        
-
         public static void SetDataObject(IDataObject data)
         {
             lock (_syncLock)
@@ -321,10 +255,6 @@ namespace WinVClip.Services
                 return WpfRetry(() => System.Windows.Clipboard.GetDataObject());
             }
         }
-
-        
-        
-        
 
         public static void Clear()
         {
@@ -346,16 +276,11 @@ namespace WinVClip.Services
                     }
                     Thread.Sleep(RetryDelayMs);
                 }
-                
+
                 WpfRetry(() => System.Windows.Clipboard.Clear());
             }
         }
 
-        
-        
-        
-
-        
         private static bool TrySetTextNative(string text)
         {
             if (!OpenClipboard(_hwnd))
@@ -378,14 +303,12 @@ namespace WinVClip.Services
                     return false;
                 }
 
-                
                 if (text.Length > 0)
                     Marshal.Copy(text.ToCharArray(), 0, pGlobal, text.Length);
                 Marshal.WriteInt16(pGlobal + text.Length * 2, 0);
 
                 GlobalUnlock(hGlobal);
 
-                
                 if (SetClipboardData(CF_UNICODETEXT, hGlobal) == IntPtr.Zero)
                 {
                     GlobalFree(hGlobal);
@@ -400,7 +323,6 @@ namespace WinVClip.Services
             }
         }
 
-        
         private static string TryGetTextNative()
         {
             if (!OpenClipboard(_hwnd))
@@ -433,10 +355,6 @@ namespace WinVClip.Services
                 CloseClipboard();
             }
         }
-
-        
-        
-        
 
         private static void WpfRetry(Action action)
         {

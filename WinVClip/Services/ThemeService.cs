@@ -100,7 +100,6 @@ namespace WinVClip.Services
                     break;
             }
 
-            
             var oldDictionaries = app.Resources.MergedDictionaries.ToList();
             app.Resources.MergedDictionaries.Add(resourceDictionary);
             foreach (var oldDict in oldDictionaries)

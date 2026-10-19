@@ -19,9 +19,8 @@ namespace WinVClip.Services
         private Icon? _icon;
         private bool _disposed;
 
-        
         private readonly uint _taskbarCreatedMessage;
-        
+
         private System.Windows.Threading.DispatcherTimer? _recreateTimer;
         private const int RecreateDebounceMs = 500;
 
@@ -57,9 +56,9 @@ namespace WinVClip.Services
         {
             try
             {
-                
+
                 var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-                
+
                 var iconName = _settingsService.Settings.MonitorEnabled ? "app.ico" : "app_disabled.ico";
                 var resourceName = assembly.GetManifestResourceNames()
                     .FirstOrDefault(n => n.EndsWith(iconName, StringComparison.OrdinalIgnoreCase));
@@ -77,7 +76,6 @@ namespace WinVClip.Services
             {
             }
 
-            
             return SystemIcons.Application;
         }
 
@@ -105,7 +103,7 @@ namespace WinVClip.Services
 
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
-            
+
             if (_taskbarCreatedMessage != 0 && msg == (int)_taskbarCreatedMessage)
             {
                 ScheduleRecreateTrayIcon();
@@ -132,30 +130,23 @@ namespace WinVClip.Services
 
         private void ShowContextMenu()
         {
-            
-            
-            
+
             SetForegroundWindow(_windowHandle);
-            
+
             var menu = new System.Windows.Controls.ContextMenu();
             menu.Style = Application.Current.TryFindResource("ContextMenuStyle") as Style;
-            
-            
+
             var showItem = CreateMenuItem(Loc.Get("Tray.Show", "显示主界面"), "📋", Loc.Get("Tray.Show", "显示 WinVClip 主窗口"), () => OnShowWindow?.Invoke());
             menu.Items.Add(showItem);
-            
-            
+
             var settingsItem = CreateMenuItem(Loc.Get("Tray.Settings", "设置"), "⚙️", Loc.Get("Tray.Settings", "打开设置窗口"), () => OnOpenSettings?.Invoke());
             menu.Items.Add(settingsItem);
 
-
             var dbItem = CreateMenuItem(Loc.Get("Tray.Database", "数据库"), "🗄️", Loc.Get("Tray.Database", "打开数据库所在文件夹"), () => OpenDatabaseFolder());
             menu.Items.Add(dbItem);
-            
-            
+
             menu.Items.Add(CreateSeparator());
-            
-            
+
             var monitoringItem = new System.Windows.Controls.MenuItem 
             { 
                 Header = _settingsService.Settings.MonitorEnabled ? Loc.Get("Tray.MonitoringDisabled", "禁用监听") : Loc.Get("Tray.MonitoringEnabled", "启用监听"),
@@ -165,20 +156,16 @@ namespace WinVClip.Services
             monitoringItem.Style = Application.Current.TryFindResource("MenuItemStyle") as Style;
             monitoringItem.Click += (s, e) => ToggleMonitoring();
             menu.Items.Add(monitoringItem);
-            
-            
+
             menu.Items.Add(CreateSeparator());
-            
-            
+
             var exitItem = CreateMenuItem(Loc.Get("Tray.Exit", "退出"), "❌", Loc.Get("Tray.Exit", "退出 WinVClip"), () => OnExit?.Invoke());
             menu.Items.Add(exitItem);
-            
-            
+
             menu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
             menu.PlacementTarget = Application.Current.MainWindow;
             menu.IsOpen = true;
-            
-            
+
             PostMessage(_windowHandle, WM_NULL, IntPtr.Zero, IntPtr.Zero);
         }
 
@@ -247,10 +234,6 @@ namespace WinVClip.Services
             Shell_NotifyIcon(NIM_MODIFY, ref data);
         }
 
-        
-        
-        
-        
         private void ScheduleRecreateTrayIcon()
         {
             if (_disposed) return;
@@ -268,22 +251,17 @@ namespace WinVClip.Services
                 };
             }
 
-            
             _recreateTimer.Stop();
             _recreateTimer.Start();
         }
 
-        
-        
-        
-        
         private void RecreateTrayIcon()
         {
             if (_disposed) return;
 
             try
             {
-                
+
                 var deleteData = new NotifyIconData
                 {
                     cbSize = Marshal.SizeOf(typeof(NotifyIconData)),
@@ -292,12 +270,11 @@ namespace WinVClip.Services
                 };
                 Shell_NotifyIcon(NIM_DELETE, ref deleteData);
 
-                
                 AddTrayIcon();
             }
             catch
             {
-                
+
             }
         }
 

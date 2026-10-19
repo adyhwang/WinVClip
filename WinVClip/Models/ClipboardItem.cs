@@ -191,8 +191,6 @@ namespace WinVClip.Models
             _isFileValid = null;
         }
 
-        
-        
         public void TrimLargeObjects()
         {
             _imageThumbnail = null;

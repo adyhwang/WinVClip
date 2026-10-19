@@ -2,9 +2,7 @@ using System.Collections.Generic;
 
 namespace WinVClip.Models
 {
-    
-    
-    
+
     public enum QuickPasteMouseButton
     {
         Left,       
@@ -13,9 +11,6 @@ namespace WinVClip.Models
         WheelDown   
     }
 
-    
-    
-    
     public enum QuickPasteAction
     {
         Split,               
@@ -31,12 +26,9 @@ namespace WinVClip.Models
         CustomRegex          
     }
 
-    
-    
-    
     public class QuickPasteShortcut
     {
-        
+
         public int ClipboardType { get; set; } = -1;
         public bool Ctrl { get; set; }
         public bool Shift { get; set; }
@@ -44,13 +36,10 @@ namespace WinVClip.Models
         public QuickPasteMouseButton MouseButton { get; set; } = QuickPasteMouseButton.Middle;
         public QuickPasteAction Action { get; set; } = QuickPasteAction.PasteRemoveNewlines;
 
-        
         public string QuickCommandName { get; set; } = "";
 
-        
         public bool Enabled { get; set; } = true;
 
-        
         public QuickPasteShortcut Clone()
         {
             return new QuickPasteShortcut
@@ -66,7 +55,6 @@ namespace WinVClip.Models
             };
         }
 
-        
         public static List<QuickPasteShortcut> CreateDefaults() => new()
         {
             new() { Ctrl = true,  MouseButton = QuickPasteMouseButton.Left,   Action = QuickPasteAction.PasteAsPlainText },

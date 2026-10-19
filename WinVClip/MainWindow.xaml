@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WinVClip"
+        xmlns:controls="clr-namespace:WinVClip.Controls"
         mc:Ignorable="d"
         Title="WinVClip" MinHeight="600" Height="600" MinWidth="388" Width="388"
     WindowStyle="None" AllowsTransparency="True" Background="Transparent"
@@ -16,11 +17,11 @@
                 <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
                 <local:ItemTypeToVisibilityConverter x:Key="ItemTypeToVisibilityConverter"/>
                 <local:ItemTypeToFileVisibilityConverter x:Key="ItemTypeToFileVisibilityConverter"/>
-                <local:ItemTypeToUrlVisibilityConverter x:Key="ItemTypeToUrlVisibilityConverter"/>
                 <local:ItemTypeToFolderVisibilityConverter x:Key="ItemTypeToFolderVisibilityConverter"/>
                 <local:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
                 <local:ClipboardTypeToBackgroundConverter x:Key="ClipboardTypeToBackgroundConverter"/>
                 <local:TypeFilterToBackgroundConverter x:Key="TypeFilterToBackgroundConverter"/>
+                <local:GroupNameConverter x:Key="GroupNameConverter"/>
             <local:TextPreviewConverter x:Key="TextPreviewConverter"/>
             <local:FileListPreviewConverter x:Key="FileListPreviewConverter"/>
             <local:ImagePathToImageConverter x:Key="ImagePathToImageConverter"/>
@@ -83,13 +84,132 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBox x:Name="SearchTextBox" Grid.Column="0" Height="36" 
-                         Style="{DynamicResource SearchTextBoxStyle}"
-                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                         PreviewMouseDown="SearchTextBox_PreviewMouseDown"
-                         VerticalAlignment="Center"
-                         HorizontalAlignment="Stretch"
-                         Margin="0,0,8,0"/>
+                <Grid Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0">
+                    <TextBox x:Name="SearchTextBox" Height="36"
+                             Style="{DynamicResource SearchTextBoxStyle}"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             TextChanged="SearchTextBox_TextChanged"
+                             KeyDown="SearchTextBox_KeyDown"
+                             LostKeyboardFocus="SearchTextBox_LostKeyboardFocus"
+                             PreviewMouseDown="SearchTextBox_PreviewMouseDown"
+                             HorizontalAlignment="Stretch"
+                             Padding="0,0,26,0"/>
+                    <Button x:Name="ClearSearchTextButton" Width="22" Height="22"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,5,0"
+                            Focusable="False" Cursor="Hand"
+                            Content="✕" FontSize="11"
+                            Foreground="{DynamicResource SecondaryTextForeground}"
+                            Click="ClearSearchText_Click">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Text, ElementName=SearchTextBox}" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+
+                <!-- 搜索选项浮层：点击搜索栏上浮显示 -->
+                <Popup x:Name="SearchOptionsPopup"
+                       PlacementTarget="{Binding ElementName=SearchTextBox}"
+                       Placement="Bottom"
+                       StaysOpen="False"
+                       AllowsTransparency="True"
+                       PopupAnimation="Fade">
+                    <Border Background="{DynamicResource ItemBackground}"
+                            BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1"
+                            CornerRadius="8" Padding="14,10" Margin="0,4,8,0" Width="264">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.25"/>
+                        </Border.Effect>
+                        <StackPanel>
+                            <Grid x:Name="SearchOptionsTitleRow" Cursor="Hand" Margin="0,0,0,6"
+                                  Background="Transparent" MouseLeftButtonDown="SearchOptionsTitle_Click">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="SearchOptionsTitleText" Grid.Column="0" Text="搜索选项"
+                                           FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource SecondaryTextForeground}"/>
+                                <TextBlock x:Name="SearchOptionsArrow" Grid.Column="1" Text="▸" FontSize="11"
+                                           Foreground="{DynamicResource SecondaryTextForeground}"/>
+                            </Grid>
+                            <StackPanel x:Name="SearchOptionsPanel" Visibility="Collapsed">
+                                <CheckBox x:Name="OptHighlightCheck" Content="关键词高亮" FontSize="13" Margin="0,3"
+                                          Foreground="{DynamicResource TextForeground}"
+                                          IsChecked="{Binding IsSearchHighlightEnabled, Mode=TwoWay}"/>
+                                <CheckBox x:Name="OptExactCheck" Content="匹配全部关键词" FontSize="13" Margin="0,3"
+                                          Foreground="{DynamicResource TextForeground}"
+                                          ToolTipService.ShowOnDisabled="True"
+                                          IsChecked="{Binding IsSearchExactEnabled, Mode=TwoWay}"/>
+                                <CheckBox x:Name="OptHistoryCheck" Content="搜索历史" FontSize="13" Margin="0,3"
+                                          Foreground="{DynamicResource TextForeground}"
+                                          IsChecked="{Binding IsSearchHistoryEnabled, Mode=TwoWay}"/>
+                                <CheckBox x:Name="OptPinyinCheck" Content="拼音搜索" FontSize="13" Margin="0,3"
+                                          Foreground="{DynamicResource TextForeground}"
+                                          IsChecked="{Binding IsSearchPinyinEnabled, Mode=TwoWay}"/>
+                                <CheckBox x:Name="OptRegexCheck" Content="使用正则" FontSize="13" Margin="0,3"
+                                          Foreground="{DynamicResource TextForeground}"
+                                          IsChecked="{Binding IsSearchRegexEnabled, Mode=TwoWay}"/>
+                                <CheckBox x:Name="OptWildcardCheck" Content="使用通配符" FontSize="13" Margin="0,3"
+                                          Foreground="{DynamicResource TextForeground}"
+                                          IsChecked="{Binding IsSearchWildcardEnabled, Mode=TwoWay}"/>
+                            </StackPanel>
+                            <Separator Margin="0,6" Background="{DynamicResource InputBorderBrush}"/>
+                            <Grid Visibility="{Binding IsSearchHistoryVisible}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="SearchHistoryTitleText" Grid.Column="0" Text="最近搜索"
+                                           FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource SecondaryTextForeground}"/>
+                                <Button x:Name="ClearSearchHistoryButton" Grid.Column="1" Content="清空"
+                                        FontSize="11" Cursor="Hand" Focusable="False"
+                                        Foreground="{DynamicResource SecondaryTextForeground}"
+                                        Background="Transparent" BorderThickness="0"
+                                        Click="ClearSearchHistory_Click"/>
+                            </Grid>
+                            <ItemsControl x:Name="SearchHistoryList" Margin="0,4,0,0"
+                                          ItemsSource="{Binding SearchHistoryView}"
+                                          Visibility="{Binding IsSearchHistoryVisible}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding}" FontSize="12" Cursor="Hand"
+                                                HorizontalContentAlignment="Left"
+                                                Focusable="False"
+                                                Foreground="{DynamicResource TextForeground}"
+                                                Background="Transparent" BorderThickness="0"
+                                                Padding="6,4" Margin="0,0,0,2"
+                                                Click="SearchHistoryTerm_Click"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock x:Name="SearchHistoryEmptyText" Text="暂无搜索历史"
+                                       FontSize="11" Foreground="{DynamicResource TertiaryTextForeground}"
+                                       Margin="0,4,0,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding IsSearchHistoryEnabled}" Value="True"/>
+                                                    <Condition Binding="{Binding SearchHistoryView.Count}" Value="0"/>
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
+                </Popup>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" 
                             HorizontalAlignment="Right" VerticalAlignment="Center">
@@ -250,7 +370,7 @@
                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                                  ScrollViewer.CanContentScroll="True"
                                  VirtualizingPanel.IsVirtualizing="True"
-                                 VirtualizingPanel.VirtualizationMode="Recycling"
+                                 VirtualizingPanel.VirtualizationMode="Standard"
                                  VirtualizingPanel.ScrollUnit="Pixel"
                                  VirtualizingPanel.CacheLength="2,2"
                                  VirtualizingPanel.CacheLengthUnit="Page"
@@ -343,7 +463,7 @@
                                               DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                     <MenuItem x:Name="MenuOpenInBrowser" Header="在浏览器打开" Icon="🌐" Click="OpenInBrowserMenuItem_Click"
                                               Style="{DynamicResource MenuItemStyle}"
-                                              Visibility="{Binding ., Converter={local:ItemTypeToUrlVisibilityConverter}}"
+                                              Visibility="{Binding ., Converter={local:IsTextOrRichTextConverter}}"
                                               DataContext="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                     <MenuItem x:Name="MenuGenerateQRCode" Header="生成二维码" Icon="📱" Click="GenerateQRCode_Click" Loaded="MenuGenerateQRCode_Loaded"
                                               Style="{DynamicResource MenuItemStyle}"
@@ -403,7 +523,11 @@
                                                 <RowDefinition Height="Auto"/>
                                             </Grid.RowDefinitions>
                                             
-                                            <TextBlock x:Name="PreviewTextBlock" Grid.Row="0" Text="{Binding PreviewText}"
+                                            <controls:HighlightTextBlock x:Name="PreviewTextBlock" Grid.Row="0"
+                                                       controls:HighlightTextBlock.IsHighlightEnabled="{Binding DataContext.IsSearchHighlightEnabled, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}"
+                                                       controls:HighlightTextBlock.Keywords="{Binding DataContext.SearchKeywordsText, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}"
+                                                       controls:HighlightTextBlock.Mode="{Binding DataContext.SearchModeText, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}"
+                                                       Text="{Binding PreviewText}"
                                                        Foreground="{DynamicResource TextForeground}"
                                                        FontSize="12"
                                                        TextTrimming="CharacterEllipsis"
@@ -443,7 +567,7 @@
                                                 <Border Background="{DynamicResource GroupBadgeBackground}"
                                                         Padding="4,1,4,1" CornerRadius="3"
                                                         Visibility="{Binding GroupName, Converter={StaticResource StringToVisibilityConverter}}">
-                                                    <TextBlock Text="{Binding GroupName}"
+                                                    <TextBlock Text="{Binding GroupName, Converter={StaticResource GroupNameConverter}}"
                                                                Foreground="{DynamicResource GroupBadgeForeground}"
                                                                FontSize="10"/>
                                                 </Border>
@@ -622,7 +746,6 @@
                 <TextBlock x:Name="BottomStatsText"
                            Grid.Column="0"
                            Text="{Binding BottomRecordStats}"
-                           ToolTip="{Binding BottomStatsToolTip}"
                            Foreground="{DynamicResource SecondaryTextForeground}"
                            FontSize="11"
                            VerticalAlignment="Center"/>

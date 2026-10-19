@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -19,53 +19,24 @@ namespace WinVClip
     public partial class SettingsWindow : Window
     {
         private readonly SettingsService _settingsService;
-        private readonly AppSettings _originalSettings;
+        private AppSettings _originalSettings;
         private bool _isSettingHotkey = false;
         private string _tempHotkey = "";
         private readonly HotkeyService _hotkeyService;
         private readonly List<string> _pressedModifiers = new List<string>();
         private bool _originalStartWithWindows;
+        private readonly System.Collections.ObjectModel.ObservableCollection<string> _ignoredWindowKeywords = new();
 
         public SettingsWindow(SettingsService settingsService)
         {
             _settingsService = settingsService;
-            
+
             _originalStartWithWindows = _settingsService.IsStartupEnabled();
-            
-            _originalSettings = new AppSettings
-            {
-                Hotkey = _settingsService.Settings.Hotkey,
-                CaptureImages = _settingsService.Settings.CaptureImages,
-                CaptureFiles = _settingsService.Settings.CaptureFiles,
-                RemoveDuplicates = _settingsService.Settings.RemoveDuplicates,
-                DatabasePath = _settingsService.Settings.DatabasePath,
-                EnableAutoCleanup = _settingsService.Settings.EnableAutoCleanup,
-                RetentionDays = _settingsService.Settings.RetentionDays,
-                MonitorEnabled = _settingsService.Settings.MonitorEnabled,
-                Theme = _settingsService.Settings.Theme,
-                SelectedSearchEngineId = _settingsService.Settings.SelectedSearchEngineId,
-                CustomSearchEngineUrl = _settingsService.Settings.CustomSearchEngineUrl,
-                MaxHistoryItems = _settingsService.Settings.MaxHistoryItems,
-                IsAdministratorRun = _settingsService.Settings.IsAdministratorRun,
-                MoveToTopAfterPaste = _settingsService.Settings.MoveToTopAfterPaste,
-                PasteShortcutMode = _settingsService.Settings.PasteShortcutMode,
-                Language = _settingsService.Settings.Language,
-                FontSize = _settingsService.Settings.FontSize,
-                ShowHotkeyTipOnStartup = _settingsService.Settings.ShowHotkeyTipOnStartup,
-                UseSystemCharPanel = _settingsService.Settings.UseSystemCharPanel,
-                SequentialPasteLifoHotkey = _settingsService.Settings.SequentialPasteLifoHotkey,
-                SequentialPasteFifoHotkey = _settingsService.Settings.SequentialPasteFifoHotkey,
-                SequentialPasteIntervalSeconds = _settingsService.Settings.SequentialPasteIntervalSeconds,
-                QuickPasteShortcuts = _settingsService.Settings.QuickPasteShortcuts?
-                    .Select(s => s.Clone()).ToList() ?? new List<QuickPasteShortcut>(),
-                QuickCommands = _settingsService.Settings.QuickCommands?
-                    .Select(s => s.Clone()).ToList() ?? new List<QuickCommand>(),
-                GlobalHotkeys = _settingsService.Settings.GlobalHotkeys?
-                    .Select(g => g.Clone()).ToList() ?? new List<GlobalHotkey>()
-            };
+
+            _originalSettings = _settingsService.Settings.Clone();
 
             _tempHotkey = _originalSettings.Hotkey;
-            
+
             var mainWindow = App.GetMainWindow();
             if (mainWindow != null)
             {
@@ -79,9 +50,11 @@ namespace WinVClip
 
             DataContext = _settingsService.Settings;
             InitializeComponent();
-            
+
             ApplyLocalization();
-            
+
+            LoadIgnoredWindowEntries();
+
             InitializeLanguageComboBox();
             UpdateAdminButtonState();
 
@@ -91,7 +64,7 @@ namespace WinVClip
             }
 
             _settingsService.InitializeSearchEngines();
-            
+
             if (CustomSearchEngineGrid != null)
             {
                 UpdateCustomSearchEngineGridVisibility();
@@ -113,22 +86,24 @@ namespace WinVClip
         private void ApplyLocalization()
         {
             Title = Loc.Get("Settings.Title", "设置");
-            TitleText.Text = Loc.Get("Settings.Title", "设置");
-            NavGeneral.Content = Loc.Get("Settings.Nav.General", "常规");
-            NavHotkey.Content = Loc.Get("Settings.Nav.Hotkey", "快捷键");
-            NavQuickCommand.Content = Loc.Get("Settings.Nav.QuickCommand", "快捷命令");
-            NavCapture.Content = Loc.Get("Settings.Nav.Capture", "捕获设置");
-            NavHistory.Content = Loc.Get("Settings.Nav.History", "历史记录");
-            NavStorage.Content = Loc.Get("Settings.Nav.Storage", "存储与备份");
-            NavSearch.Content = Loc.Get("Settings.Nav.Search", "搜索引擎");
-            NavSystem.Content = Loc.Get("Settings.Nav.System", "系统设置");
-            NavAbout.Content = Loc.Get("Settings.Nav.About", "关于");
-            
-            ResetButton.Content = Loc.Get("Settings.Button.Reset", "重置");
-            ApplyButton.Content = Loc.Get("Settings.Button.Apply", "应用");
-            OKButton.Content = Loc.Get("Settings.Button.OK", "确定");
-            CancelButton.ToolTip = Loc.Get("Settings.Button.Cancel", "取消");
-            
+            this.LocalizeAll(
+                (TitleText, "Settings.Title", "设置"),
+                (NavGeneral, "Settings.Nav.General", "常规"),
+                (NavHotkey, "Settings.Nav.Hotkey", "快捷键"),
+                (NavQuickCommand, "Settings.Nav.QuickCommand", "快捷命令"),
+                (NavCapture, "Settings.Nav.Capture", "捕获设置"),
+                (NavHistory, "Settings.Nav.History", "历史记录"),
+                (NavStorage, "Settings.Nav.Storage", "存储与备份"),
+                (NavSearch, "Settings.Nav.Search", "搜索选项"),
+                (NavAbout, "Settings.Nav.About", "关于"),
+
+                (ResetButton, "Settings.Button.Reset", "重置"),
+                (ApplyButton, "Settings.Button.Apply", "应用"),
+                (OKButton, "Settings.Button.OK", "确定"));
+
+            this.LocalizeAll(
+                (CancelButton, "Settings.Button.Cancel", "取消", LocProp.ToolTip));
+
             ApplyPanelGeneralLocalization();
             ApplyPanelHotkeyLocalization();
             ApplyPanelQuickCommandLocalization();
@@ -136,168 +111,290 @@ namespace WinVClip
             ApplyPanelHistoryLocalization();
             ApplyPanelStorageLocalization();
             ApplyPanelSearchLocalization();
-            ApplyPanelSystemLocalization();
         }
 
         private void ApplyPanelGeneralLocalization()
         {
-            GeneralTitleText.Text = Loc.Get("Settings.General.Title", "常规");
-            HotkeyCardTitle.Text = Loc.Get("Settings.Hotkey.GlobalTitle", "全局快捷键");
-            HotkeyShowHideText.Text = Loc.Get("Settings.General.Hotkey.ShowHide", "显示/隐藏主界面");
-            HotkeyPlaceholderText.Text = Loc.Get("Settings.General.Hotkey.ClickToInput", "点击输入快捷键");
-            CommonShortcutsText.Text = Loc.Get("Settings.General.Hotkey.CommonShortcuts", "常用快捷键");
-            RestoreSystemWinVButton.Content = Loc.Get("Settings.General.Hotkey.RestoreSystemWinV", "还原系统 Win+V");
-            
-            AppearanceCardTitle.Text = Loc.Get("Settings.General.Appearance.Title", "外观");
-            ThemeModeText.Text = Loc.Get("Settings.General.Appearance.ThemeMode", "主题模式");
-            ThemeAutoItem.Content = Loc.Get("Settings.General.Appearance.ThemeAuto", "跟随系统");
-            ThemeLightItem.Content = Loc.Get("Settings.General.Appearance.ThemeLight", "浅色模式");
-            ThemeDarkItem.Content = Loc.Get("Settings.General.Appearance.ThemeDark", "深色模式");
-            
-            LanguageCardTitle.Text = Loc.Get("Settings.General.Language.Title", "Language");
-            SelectLanguageText.Text = Loc.Get("Settings.General.Language.SelectLanguage", "Select Language");
-            
-            PasteMethodCardTitle.Text = Loc.Get("Settings.General.PasteMethod.Title", "粘贴方式");
-            PasteMethodDescription.Text = Loc.Get("Settings.General.PasteMethod.Description", "选择粘贴内容的快捷键方式");
-            PasteModeAutoItem.Content = Loc.Get("Settings.General.PasteMethod.Auto", "自动选择");
-            PasteModeAutoHint.Text = Loc.Get("Settings.General.PasteMethod.AutoHint", "自动选择：在终端中或按住 Ctrl/Alt 时自动使用 Shift+Insert");
-            
-            AdminCardTitle.Text = Loc.Get("Settings.General.Admin.Title", "管理员权限");
-            AutoAdminCheckBox.Content = Loc.Get("Settings.General.Admin.AutoRequest", "启动时自动获取管理员权限");
-            AutoAdminDescription.Text = Loc.Get("Settings.General.Admin.AutoRequestDescription", "每次启动时自动请求管理员权限运行");
-            RequestAdminButton.Content = Loc.Get("Settings.General.Admin.Request", "获取管理员权限");
-            AdminRunDescription.Text = Loc.Get("Settings.General.Admin.RunDescription", "以管理员权限运行可向所有窗口发送粘贴操作");
-            AdminRunHint.Text = Loc.Get("Settings.General.Admin.Hint", "提示：普通权限无法向管理员权限的窗口（如管理员PowerShell、CMD等等）自动粘贴");
+            this.LocalizeAll(
+                (GeneralTitleText, "Settings.General.Title", "常规"),
+                (HotkeyCardTitle, "Settings.Hotkey.GlobalTitle", "全局快捷键"),
+                (HotkeyShowHideText, "Settings.General.Hotkey.ShowHide", "显示/隐藏主界面"),
+                (HotkeyPlaceholderText, "Settings.General.Hotkey.ClickToInput", "点击输入快捷键"),
+                (CommonShortcutsText, "Settings.General.Hotkey.CommonShortcuts", "常用快捷键"),
+                (RestoreSystemWinVButton, "Settings.General.Hotkey.RestoreSystemWinV", "还原系统 Win+V"),
 
-            CharPanelCardTitle.Text = Loc.Get("Settings.General.CharPanel.Title", "🔣字符面板按钮");
-            UseSystemCharPanelCheckBox.Content = Loc.Get("Settings.General.CharPanel.UseSystem", "是否调用系统的字符面板？");
-            UseSystemCharPanelDescription.Text = Loc.Get("Settings.General.CharPanel.UseSystemDescription", "勾选后，点击主面板的🔣按钮将调用系统字符面板（Win+.快捷键）");
-            UseSystemCharPanelWarning.Text = Loc.Get("Settings.General.CharPanel.UseSystemWarning", "仅Windows 10 Version 1709以上版本可用，其他系统请勿勾选。");
+                (AppearanceCardTitle, "Settings.General.Appearance.Title", "外观"),
+                (ThemeModeText, "Settings.General.Appearance.ThemeMode", "主题模式"),
+                (ThemeAutoItem, "Settings.General.Appearance.ThemeAuto", "跟随系统"),
+                (ThemeLightItem, "Settings.General.Appearance.ThemeLight", "浅色模式"),
+                (ThemeDarkItem, "Settings.General.Appearance.ThemeDark", "深色模式"),
 
-            FontSizeCardTitle.Text = Loc.Get("Settings.General.FontSize.Title", "字体大小");
-            FontSizeDescription.Text = Loc.Get("Settings.General.FontSize.Description", "调整界面字体大小（需重新打开窗口生效）");
+                (LanguageCardTitle, "Settings.General.Language.Title", "Language"),
+                (SelectLanguageText, "Settings.General.Language.SelectLanguage", "Select Language"),
+
+                (PasteMethodCardTitle, "Settings.General.PasteMethod.Title", "粘贴方式"),
+                (PasteMethodDescription, "Settings.General.PasteMethod.Description", "选择粘贴内容的快捷键方式"),
+                (PasteModeAutoItem, "Settings.General.PasteMethod.Auto", "自动选择"),
+                (PasteModeAutoHint, "Settings.General.PasteMethod.AutoHint", "自动选择：在终端中或按住 Ctrl/Alt 时自动使用 Shift+Insert"),
+
+                (AdminCardTitle, "Settings.General.Admin.Title", "管理员权限"),
+                (AutoAdminCheckBox, "Settings.General.Admin.AutoRequest", "启动时自动获取管理员权限"),
+                (AutoAdminDescription, "Settings.General.Admin.AutoRequestDescription", "每次启动时自动请求管理员权限运行"),
+                (RequestAdminButton, "Settings.General.Admin.Request", "获取管理员权限"),
+                (AdminRunDescription, "Settings.General.Admin.RunDescription", "以管理员权限运行可向所有窗口发送粘贴操作"),
+                (AdminRunHint, "Settings.General.Admin.Hint", "提示：普通权限无法向管理员权限的窗口（如管理员PowerShell、CMD等等）自动粘贴"),
+
+                (CharPanelCardTitle, "Settings.General.CharPanel.Title", "🔣字符面板按钮"),
+                (UseSystemCharPanelCheckBox, "Settings.General.CharPanel.UseSystem", "是否调用系统的字符面板？"),
+                (UseSystemCharPanelDescription, "Settings.General.CharPanel.UseSystemDescription", "勾选后，点击主面板的🔣按钮将调用系统字符面板（Win+.快捷键）"),
+                (UseSystemCharPanelWarning, "Settings.General.CharPanel.UseSystemWarning", "仅Windows 10 Version 1709以上版本可用，其他系统请勿勾选。"),
+
+                (FontSizeCardTitle, "Settings.General.FontSize.Title", "字体大小"),
+                (FontSizeDescription, "Settings.General.FontSize.Description", "调整界面字体大小（需重新打开窗口生效）"),
+
+                (SystemOptionsCardTitle, "Settings.System.Options", "系统选项"),
+                (StartWithWindowsCheckBox, "Settings.System.StartWithWindows", "开机自动启动"),
+                (StartWithWindowsDescription, "Settings.System.StartWithWindowsDescription", "系统启动时自动运行 WinVClip"),
+                (ShowHotkeyTipCheckBox, "Settings.System.ShowHotkeyTip", "启动时显示快捷键提示"),
+                (ShowHotkeyTipDescription, "Settings.System.ShowHotkeyTipDescription", "程序启动时在托盘通知中显示快捷键信息"));
         }
 
         private void ApplyPanelHotkeyLocalization()
         {
-            HotkeyTitleText.Text = Loc.Get("Settings.Hotkey.Title", "快捷键");
-            QuickPasteCardTitle.Text = Loc.Get("Settings.Hotkey.QuickPaste.Title", "主界面快捷键");
-            QuickPasteDescription.Text = Loc.Get("Settings.Hotkey.QuickPaste.Description", "为不同类型的剪贴板项配置鼠标快捷操作（修饰键 + 鼠标按键 → 操作）");
-            AddGlobalHotkeyButton.Content = Loc.Get("Settings.Hotkey.Global.Add", "➕ 新增全局快捷键");
-            AddQuickPasteButton.Content = Loc.Get("Settings.Hotkey.QuickPaste.Add", "➕ 新增主界面快捷键");
+            this.LocalizeAll(
+                (HotkeyTitleText, "Settings.Hotkey.Title", "快捷键"),
+                (QuickPasteCardTitle, "Settings.Hotkey.QuickPaste.Title", "主界面快捷键"),
+                (QuickPasteDescription, "Settings.Hotkey.QuickPaste.Description", "为不同类型的剪贴板项配置鼠标快捷操作（修饰键 + 鼠标按键 → 操作）"),
+                (AddGlobalHotkeyButton, "Settings.Hotkey.Global.Add", "➕ 新增全局快捷键"),
+                (AddQuickPasteButton, "Settings.Hotkey.QuickPaste.Add", "➕ 新增主界面快捷键"),
 
-            SequentialPasteTitleText.Text = Loc.Get("Settings.Hotkey.SequentialPaste.Title", "顺序粘贴");
-            SequentialPasteLifoText.Text = Loc.Get("Settings.Hotkey.SequentialPaste.Lifo", "后进先出");
-            SequentialPasteFifoText.Text = Loc.Get("Settings.Hotkey.SequentialPaste.Fifo", "先进先出");
-            SequentialPasteIntervalUnitText.Text = Loc.Get("Settings.Hotkey.SequentialPaste.Unit", "秒");
-            SequentialPasteHintText.Text = Loc.Get("Settings.Hotkey.SequentialPaste.Hint", "连续按下快捷键依次粘贴；两次按下间隔超过设定秒数后，重新从头开始");
-            SequentialLifoHotkeyPlaceholder.Text = Loc.Get("Settings.General.Hotkey.ClickToInput", "点击输入快捷键");
-            SequentialFifoHotkeyPlaceholder.Text = Loc.Get("Settings.General.Hotkey.ClickToInput", "点击输入快捷键");
+                (SequentialPasteTitleText, "Settings.Hotkey.SequentialPaste.Title", "顺序粘贴"),
+                (SequentialPasteLifoText, "Settings.Hotkey.SequentialPaste.Lifo", "后进先出"),
+                (SequentialPasteFifoText, "Settings.Hotkey.SequentialPaste.Fifo", "先进先出"),
+                (SequentialPasteIntervalUnitText, "Settings.Hotkey.SequentialPaste.Unit", "秒"),
+                (SequentialPasteHintText, "Settings.Hotkey.SequentialPaste.Hint", "连续按下快捷键依次粘贴；两次按下间隔超过设定秒数后，重新从头开始"),
+                (SequentialLifoHotkeyPlaceholder, "Settings.General.Hotkey.ClickToInput", "点击输入快捷键"),
+                (SequentialFifoHotkeyPlaceholder, "Settings.General.Hotkey.ClickToInput", "点击输入快捷键"));
+
+            RelocalizeQuickPasteEntries();
+            RelocalizeGlobalHotkeyEntries();
         }
 
         private void ApplyPanelQuickCommandLocalization()
         {
-            QuickCommandTitleText.Text = Loc.Get("Settings.QuickCommand.Title", "快捷命令");
-            QuickCommandCardTitle.Text = Loc.Get("Settings.QuickCommand.CardTitle", "文本快捷命令");
-            QuickCommandDescription.Text = Loc.Get("Settings.QuickCommand.Description", "配置自定义文本处理命令：正则或字面匹配文本 → 替换或提取后粘贴。适用于文本与富文本类型。");
-            AddQuickCommandButton.Content = Loc.Get("Settings.QuickCommand.Add", "➕ 新增文本快捷命令");
-            QuickCommandTemplateButton.ToolTip = Loc.Get("Settings.QuickCommand.Template.Tooltip", "从模板新增");
+            this.LocalizeAll(
+                (QuickCommandTitleText, "Settings.QuickCommand.Title", "快捷命令"),
+                (QuickCommandCardTitle, "Settings.QuickCommand.CardTitle", "文本快捷命令"),
+                (QuickCommandDescription, "Settings.QuickCommand.Description", "配置自定义文本处理命令：正则或字面匹配文本 → 替换或提取后粘贴。适用于文本与富文本类型。"),
+                (AddQuickCommandButton, "Settings.QuickCommand.Add", "➕ 新增文本快捷命令"));
+
+            this.LocalizeAll(
+                (QuickCommandTemplateButton, "Settings.QuickCommand.Template.Tooltip", "从模板新增", LocProp.ToolTip));
+
+            RelocalizeQuickCommandEntries();
+        }
+
+        /// <summary>语言切换后重放动态条目：读当前 UI 状态 → 保留 Tag 基线 → 用当前语言重建。</summary>
+        private static void RelocalizeEntryPanel<T>(Panel panel, Func<Border, T> read, Func<T, T> clone, Func<T, Border> build, Action<Border> validate) where T : class
+        {
+            if (panel.Children.Count == 0) return;
+
+            var snapshot = new List<(T Current, T Baseline)>();
+            foreach (var child in panel.Children)
+            {
+                if (child is Border entry)
+                    snapshot.Add((read(entry), entry.Tag is T baseline ? clone(baseline) : null));
+            }
+
+            panel.Children.Clear();
+            foreach (var (current, baseline) in snapshot)
+            {
+                var rebuilt = build(current);
+                if (baseline != null) rebuilt.Tag = baseline;
+                panel.Children.Add(rebuilt);
+                validate?.Invoke(rebuilt);
+            }
+        }
+
+        private void RelocalizeQuickPasteEntries()
+        {
+            RelocalizeEntryPanel(QuickPasteEntriesPanel, ReadQuickPasteEntry, sc => sc.Clone(), BuildQuickPasteEntry, e => ValidateQuickPasteEntry(e, showMessage: false));
+        }
+
+        private void RelocalizeGlobalHotkeyEntries()
+        {
+            RelocalizeEntryPanel(GlobalHotkeyEntriesPanel, ReadGlobalHotkeyEntry, gh => gh.Clone(), BuildGlobalHotkeyEntry, e => ValidateGlobalHotkeyEntry(e, showMessage: false));
+        }
+
+        private void RelocalizeQuickCommandEntries()
+        {
+            RelocalizeEntryPanel(QuickCommandEntriesPanel, ReadQuickCommandEntry, qc => qc.Clone(), BuildQuickCommandEntry, e => ValidateQuickCommandEntry(e, showMessage: false));
         }
 
         private void ApplyPanelCaptureLocalization()
         {
-            CaptureTitleText.Text = Loc.Get("Settings.Capture.Title", "捕获设置");
-            CaptureCardTitle.Text = Loc.Get("Settings.Capture.CardTitle", "剪贴板捕获");
-            CaptureImagesCheckBox.Content = Loc.Get("Settings.Capture.Images", "捕获图片");
-            CaptureImagesDescription.Text = Loc.Get("Settings.Capture.ImagesDescription", "自动保存剪贴板中的图片内容");
-            CaptureFilesCheckBox.Content = Loc.Get("Settings.Capture.Files", "捕获文件路径");
-            CaptureFilesDescription.Text = Loc.Get("Settings.Capture.FilesDescription", "记录复制的文件和文件夹路径");
-            RemoveDuplicatesCheckBox.Content = Loc.Get("Settings.Capture.RemoveDuplicates", "自动删除重复内容");
-            RemoveDuplicatesDescription.Text = Loc.Get("Settings.Capture.RemoveDuplicatesDescription", "检测到重复内容时自动删除旧记录。执行顺序粘贴命令时如果其中有重复记录，将受到影响");
-            MoveToTopCheckBox.Content = Loc.Get("Settings.Capture.MoveToTop", "粘贴后移动至首位");
-            MoveToTopDescription.Text = Loc.Get("Settings.Capture.MoveToTopDescription", "点击列表项粘贴后，将该未分组记录移到列表最前面");
+            this.LocalizeAll(
+                (CaptureTitleText, "Settings.Capture.Title", "捕获设置"),
+                (CaptureCardTitle, "Settings.Capture.CardTitle", "剪贴板捕获"),
+                (EnableMonitorCheckBox, "Settings.System.EnableMonitor", "启用剪贴板监控"),
+                (EnableMonitorDescription, "Settings.System.EnableMonitorDescription", "监听并记录剪贴板内容变化"),
+                (CaptureTextCheckBox, "Settings.Capture.Text", "捕获文本"),
+                (CaptureTextDescription, "Settings.Capture.TextDescription", "记录复制的纯文本与富文本内容"),
+                (CaptureImagesCheckBox, "Settings.Capture.Images", "捕获图片"),
+                (CaptureImagesDescription, "Settings.Capture.ImagesDescription", "自动保存剪贴板中的图片内容"),
+                (CaptureFilesCheckBox, "Settings.Capture.Files", "捕获文件路径"),
+                (CaptureFilesDescription, "Settings.Capture.FilesDescription", "记录复制的文件和文件夹路径"),
+                (RemoveDuplicatesCheckBox, "Settings.Capture.RemoveDuplicates", "自动删除重复内容"),
+                (RemoveDuplicatesDescription, "Settings.Capture.RemoveDuplicatesDescription", "检测到重复内容时自动删除旧记录。执行顺序粘贴命令时如果其中有重复记录，将受到影响"),
+                (MoveToTopCheckBox, "Settings.Capture.MoveToTop", "粘贴后移动至首位"),
+                (MoveToTopDescription, "Settings.Capture.MoveToTopDescription", "点击列表项粘贴后，将该未分组记录移到列表最前面"),
+                (IgnoredWindowsCardTitle, "Settings.Capture.IgnoredWindows.Title", "忽略窗口"),
+                (IgnoredWindowsDescription, "Settings.Capture.IgnoredWindows.Description", "前台窗口的标题或进程名包含以下任一关键词时，不记录其剪贴板内容"),
+                (IgnoredWindowsEmptyText, "Settings.Capture.IgnoredWindows.Empty", "暂无忽略规则，所有窗口的剪贴板内容都会被记录"),
+                (IgnoredWindowInputPlaceholder, "Settings.Capture.IgnoredWindows.Placeholder", "输入窗口标题或进程名关键词"),
+                (IgnoredWindowAddButton, "Settings.Capture.IgnoredWindows.Add", "添加"));
+        }
+
+        private void LoadIgnoredWindowEntries()
+        {
+            _ignoredWindowKeywords.Clear();
+            foreach (var keyword in _settingsService.Settings.IgnoredWindowKeywords ?? new List<string>())
+            {
+                if (!string.IsNullOrWhiteSpace(keyword))
+                    _ignoredWindowKeywords.Add(keyword);
+            }
+            IgnoredWindowsList.ItemsSource = _ignoredWindowKeywords;
+            UpdateIgnoredWindowsEmptyState();
+        }
+
+        private void UpdateIgnoredWindowsEmptyState()
+        {
+            IgnoredWindowsEmptyText.Visibility = _ignoredWindowKeywords.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void IgnoredWindowAdd_Click(object sender, RoutedEventArgs e)
+        {
+            AddIgnoredWindowFromInput();
+        }
+
+        private void IgnoredWindowInput_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                AddIgnoredWindowFromInput();
+                e.Handled = true;
+            }
+        }
+
+        private void AddIgnoredWindowFromInput()
+        {
+            var keyword = IgnoredWindowInputTextBox.Text?.Trim() ?? "";
+            if (keyword.Length == 0)
+                return;
+
+            if (_ignoredWindowKeywords.Any(k => string.Equals(k, keyword, StringComparison.OrdinalIgnoreCase)))
+            {
+                IgnoredWindowInputTextBox.Clear();
+                return;
+            }
+
+            _ignoredWindowKeywords.Add(keyword);
+            IgnoredWindowInputTextBox.Clear();
+            UpdateIgnoredWindowsEmptyState();
+        }
+
+        private void IgnoredWindowDelete_Click(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.DataContext is string keyword)
+            {
+                _ignoredWindowKeywords.Remove(keyword);
+                UpdateIgnoredWindowsEmptyState();
+            }
+        }
+
+        private void CollectIgnoredWindowKeywords()
+        {
+            _settingsService.Settings.IgnoredWindowKeywords = _ignoredWindowKeywords.ToList();
         }
 
         private void ApplyPanelHistoryLocalization()
         {
-            HistoryTitleText.Text = Loc.Get("Settings.History.Title", "历史记录");
-            HistoryManageCardTitle.Text = Loc.Get("Settings.History.CardTitle", "历史记录管理");
-            AutoCleanupInfoText.Text = Loc.Get("Settings.History.AutoCleanupInfo", "自动删除不会删除已分组的历史记录");
-            EnableAutoCleanupCheckBox.Content = Loc.Get("Settings.History.EnableAutoCleanup", "启用自动删除");
-            RetentionDaysText.Text = Loc.Get("Settings.History.RetentionDays", "保留天数");
-            RetentionDaysHint.Text = Loc.Get("Settings.History.RetentionDaysHint", "超过设定天数的历史记录将被自动删除");
-            MaxRecordsText.Text = Loc.Get("Settings.History.MaxRecords", "最大记录数");
-            MaxRecordsHint.Text = Loc.Get("Settings.History.MaxRecordsHint", "超出数量限制时自动删除最早的记录");
-            KeepForeverItem.Content = Loc.Get("Settings.History.KeepForever", "永久保留");
-            UnlimitedItem.Content = Loc.Get("Settings.History.Unlimited", "无限制");
+            this.LocalizeAll(
+                (HistoryTitleText, "Settings.History.Title", "历史记录"),
+                (HistoryManageCardTitle, "Settings.History.CardTitle", "历史记录管理"),
+                (AutoCleanupInfoText, "Settings.History.AutoCleanupInfo", "自动删除不会删除已分组的历史记录"),
+                (EnableAutoCleanupCheckBox, "Settings.History.EnableAutoCleanup", "启用自动删除"),
+                (RetentionDaysText, "Settings.History.RetentionDays", "保留天数"),
+                (RetentionDaysHint, "Settings.History.RetentionDaysHint", "超过设定天数的历史记录将被自动删除"),
+                (MaxRecordsText, "Settings.History.MaxRecords", "最大记录数"),
+                (MaxRecordsHint, "Settings.History.MaxRecordsHint", "超出数量限制时自动删除最早的记录"),
 
-            ManualCleanupCardTitle.Text = Loc.Get("Settings.History.ManualCleanup.Title", "手动删除");
-            ClearAllHistoryButton.Content = Loc.Get("Settings.History.ClearAll", "删除所有历史");
-            ClearUngroupedHistoryButton.Content = Loc.Get("Settings.History.ClearUngrouped", "删除未分组历史");
-            DeleteDuplicatesButton.Content = Loc.Get("Settings.History.DeleteDuplicates", "删除重复记录");
-            ClearBeforeDaysText.Text = Loc.Get("Settings.History.ClearBeforeDays", "删除指定天数之前和指定类型的历史记录");
-            ClearBeforeDaysButton.Content = Loc.Get("Settings.History.Execute", "执行");
-            ClearBeforeDaysHint.Text = Loc.Get("Settings.History.ClearBeforeDaysHint", "仅删除未分组的记录，已分组的记录将被保留");
+                (ManualCleanupCardTitle, "Settings.History.ManualCleanup.Title", "手动删除"),
+                (ClearAllHistoryButton, "Settings.History.ClearAll", "删除所有历史"),
+                (ClearUngroupedHistoryButton, "Settings.History.ClearUngrouped", "删除未分组历史"),
+                (DeleteDuplicatesButton, "Settings.History.DeleteDuplicates", "删除重复记录"),
+                (ClearBeforeDaysText, "Settings.History.ClearBeforeDays", "删除指定天数之前和指定类型的历史记录"),
+                (ClearBeforeDaysButton, "Settings.History.Execute", "执行"),
+                (ClearBeforeDaysHint, "Settings.History.ClearBeforeDaysHint", "仅删除未分组的记录，已分组的记录将被保留"),
 
-            DeleteLongTextTitle.Text = Loc.Get("Settings.History.DeleteLongText", "删除大于指定字符的文本/富文本类型");
-            DeleteLongTextButton.Content = Loc.Get("Settings.History.Execute", "执行");
-            DeleteLongTextHint.Text = Loc.Get("Settings.History.ClearBeforeDaysHint", "仅删除未分组的记录，已分组的记录将被保留");
+                (DeleteLongTextTitle, "Settings.History.DeleteLongText", "删除大于指定字符的文本/富文本类型"),
+                (DeleteLongTextButton, "Settings.History.Execute", "执行"),
+                (DeleteLongTextHint, "Settings.History.ClearBeforeDaysHint", "仅删除未分组的记录，已分组的记录将被保留"),
 
-            ClearTypeAll.Content = Loc.Get("Settings.History.DeleteType.All", "全部");
-            ClearTypeText.Content = Loc.Get("Settings.History.DeleteType.Text", "文本");
-            ClearTypeRichText.Content = Loc.Get("Settings.History.DeleteType.RichText", "富文本");
-            ClearTypeLink.Content = Loc.Get("Settings.History.DeleteType.Link", "链接");
-            ClearTypeImage.Content = Loc.Get("Settings.History.DeleteType.Image", "图片");
-            ClearTypeFile.Content = Loc.Get("Settings.History.DeleteType.File", "文件");
+                (ClearTypeAll, "Settings.History.DeleteType.All", "全部"),
+                (ClearTypeText, "Settings.History.DeleteType.Text", "文本"),
+                (ClearTypeRichText, "Settings.History.DeleteType.RichText", "富文本"),
+                (ClearTypeLink, "Settings.History.DeleteType.Link", "链接"),
+                (ClearTypeImage, "Settings.History.DeleteType.Image", "图片"),
+                (ClearTypeFile, "Settings.History.DeleteType.File", "文件"));
         }
 
         private void ApplyPanelStorageLocalization()
         {
-            StorageTitleText.Text = Loc.Get("Settings.Storage.Title", "存储与备份");
-            DataStorageCardTitle.Text = Loc.Get("Settings.Storage.DataStorage", "数据存储位置");
-            DatabasePathText.Text = Loc.Get("Settings.Storage.DatabasePath", "数据库路径");
-            BrowseDatabasePathButton.Content = Loc.Get("Common.Browse", "浏览");
-            DataManageCardTitle.Text = Loc.Get("Settings.Storage.DataManagement", "数据管理");
-            
-            BackupDataButton.Content = Loc.Get("Settings.Storage.Backup", "备份数据");
-            RestoreBackupButton.Content = Loc.Get("Settings.Storage.Restore", "恢复备份");
-            ExportJsonButton.Content = Loc.Get("Settings.Storage.ExportJson", "导出JSON");
-            ImportJsonButton.Content = Loc.Get("Settings.Storage.ImportJson", "导入JSON");
-            ImportTextButton.Content = Loc.Get("Settings.Storage.ImportText", "导入纯文本");
-            
-            BackupDataHint.Text = Loc.Get("Settings.Storage.BackupHint", "备份数据：将数据库和图片打包为ZIP文件");
-            RestoreBackupHint.Text = Loc.Get("Settings.Storage.RestoreHint", "恢复备份：从ZIP文件恢复数据并重启程序");
-            ExportJsonHint.Text = Loc.Get("Settings.Storage.ExportJsonHint", "导出JSON：导出所有分组和剪贴板记录为JSON文件");
-            ImportJsonHint.Text = Loc.Get("Settings.Storage.ImportJsonHint", "导入JSON：从JSON文件导入分组和记录，自动处理重复");
-            ImportTextHint.Text = Loc.Get("Settings.Storage.ImportTextHint", "导入纯文本：从TXT文件导入文本记录（一行一条记录）");
+            this.LocalizeAll(
+                (StorageTitleText, "Settings.Storage.Title", "存储与备份"),
+                (DataStorageCardTitle, "Settings.Storage.DataStorage", "数据存储位置"),
+                (DatabasePathText, "Settings.Storage.DatabasePath", "数据库路径"),
+                (BrowseDatabasePathButton, "Common.Browse", "浏览"),
+                (DataManageCardTitle, "Settings.Storage.DataManagement", "数据管理"),
+
+                (BackupDataButton, "Settings.Storage.Backup", "备份数据"),
+                (RestoreBackupButton, "Settings.Storage.Restore", "恢复备份"),
+                (ExportJsonButton, "Settings.Storage.ExportJson", "导出JSON"),
+                (ImportJsonButton, "Settings.Storage.ImportJson", "导入JSON"),
+                (ImportTextButton, "Settings.Storage.ImportText", "导入纯文本"),
+
+                (BackupDataHint, "Settings.Storage.BackupHint", "备份数据：将数据库和图片打包为ZIP文件"),
+                (RestoreBackupHint, "Settings.Storage.RestoreHint", "恢复备份：从ZIP文件恢复数据并重启程序"),
+                (ExportJsonHint, "Settings.Storage.ExportJsonHint", "导出JSON：导出所有分组和剪贴板记录为JSON文件"),
+                (ImportJsonHint, "Settings.Storage.ImportJsonHint", "导入JSON：从JSON文件导入分组和记录，自动处理重复"),
+                (ImportTextHint, "Settings.Storage.ImportTextHint", "导入纯文本：从TXT文件导入文本记录（一行一条记录）"));
         }
 
         private void ApplyPanelSearchLocalization()
         {
-            SearchTitleText.Text = Loc.Get("Settings.Search.Title", "搜索引擎");
-            SearchEngineCardTitle.Text = Loc.Get("Settings.Search.CardTitle", "默认搜索引擎");
-            SelectSearchEngineText.Text = Loc.Get("Settings.Search.SelectEngine", "选择搜索引擎");
-            CustomSearchUrlText.Text = Loc.Get("Settings.Search.CustomUrl", "自定义搜索 URL");
-            KeywordPlaceholderText.Text = Loc.Get("Settings.Search.KeywordPlaceholder", "使用 %s 表示搜索关键词，如: https://www.google.com/search?q=%s");
-        }
-
-        private void ApplyPanelSystemLocalization()
-        {
-            SystemTitleText.Text = Loc.Get("Settings.System.Title", "系统设置");
-            SystemOptionsCardTitle.Text = Loc.Get("Settings.System.Options", "系统选项");
-            StartWithWindowsCheckBox.Content = Loc.Get("Settings.System.StartWithWindows", "开机自动启动");
-            StartWithWindowsDescription.Text = Loc.Get("Settings.System.StartWithWindowsDescription", "系统启动时自动运行 WinVClip");
-            ShowHotkeyTipCheckBox.Content = Loc.Get("Settings.System.ShowHotkeyTip", "启动时显示快捷键提示");
-            ShowHotkeyTipDescription.Text = Loc.Get("Settings.System.ShowHotkeyTipDescription", "程序启动时在托盘通知中显示快捷键信息");
-            EnableMonitorCheckBox.Content = Loc.Get("Settings.System.EnableMonitor", "启用剪贴板监控");
-            EnableMonitorDescription.Text = Loc.Get("Settings.System.EnableMonitorDescription", "监听并记录剪贴板内容变化");
+            this.LocalizeAll(
+                (SearchTitleText, "Settings.Search.Title", "搜索选项"),
+                (SearchEngineCardTitle, "Settings.Search.CardTitle", "默认搜索引擎"),
+                (SelectSearchEngineText, "Settings.Search.SelectEngine", "在浏览器中打开文本时使用的搜索引擎"),
+                (SearchOptionsCardTitle, "Settings.Search.OptionsCard", "搜索选项"),
+                (SearchOptionsHintText, "Settings.Search.OptionsHint", "与主界面搜索栏浮层同步生效，保存设置后应用"),
+                (SettingsOptHighlight, "MainWindow.Search.Highlight", "关键词高亮"),
+                (SettingsOptExact, "MainWindow.Search.MatchAll", "匹配全部关键词"),
+                (SettingsOptHistory, "MainWindow.Search.History", "搜索历史"),
+                (SettingsOptPinyin, "MainWindow.Search.Pinyin", "拼音搜索"),
+                (SettingsOptRegex, "MainWindow.Search.Regex", "使用正则"),
+                (SettingsOptWildcard, "MainWindow.Search.Wildcard", "使用通配符"),
+                (CustomSearchUrlText, "Settings.Search.CustomUrl", "自定义搜索 URL"),
+                (KeywordPlaceholderText, "Settings.Search.KeywordPlaceholder", "使用 %s 表示搜索关键词，如: https://www.google.com/search?q=%s"));
         }
 
         private void ApplyPanelAboutLocalization()
         {
-            NavAbout.Content = Loc.Get("Settings.Nav.About", "关于");
-            AboutTitleText.Text = Loc.Get("Settings.System.About.Title", "关于");
-            AboutGitHubLabel.Text = Loc.Get("Settings.System.About.GitHub", "GitHub");
+            this.LocalizeAll(
+                (NavAbout, "Settings.Nav.About", "关于"),
+                (AboutTitleText, "Settings.System.About.Title", "关于"),
+                (AboutGitHubLabel, "Settings.System.About.GitHub", "GitHub"));
         }
 
         private void LoadAboutInfo()
@@ -306,7 +403,6 @@ namespace WinVClip
                 System.Reflection.Assembly.GetExecutingAssembly().Location).FileVersion;
             var versionLabel = Loc.Get("Settings.System.About.Version", "版本");
             AboutVersionText.Text = $"{versionLabel} {version}";
-            ApplyPanelAboutLocalization();
         }
 
         private void AboutGitHubLink_MouseDown(object sender, MouseButtonEventArgs e)
@@ -322,7 +418,7 @@ namespace WinVClip
         {
             if (CustomSearchEngineGrid == null)
                 return;
-                
+
             var selectedId = _settingsService.Settings.SelectedSearchEngineId;
             CustomSearchEngineGrid.Visibility = selectedId == "custom" ? Visibility.Visible : Visibility.Collapsed;
         }
@@ -369,7 +465,25 @@ namespace WinVClip
             UpdateCustomSearchEngineGridVisibility();
         }
 
-        
+        /// <summary>设置页：正则与通配符互斥（勾选一个时取消另一个）</summary>
+        private void SearchRegexSetting_Changed(object sender, RoutedEventArgs e)
+        {
+            if (SettingsOptRegex.IsChecked == true && _settingsService.Settings.SearchWildcardEnabled)
+            {
+                _settingsService.Settings.SearchWildcardEnabled = false;
+                SettingsOptWildcard.IsChecked = false;
+            }
+        }
+
+        private void SearchWildcardSetting_Changed(object sender, RoutedEventArgs e)
+        {
+            if (SettingsOptWildcard.IsChecked == true && _settingsService.Settings.SearchRegexEnabled)
+            {
+                _settingsService.Settings.SearchRegexEnabled = false;
+                SettingsOptRegex.IsChecked = false;
+            }
+        }
+
         private static readonly string[] ModifierOrder = { "Ctrl", "Alt", "Shift", "Win" };
 
         private void HotkeyTextBox_GotFocus(object sender, RoutedEventArgs e)
@@ -387,7 +501,6 @@ namespace WinVClip
 
             e.Handled = true;
 
-            
             if (e.Key == Key.System)
             {
                 var systemKey = e.SystemKey;
@@ -403,11 +516,10 @@ namespace WinVClip
                 }
             }
 
-            
             string? modifierKey = GetModifierKeyName(e.Key);
             if (modifierKey != null)
             {
-                
+
                 if (!_pressedModifiers.Contains(modifierKey, StringComparer.OrdinalIgnoreCase))
                 {
                     _pressedModifiers.Add(modifierKey);
@@ -433,7 +545,6 @@ namespace WinVClip
                 return;
             }
 
-            
             if (e.Key != Key.System && !IsModifierKey(e.Key))
             {
                 var keyName = GetKeyDisplayName(e.Key);
@@ -442,7 +553,6 @@ namespace WinVClip
                 HotkeyTextBox.Text = string.Join("+", allKeys);
                 _pressedModifiers.Clear();
 
-                
                 _ = Task.Run(async () =>
                 {
                     await Task.Delay(100); 
@@ -496,13 +606,13 @@ namespace WinVClip
 
         private void UpdateHotkeyDisplay()
         {
-            
+
             var orderedModifiers = ModifierOrder
                 .Where(m => _pressedModifiers.Contains(m, StringComparer.OrdinalIgnoreCase));
             HotkeyTextBox.Text = string.Join("+", orderedModifiers);
         }
 
-        private void HotkeyTextBox_LostFocus(object sender, RoutedEventArgs e)
+        private async void HotkeyTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
             if (_isSettingHotkey)
             {
@@ -510,17 +620,14 @@ namespace WinVClip
 
                 var newHotkey = HotkeyTextBox.Text;
 
-                
                 if (string.IsNullOrWhiteSpace(newHotkey) || newHotkey == Loc.Get("Settings.General.Hotkey.PressingKeys", "按下快捷键组合..."))
                 {
                     HotkeyTextBox.Text = _tempHotkey;
                     return;
                 }
 
-                
                 newHotkey = HotkeyService.NormalizeHotkey(newHotkey);
 
-                
                 if (!HotkeyService.ValidateHotkey(newHotkey))
                 {
                     HotkeyTextBox.Text = _tempHotkey;
@@ -528,21 +635,18 @@ namespace WinVClip
                     return;
                 }
 
-                
                 if (newHotkey.Equals(_tempHotkey, StringComparison.OrdinalIgnoreCase))
                 {
                     HotkeyTextBox.Text = newHotkey;
                     return;
                 }
 
-                
-                if (!CheckAndHandleWinVConflict(newHotkey))
+                if (!await CheckAndHandleWinVConflict(newHotkey))
                 {
                     HotkeyTextBox.Text = _tempHotkey;
                     return;
                 }
 
-                
                 if (!IsHotkeyAvailable(newHotkey))
                 {
                     HotkeyTextBox.Text = _tempHotkey;
@@ -561,7 +665,7 @@ namespace WinVClip
         {
             try
             {
-                
+
                 using var tempService = new HotkeyService(IntPtr.Zero);
                 return tempService.RegisterHotkey(hotkey, () => { });
             }
@@ -762,17 +866,15 @@ namespace WinVClip
 
         #endregion
 
-        private bool CheckAndHandleWinVConflict(string hotkey)
+        private async Task<bool> CheckAndHandleWinVConflict(string hotkey)
         {
-            
+
             if (!hotkey.Equals("Win+V", StringComparison.OrdinalIgnoreCase))
                 return true; 
 
-            
             if (IsSystemWinVDisabled())
                 return true; 
 
-            
             if (!IsAdministrator())
             {
                 var result = AppMessageBox.Show(
@@ -788,7 +890,6 @@ namespace WinVClip
                 return false;
             }
 
-            
             var confirmResult = AppMessageBox.Show(
                 Loc.Get("Settings.Hotkey.WinVConflict", "该快捷键与系统快捷键冲突，需要在注册表禁用系统的历史剪贴板并重启资源管理器。\n\n是否继续？"),
                 Loc.Get("Settings.Hotkey.ConflictTitle", "快捷键冲突"),
@@ -798,8 +899,7 @@ namespace WinVClip
             if (confirmResult != MessageBoxResult.OK)
                 return false;
 
-            
-            return DisableSystemWinV();
+            return await DisableSystemWinV();
         }
 
         private bool IsAdministrator()
@@ -857,15 +957,14 @@ namespace WinVClip
             }
         }
 
-        private bool DisableSystemWinV()
+        private async Task<bool> DisableSystemWinV()
         {
             try
             {
                 using var key = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Clipboard");
                 key.SetValue("IsCloudAndHistoryFeatureAvailable", 0, Microsoft.Win32.RegistryValueKind.DWord);
 
-                
-                RestartExplorer();
+                await RestartExplorer();
 
                 AppMessageBox.Show(Loc.Get("Settings.Hotkey.WinVDisabled", "系统 Win+V 已禁用，资源管理器已重启。\n\n现在可以使用 Win+V 作为快捷键了。"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return true;
@@ -877,35 +976,34 @@ namespace WinVClip
             }
         }
 
-        private void RestartExplorer()
+        private async Task RestartExplorer()
         {
             try
             {
-                
-                var processes = System.Diagnostics.Process.GetProcessesByName("explorer");
-                foreach (var process in processes)
+                await Task.Run(() =>
                 {
-                    try
+                    var processes = System.Diagnostics.Process.GetProcessesByName("explorer");
+                    foreach (var process in processes)
                     {
-                        process.Kill();
-                        process.WaitForExit(2000);
+                        try
+                        {
+                            process.Kill();
+                            process.WaitForExit(2000);
+                        }
+                        catch
+                        {
+                        }
                     }
-                    catch
-                    {
-                    }
-                }
 
-                
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "explorer.exe",
-                    UseShellExecute = true
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "explorer.exe",
+                        UseShellExecute = true
+                    });
+
+                    System.Threading.Thread.Sleep(2000);
                 });
 
-                
-                System.Threading.Thread.Sleep(2000);
-
-                
                 App.RecreateTrayIcon();
             }
             catch
@@ -913,11 +1011,11 @@ namespace WinVClip
             }
         }
 
-        private void QuickHotkeyButton_Click(object sender, RoutedEventArgs e)
+        private async void QuickHotkeyButton_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button button && button.Tag is string hotkey)
             {
-                
+
                 if (hotkey.Equals(_tempHotkey, StringComparison.OrdinalIgnoreCase))
                 {
                     AppMessageBox.Show(Loc.Get("Settings.Hotkey.AlreadyCurrent", "该快捷键已经是当前设置。"), Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
@@ -930,7 +1028,7 @@ namespace WinVClip
                     return;
                 }
 
-                if (!CheckAndHandleWinVConflict(hotkey))
+                if (!await CheckAndHandleWinVConflict(hotkey))
                     return;
 
                 if (!IsHotkeyAvailable(hotkey))
@@ -948,7 +1046,7 @@ namespace WinVClip
             }
         }
 
-        private void RestoreSystemWinV_Click(object sender, RoutedEventArgs e)
+        private async void RestoreSystemWinV_Click(object sender, RoutedEventArgs e)
         {
             if (!IsAdministrator())
             {
@@ -970,7 +1068,7 @@ namespace WinVClip
                 using var key = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Clipboard");
                 key.SetValue("IsCloudAndHistoryFeatureAvailable", 1, Microsoft.Win32.RegistryValueKind.DWord);
 
-                RestartExplorer();
+                await RestartExplorer();
 
                 AppMessageBox.Show(Loc.Get("Settings.Hotkey.WinVRestored", "系统 Win+V 已还原，资源管理器已重启。\n\n现在可以使用系统历史剪贴板功能了。"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
@@ -1019,7 +1117,7 @@ namespace WinVClip
                 DefaultExt = ".db",
                 FileName = "clipboard_history.db"
             };
-            
+
             if (dialog.ShowDialog() == true)
             {
                 _settingsService.Settings.DatabasePath = dialog.FileName;
@@ -1034,7 +1132,7 @@ namespace WinVClip
                 DefaultExt = ".zip",
                 FileName = $"WinVClip_backup_{DateTime.Now:yyyy_MM_dd}.zip"
             };
-            
+
             if (dialog.ShowDialog() == true)
             {
                 try
@@ -1050,7 +1148,7 @@ namespace WinVClip
                     var imagesPath = System.IO.Path.Combine(dbDir, "images");
                     var tempDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp");
                     var tempBackupPath = System.IO.Path.Combine(tempDir, $"Backup_{Guid.NewGuid():N}");
-                    
+
                     Directory.CreateDirectory(tempBackupPath);
 
                     try
@@ -1220,7 +1318,7 @@ namespace WinVClip
 
             if (dialog.ShowDialog() == true)
             {
-                
+
                 var progressWindow = new Window
                 {
                     Title = Loc.Get("Import.Title", "导入数据"),
@@ -1257,7 +1355,6 @@ namespace WinVClip
                 stackPanel.Children.Add(detailText);
                 progressWindow.Content = stackPanel;
 
-                
                 _ = Task.Run(async () =>
                 {
                     try
@@ -1495,7 +1592,7 @@ namespace WinVClip
                                 ? nameProp.GetString() : null;
                             var originalId = group.TryGetProperty("Id", out var idProp) && idProp.ValueKind == System.Text.Json.JsonValueKind.Number 
                                 ? idProp.GetInt64() : 0;
-                            
+
                             if (!string.IsNullOrWhiteSpace(groupName))
                             {
                                 if (!groupNameToId.ContainsKey(groupName))
@@ -1529,7 +1626,7 @@ namespace WinVClip
                     {
                         var typeStr = item.TryGetProperty("Type", out var typeProp) && typeProp.ValueKind != System.Text.Json.JsonValueKind.Null 
                             ? typeProp.GetString() : "Text";
-                        
+
                         if (typeStr == "Text")
                         {
                             var content = item.TryGetProperty("Content", out var contentProp) && contentProp.ValueKind != System.Text.Json.JsonValueKind.Null 
@@ -1787,7 +1884,7 @@ namespace WinVClip
                                 _settingsService.Settings.RetentionDays != _originalSettings.RetentionDays;
             var themeChanged = _settingsService.Settings.Theme != _originalSettings.Theme;
             var languageChanged = false;
-            
+
             if (LanguageComboBox?.SelectedItem is ComboBoxItem selectedItem)
             {
                 var selectedCode = selectedItem.Tag as string;
@@ -1801,6 +1898,7 @@ namespace WinVClip
             CollectQuickPasteEntries();
             CollectQuickCommandEntries();
             CollectGlobalHotkeyEntries();
+            CollectIgnoredWindowKeywords();
             _settingsService.SaveSettings();
 
             if (monitoringChanged)
@@ -1829,11 +1927,9 @@ namespace WinVClip
                 LocalizationService.Instance.LoadLanguage(_settingsService.Settings.Language);
             }
 
-            
             App.RegisterAllHotkeys();
             SyncGlobalHotkeyEntrySnapshots();
-            _originalSettings.GlobalHotkeys = _settingsService.Settings.GlobalHotkeys?
-                .Select(g => g.Clone()).ToList() ?? new List<GlobalHotkey>();
+            _originalSettings = _settingsService.Settings.Clone();
 
             DialogResult = true;
             Close();
@@ -1850,34 +1946,14 @@ namespace WinVClip
             var currentStartWithWindows = StartWithWindowsCheckBox?.IsChecked ?? false;
             var startWithWindowsChanged = currentStartWithWindows != _originalStartWithWindows;
 
-            _settingsService.Settings.Hotkey = _originalSettings.Hotkey;
-            _settingsService.Settings.CaptureImages = _originalSettings.CaptureImages;
-            _settingsService.Settings.CaptureFiles = _originalSettings.CaptureFiles;
-            _settingsService.Settings.RemoveDuplicates = _originalSettings.RemoveDuplicates;
-            _settingsService.Settings.DatabasePath = _originalSettings.DatabasePath;
-            _settingsService.Settings.EnableAutoCleanup = _originalSettings.EnableAutoCleanup;
-            _settingsService.Settings.RetentionDays = _originalSettings.RetentionDays;
-            _settingsService.Settings.MonitorEnabled = _originalSettings.MonitorEnabled;
-            _settingsService.Settings.Theme = _originalSettings.Theme;
-            _settingsService.Settings.MaxHistoryItems = _originalSettings.MaxHistoryItems;
-            _settingsService.Settings.MoveToTopAfterPaste = _originalSettings.MoveToTopAfterPaste;
-            _settingsService.Settings.PasteShortcutMode = _originalSettings.PasteShortcutMode;
-            _settingsService.Settings.Language = _originalSettings.Language;
-            _settingsService.Settings.FontSize = _originalSettings.FontSize;
-            _settingsService.Settings.ShowHotkeyTipOnStartup = _originalSettings.ShowHotkeyTipOnStartup;
-            _settingsService.Settings.SequentialPasteLifoHotkey = _originalSettings.SequentialPasteLifoHotkey;
-            _settingsService.Settings.SequentialPasteFifoHotkey = _originalSettings.SequentialPasteFifoHotkey;
-            _settingsService.Settings.SequentialPasteIntervalSeconds = _originalSettings.SequentialPasteIntervalSeconds;
-            // AppSettings 未实现 INPC，手动刷新控件显示
+            // AppSettings 未实现 INPC，交换实例后重绑 DataContext 刷新全部绑定控件
+            _settingsService.Settings = _originalSettings.Clone();
+            DataContext = null;
+            DataContext = _settingsService.Settings;
             SequentialPasteIntervalUpDown.Value = _originalSettings.SequentialPasteIntervalSeconds;
-            _settingsService.Settings.QuickPasteShortcuts = _originalSettings.QuickPasteShortcuts?
-                .Select(s => s.Clone()).ToList() ?? new List<QuickPasteShortcut>();
-            _settingsService.Settings.QuickCommands = _originalSettings.QuickCommands?
-                .Select(s => s.Clone()).ToList() ?? new List<QuickCommand>();
-            _settingsService.Settings.GlobalHotkeys = _originalSettings.GlobalHotkeys?
-                .Select(g => g.Clone()).ToList() ?? new List<GlobalHotkey>();
             LoadQuickCommandEntries();
             LoadGlobalHotkeyEntries();
+            LoadIgnoredWindowEntries();
             ValidateAllEntries();
 
             if (hotkeyChanged || sequentialHotkeyChanged)
@@ -1913,46 +1989,23 @@ namespace WinVClip
                                 _settingsService.Settings.RetentionDays != _originalSettings.RetentionDays;
             var themeChanged = _settingsService.Settings.Theme != _originalSettings.Theme;
             var languageChanged = _settingsService.Settings.Language != _originalSettings.Language;
-            
+
             var currentStartWithWindows = StartWithWindowsCheckBox?.IsChecked ?? false;
             var startWithWindowsChanged = currentStartWithWindows != _originalStartWithWindows;
 
             CollectQuickPasteEntries();
             CollectQuickCommandEntries();
             CollectGlobalHotkeyEntries();
+            CollectIgnoredWindowKeywords();
             _settingsService.SaveSettings();
 
-            
-            _originalSettings.Hotkey = _settingsService.Settings.Hotkey;
-            _originalSettings.CaptureImages = _settingsService.Settings.CaptureImages;
-            _originalSettings.CaptureFiles = _settingsService.Settings.CaptureFiles;
-            _originalSettings.RemoveDuplicates = _settingsService.Settings.RemoveDuplicates;
-            _originalSettings.DatabasePath = _settingsService.Settings.DatabasePath;
-            _originalSettings.EnableAutoCleanup = _settingsService.Settings.EnableAutoCleanup;
-            _originalSettings.RetentionDays = _settingsService.Settings.RetentionDays;
             _originalStartWithWindows = currentStartWithWindows;
-            _originalSettings.MonitorEnabled = _settingsService.Settings.MonitorEnabled;
-            _originalSettings.Theme = _settingsService.Settings.Theme;
-            _originalSettings.SelectedSearchEngineId = _settingsService.Settings.SelectedSearchEngineId;
-            _originalSettings.CustomSearchEngineUrl = _settingsService.Settings.CustomSearchEngineUrl;
-            _originalSettings.MaxHistoryItems = _settingsService.Settings.MaxHistoryItems;
-            _originalSettings.FontSize = _settingsService.Settings.FontSize;
-            _originalSettings.ShowHotkeyTipOnStartup = _settingsService.Settings.ShowHotkeyTipOnStartup;
-            _originalSettings.SequentialPasteLifoHotkey = _settingsService.Settings.SequentialPasteLifoHotkey;
-            _originalSettings.SequentialPasteFifoHotkey = _settingsService.Settings.SequentialPasteFifoHotkey;
-            _originalSettings.SequentialPasteIntervalSeconds = _settingsService.Settings.SequentialPasteIntervalSeconds;
-            _originalSettings.QuickPasteShortcuts = _settingsService.Settings.QuickPasteShortcuts?
-                .Select(s => s.Clone()).ToList() ?? new List<QuickPasteShortcut>();
-            _originalSettings.QuickCommands = _settingsService.Settings.QuickCommands?
-                .Select(s => s.Clone()).ToList() ?? new List<QuickCommand>();
-            _originalSettings.GlobalHotkeys = _settingsService.Settings.GlobalHotkeys?
-                .Select(g => g.Clone()).ToList() ?? new List<GlobalHotkey>();
-            
+            _originalSettings = _settingsService.Settings.Clone();
+
             SyncQuickPasteEntrySnapshots();
             SyncQuickCommandEntrySnapshots();
             SyncGlobalHotkeyEntrySnapshots();
 
-            
             App.RegisterAllHotkeys();
 
             if (monitoringChanged)
@@ -1979,7 +2032,6 @@ namespace WinVClip
             if (languageChanged)
             {
                 LocalizationService.Instance.LoadLanguage(_settingsService.Settings.Language);
-                _originalSettings.Language = _settingsService.Settings.Language;
             }
         }
 
@@ -1995,7 +2047,7 @@ namespace WinVClip
         {
             if (sender is RadioButton radioButton && radioButton.Tag is string tag)
             {
-                
+
                 PanelGeneral.Visibility = Visibility.Collapsed;
                 PanelHotkey.Visibility = Visibility.Collapsed;
                 PanelQuickCommand.Visibility = Visibility.Collapsed;
@@ -2003,10 +2055,8 @@ namespace WinVClip
                 PanelHistory.Visibility = Visibility.Collapsed;
                 PanelStorage.Visibility = Visibility.Collapsed;
                 PanelSearch.Visibility = Visibility.Collapsed;
-                PanelSystem.Visibility = Visibility.Collapsed;
                 PanelAbout.Visibility = Visibility.Collapsed;
 
-                
                 switch (tag)
                 {
                     case "General":
@@ -2030,9 +2080,6 @@ namespace WinVClip
                     case "Search":
                         PanelSearch.Visibility = Visibility.Visible;
                         break;
-                    case "System":
-                        PanelSystem.Visibility = Visibility.Visible;
-                        break;
                     case "About":
                         PanelAbout.Visibility = Visibility.Visible;
                         break;
@@ -2050,9 +2097,10 @@ namespace WinVClip
 
             if (result == MessageBoxResult.Yes)
             {
-                App.DatabaseService.ClearHistory();
+                int deleted = App.DatabaseService.ClearHistory();
                 App.GetMainWindow()?.ViewModel?.LoadItems();
-                AppMessageBox.Show(Loc.Get("Message.ClearSuccess", "删除成功"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
+                AppMessageBox.Show(string.Format(Loc.Get("Message.DeletedCount", "已删除 {0} 条记录"), deleted),
+                    Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
@@ -2066,9 +2114,10 @@ namespace WinVClip
 
             if (result == MessageBoxResult.Yes)
             {
-                App.DatabaseService.ClearUngroupedHistory();
+                int deleted = App.DatabaseService.ClearUngroupedHistory();
                 App.GetMainWindow()?.ViewModel?.LoadItems();
-                AppMessageBox.Show(Loc.Get("Message.ClearSuccess", "删除成功"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
+                AppMessageBox.Show(string.Format(Loc.Get("Message.DeletedCount", "已删除 {0} 条记录"), deleted),
+                    Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
@@ -2123,9 +2172,10 @@ namespace WinVClip
 
             if (result == MessageBoxResult.Yes)
             {
-                App.DatabaseService.DeleteOldItems(cutoffDate, typeFilter);
+                int deleted = App.DatabaseService.DeleteOldItems(cutoffDate, typeFilter);
                 App.GetMainWindow()?.ViewModel?.LoadItems();
-                AppMessageBox.Show(Loc.Get("Message.ClearSuccess", "删除成功"), Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
+                AppMessageBox.Show(string.Format(Loc.Get("Message.DeletedCount", "已删除 {0} 条记录"), deleted),
+                    Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
@@ -2175,13 +2225,20 @@ namespace WinVClip
         {
             var result = AppMessageBox.Show(Loc.Get("Settings.Reset.Confirm", "确定要重置所有设置吗？这将恢复到默认配置。"), Loc.Get("Settings.Reset.Title", "确认重置"), 
                 MessageBoxButton.YesNo, MessageBoxImage.Warning);
-            
+
             if (result == MessageBoxResult.Yes)
             {
                 _settingsService.Settings.Hotkey = "Ctrl+Shift+V";
+                _settingsService.Settings.CaptureText = true;
                 _settingsService.Settings.CaptureImages = true;
                 _settingsService.Settings.CaptureFiles = true;
                 _settingsService.Settings.RemoveDuplicates = false;
+                _settingsService.Settings.SearchHighlightEnabled = true;
+                _settingsService.Settings.SearchExactModeEnabled = true;
+                _settingsService.Settings.SearchHistoryEnabled = true;
+                _settingsService.Settings.SearchPinyinEnabled = true;
+                _settingsService.Settings.SearchRegexEnabled = false;
+                _settingsService.Settings.SearchWildcardEnabled = false;
                 _settingsService.Settings.EnableAutoCleanup = false;
                 _settingsService.Settings.RetentionDays = 30;
                 _settingsService.Settings.MaxHistoryItems = 200;
@@ -2204,7 +2261,7 @@ namespace WinVClip
                 DataContext = _settingsService.Settings;
 
                 UpdateCustomSearchEngineGridVisibility();
-                
+
                 QuickPasteEntriesPanel.Children.Clear();
                 LoadQuickPasteEntries();
                 QuickCommandEntriesPanel.Children.Clear();
@@ -2220,7 +2277,6 @@ namespace WinVClip
 
         #region 便捷粘贴快捷键条目
 
-        
         private const string EntryTypeComboBox = "TypeComboBox";
         private const string EntryCtrlCheckBox = "CtrlCheckBox";
         private const string EntryShiftCheckBox = "ShiftCheckBox";
@@ -2229,7 +2285,6 @@ namespace WinVClip
         private const string EntryActionComboBox = "ActionComboBox";
         private const string EntryEnabledCheckBox = "EnabledCheckBox";
 
-        
         private void LoadQuickPasteEntries()
         {
             QuickPasteEntriesPanel.Children.Clear();
@@ -2241,7 +2296,6 @@ namespace WinVClip
             }
         }
 
-        
         private void AddQuickPasteEntry_Click(object sender, RoutedEventArgs e)
         {
             var defaults = new QuickPasteShortcut
@@ -2256,10 +2310,9 @@ namespace WinVClip
             QuickPasteEntriesPanel.Children.Add(BuildQuickPasteEntry(defaults));
         }
 
-        
         private Border BuildQuickPasteEntry(QuickPasteShortcut saved)
         {
-            
+
             var entryBorder = new Border
             {
                 BorderBrush = (Brush)FindResource("InputBorderBrush"),
@@ -2274,7 +2327,6 @@ namespace WinVClip
             var root = new StackPanel { Margin = new Thickness(0) };
             entryBorder.Child = root;
 
-            
             var row1 = new WrapPanel { Margin = new Thickness(0, 0, 0, 6) };
 
             var typeCombo = BuildClipboardTypeCombo(EntryTypeComboBox, saved.ClipboardType);
@@ -2321,7 +2373,7 @@ namespace WinVClip
 
             var actionCombo = BuildActionComboBox(EntryActionComboBox, saved.Action, saved.QuickCommandName,
                 saved.ClipboardType);
-            
+
             actionCombo.DropDownOpened += (s, e) =>
             {
                 var selectedTag = (actionCombo.SelectedItem as ComboBoxItem)?.Tag as string;
@@ -2341,7 +2393,6 @@ namespace WinVClip
 
             root.Children.Add(row1);
 
-            
             typeCombo.SelectionChanged += (s, e) => ResetEntryBorder(entryBorder);
             mouseCombo.SelectionChanged += (s, e) => ResetEntryBorder(entryBorder);
             actionCombo.SelectionChanged += (s, e) => ResetEntryBorder(entryBorder);
@@ -2349,10 +2400,9 @@ namespace WinVClip
             shiftCb.Click += (s, e) => ResetEntryBorder(entryBorder);
             altCb.Click += (s, e) => ResetEntryBorder(entryBorder);
 
-            
             var row3 = BuildEntryButtons(
                 EntryEnabledCheckBox, saved.Enabled,
-                (s, e) => OnQuickPasteConfirm(entryBorder),
+                (s, e) => ValidateQuickPasteEntry(entryBorder, showMessage: true),
                 (s, e) => OnQuickPasteReset(entryBorder),
                 System.Windows.Threading.DispatcherPriority.Background,
                 () => QuickPasteEntriesPanel.Children.Remove(entryBorder));
@@ -2366,9 +2416,6 @@ namespace WinVClip
             return new ComboBoxItem { Content = content, Tag = tag };
         }
 
-        
-
-        
         private CheckBox BuildModifierCheckBox(string name, string content, bool isChecked)
         {
             return new CheckBox
@@ -2382,7 +2429,6 @@ namespace WinVClip
             };
         }
 
-        
         private void FillStaticActionItems(ComboBox actionCombo)
         {
             actionCombo.Items.Add(MakeComboItem(Loc.Get("MainWindow.ContextMenu.CharPicker", "拆分选字"), QuickPasteAction.Split.ToString()));
@@ -2397,8 +2443,6 @@ namespace WinVClip
             actionCombo.Items.Add(MakeComboItem(Loc.Get("MainWindow.ContextMenu.Group", "分组"), QuickPasteAction.Group.ToString()));
         }
 
-        
-        
         private ComboBox BuildActionComboBox(string elementName, QuickPasteAction savedAction,
             string savedQcName, int initialFilterType)
         {
@@ -2409,9 +2453,9 @@ namespace WinVClip
                 Style = (Style)FindResource("ModernComboBoxStyle")
             };
             FillStaticActionItems(actionCombo);
-            
+
             RefreshActionComboQuickCommands(actionCombo, initialFilterType);
-            
+
             string initTag;
             if (savedAction == QuickPasteAction.CustomRegex && !string.IsNullOrEmpty(savedQcName))
                 initTag = "QC:" + savedQcName;
@@ -2421,18 +2465,6 @@ namespace WinVClip
             return actionCombo;
         }
 
-        
-        private static Border FindAncestorBorder(System.Windows.DependencyObject start, string tagType)
-        {
-            for (var dp = start; dp != null; dp = System.Windows.Media.VisualTreeHelper.GetParent(dp))
-            {
-                if (dp is Border b && b.Tag != null && b.Tag.GetType().Name == tagType)
-                    return b;
-            }
-            return null;
-        }
-
-        
         private DockPanel BuildEntryButtons(string enabledCheckBoxName, bool enabledValue,
             EventHandler confirmHandler, EventHandler resetHandler,
             System.Windows.Threading.DispatcherPriority removePriority, System.Action removeAction)
@@ -2469,7 +2501,6 @@ namespace WinVClip
             DockPanel.SetDock(resetBtn, Dock.Right);
             row.Children.Add(resetBtn);
 
-            
             var enabledCb = new CheckBox
             {
                 Name = enabledCheckBoxName,
@@ -2485,7 +2516,6 @@ namespace WinVClip
             return row;
         }
 
-        
         private ComboBox BuildClipboardTypeCombo(string elementName, int selectedType)
         {
             var typeCombo = new ComboBox
@@ -2504,24 +2534,6 @@ namespace WinVClip
             return typeCombo;
         }
 
-        
-        private int ReadClipboardTypeCombo(ComboBox typeCombo)
-        {
-            if (typeCombo == null) return -1;
-            var tag = (typeCombo.SelectedItem as ComboBoxItem)?.Tag as string;
-            if (int.TryParse(tag, out var v)) return v;
-            return -1;
-        }
-
-        
-        
-        
-        
-        
-        
-        
-        
-        
         private int ReadTypeComboFromEntryBorder(Border entryBorder, string comboName)
         {
             if (entryBorder == null) return -1;
@@ -2535,7 +2547,10 @@ namespace WinVClip
                 {
                     var c = System.Windows.Media.VisualTreeHelper.GetChild(p, i);
                     if (c is ComboBox cb && cb.Name == comboName)
-                        return ReadClipboardTypeCombo(cb);
+                    {
+                        var tag = (cb.SelectedItem as ComboBoxItem)?.Tag as string;
+                        return int.TryParse(tag, out var v) ? v : -1;
+                    }
                     stack.Push(c);
                 }
             }
@@ -2545,7 +2560,7 @@ namespace WinVClip
         private void RefreshActionComboQuickCommands(ComboBox combo, int entryTypeFilter = -1)
         {
             if (combo == null) return;
-            
+
             for (int i = combo.Items.Count - 1; i >= 0; i--)
             {
                 var it = combo.Items[i];
@@ -2556,7 +2571,6 @@ namespace WinVClip
                 }
             }
 
-            
             var sep = new Separator { Tag = "__QC_SEP__" };
             combo.Items.Add(sep);
             var header = new ComboBoxItem
@@ -2611,21 +2625,18 @@ namespace WinVClip
             if (combo.Items.Count > 0) combo.SelectedIndex = 0;
         }
 
-        
         private void ResetEntryBorder(Border entry)
         {
             entry.BorderBrush = (Brush)FindResource("InputBorderBrush");
             entry.BorderThickness = new Thickness(1);
         }
 
-        
         private void SetEntryConfirmedBorder(Border entry)
         {
             entry.BorderBrush = new SolidColorBrush(Color.FromRgb(34, 197, 94));
             entry.BorderThickness = new Thickness(2);
         }
 
-        
         private void ValidateAllEntries()
         {
             foreach (var child in QuickPasteEntriesPanel.Children)
@@ -2636,13 +2647,6 @@ namespace WinVClip
                 if (child is Border entry) ValidateQuickCommandEntry(entry, showMessage: false);
         }
 
-        
-        private void OnQuickPasteConfirm(Border entry)
-        {
-            ValidateQuickPasteEntry(entry, showMessage: true);
-        }
-
-        
         private bool ValidateQuickPasteEntry(Border entry, bool showMessage)
         {
             var current = ReadQuickPasteEntry(entry);
@@ -2662,14 +2666,12 @@ namespace WinVClip
             return false;
         }
 
-        
         private void OnQuickPasteReset(Border entry)
         {
             var saved = entry.Tag as QuickPasteShortcut;
             if (saved == null) return;
             var rebuilt = BuildQuickPasteEntry(saved.Clone());
-            
-            
+
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 var idx = QuickPasteEntriesPanel.Children.IndexOf(entry);
@@ -2677,13 +2679,12 @@ namespace WinVClip
                 {
                     QuickPasteEntriesPanel.Children.RemoveAt(idx);
                     QuickPasteEntriesPanel.Children.Insert(idx, rebuilt);
-                    
+
                     ValidateQuickPasteEntry(rebuilt, showMessage: false);
                 }
             }), System.Windows.Threading.DispatcherPriority.Background);
         }
 
-        
         private QuickPasteShortcut ReadQuickPasteEntry(Border entry)
         {
             var sc = new QuickPasteShortcut();
@@ -2693,7 +2694,7 @@ namespace WinVClip
                 {
                     if (row1.Children[0] is ComboBox typeCombo)
                         sc.ClipboardType = int.Parse((typeCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "-1");
-                    
+
                     foreach (var child in row1.Children)
                     {
                         if (child is CheckBox cb)
@@ -2726,7 +2727,7 @@ namespace WinVClip
                         }
                     }
                 }
-                
+
                 var enabledCb = FindQcChildByName<CheckBox>(entry, EntryEnabledCheckBox);
                 if (enabledCb != null) sc.Enabled = enabledCb.IsChecked == true;
             }
@@ -2742,13 +2743,12 @@ namespace WinVClip
         private QuickPasteAction ParseActionCombo(ComboBox combo)
         {
             var tag = (combo.SelectedItem as ComboBoxItem)?.Tag as string;
-            
+
             if (tag != null && tag.StartsWith("QC:"))
                 return QuickPasteAction.CustomRegex;
             return Enum.TryParse<QuickPasteAction>(tag, out var a) ? a : QuickPasteAction.PasteRemoveNewlines;
         }
 
-        
         private bool IsShortcutAvailable(QuickPasteShortcut current, UIElement exceptSelf, out string conflictDesc)
         {
             conflictDesc = "";
@@ -2765,12 +2765,11 @@ namespace WinVClip
             return true;
         }
 
-        
         private bool ShortcutConflicts(QuickPasteShortcut a, QuickPasteShortcut b)
         {
             if (a.MouseButton != b.MouseButton) return false;
             if (a.Ctrl != b.Ctrl || a.Shift != b.Shift || a.Alt != b.Alt) return false;
-            
+
             if (a.ClipboardType == -1 || b.ClipboardType == -1) return true;
             return a.ClipboardType == b.ClipboardType;
         }
@@ -2786,7 +2785,6 @@ namespace WinVClip
             return $"{type} + {mod}{sc.MouseButton}";
         }
 
-        
         private void CollectQuickPasteEntries()
         {
             var list = new List<QuickPasteShortcut>();
@@ -2798,7 +2796,6 @@ namespace WinVClip
             _settingsService.Settings.QuickPasteShortcuts = list;
         }
 
-        
         private void SyncQuickPasteEntrySnapshots()
         {
             foreach (var child in QuickPasteEntriesPanel.Children)
@@ -2812,7 +2809,6 @@ namespace WinVClip
 
         #region 全局快捷键条目
 
-        
         private const string GhItemIndexComboBox = "GhItemIndexComboBox";
         private const string GhCtrlCheckBox = "GhCtrlCheckBox";
         private const string GhShiftCheckBox = "GhShiftCheckBox";
@@ -2822,7 +2818,6 @@ namespace WinVClip
         private const string GhActionComboBox = "GhActionComboBox";
         private const string GhEnabledCheckBox = "GhEnabledCheckBox";
 
-        
         private void LoadGlobalHotkeyEntries()
         {
             GlobalHotkeyEntriesPanel.Children.Clear();
@@ -2834,7 +2829,6 @@ namespace WinVClip
             }
         }
 
-        
         private void AddGlobalHotkeyEntry_Click(object sender, RoutedEventArgs e)
         {
             var defaults = new GlobalHotkey
@@ -2850,7 +2844,6 @@ namespace WinVClip
             GlobalHotkeyEntriesPanel.Children.Add(BuildGlobalHotkeyEntry(defaults));
         }
 
-        
         private Border BuildGlobalHotkeyEntry(GlobalHotkey saved)
         {
             if (saved == null) saved = new GlobalHotkey();
@@ -2869,7 +2862,6 @@ namespace WinVClip
             var root = new StackPanel { Margin = new Thickness(0) };
             entryBorder.Child = root;
 
-            
             var row1 = new WrapPanel { Margin = new Thickness(0, 0, 0, 6) };
 
             var indexCombo = new ComboBox
@@ -2904,7 +2896,6 @@ namespace WinVClip
             var winCb = BuildModifierCheckBox(GhWinCheckBox, "Win", saved.Win);
             row1.Children.Add(winCb);
 
-            
             var keyBox = new TextBox
             {
                 Name = GhKeyTextBox,
@@ -2916,7 +2907,7 @@ namespace WinVClip
                 VerticalContentAlignment = VerticalAlignment.Center,
                 ToolTip = Loc.Get("Settings.Hotkey.Global.KeyTip", "点击后按下键盘按键")
             };
-            
+
             var keyPlaceholder = new TextBlock
             {
                 Text = Loc.Get("Settings.Hotkey.Global.KeyPlaceholder", "按键"),
@@ -2933,7 +2924,7 @@ namespace WinVClip
             keyPlaceholder.Visibility = string.IsNullOrEmpty(saved.Key) ? Visibility.Visible : Visibility.Collapsed;
             keyBox.TextChanged += (s, e) =>
                 keyPlaceholder.Visibility = string.IsNullOrEmpty(keyBox.Text) ? Visibility.Visible : Visibility.Collapsed;
-            
+
             keyBox.GotFocus += (s, e) => keyBox.Text = "";
             keyBox.PreviewKeyDown += (s, e) =>
             {
@@ -2946,7 +2937,7 @@ namespace WinVClip
                     return;
                 }
                 keyBox.Text = GetKeyDisplayName(e.Key);
-                
+
                 keyBox.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
             };
             row1.Children.Add(keyGrid);
@@ -2960,7 +2951,7 @@ namespace WinVClip
             });
 
             var actionCombo = BuildActionComboBox(GhActionComboBox, saved.Action, saved.QuickCommandName, -1);
-            
+
             actionCombo.DropDownOpened += (s, e) =>
             {
                 var selectedTag = (actionCombo.SelectedItem as ComboBoxItem)?.Tag as string;
@@ -2971,7 +2962,6 @@ namespace WinVClip
 
             root.Children.Add(row1);
 
-            
             indexCombo.SelectionChanged += (s, e) => ResetEntryBorder(entryBorder);
             actionCombo.SelectionChanged += (s, e) => ResetEntryBorder(entryBorder);
             ctrlCb.Click += (s, e) => ResetEntryBorder(entryBorder);
@@ -2980,7 +2970,6 @@ namespace WinVClip
             winCb.Click += (s, e) => ResetEntryBorder(entryBorder);
             keyBox.TextChanged += (s, e) => ResetEntryBorder(entryBorder);
 
-            
             var row3 = BuildEntryButtons(
                 GhEnabledCheckBox, saved.Enabled,
                 (s, e) => OnGlobalHotkeyConfirm(entryBorder),
@@ -2988,7 +2977,7 @@ namespace WinVClip
                 System.Windows.Threading.DispatcherPriority.Background,
                 () =>
                 {
-                    
+
                     var idx = GlobalHotkeyEntriesPanel.Children.IndexOf(entryBorder);
                     if (idx >= 0) GlobalHotkeyEntriesPanel.Children.RemoveAt(idx);
                 });
@@ -2997,13 +2986,11 @@ namespace WinVClip
             return entryBorder;
         }
 
-        
         private void OnGlobalHotkeyConfirm(Border entry)
         {
             ValidateGlobalHotkeyEntry(entry, showMessage: true);
         }
 
-        
         private bool ValidateGlobalHotkeyEntry(Border entry, bool showMessage)
         {
             var current = ReadGlobalHotkeyEntry(entry);
@@ -3020,7 +3007,7 @@ namespace WinVClip
                 }
                 return false;
             }
-            
+
             if (!IsGlobalHotkeyAvailable(current, entry, out string conflictDesc))
             {
                 ResetEntryBorder(entry);
@@ -3037,7 +3024,6 @@ namespace WinVClip
             return true;
         }
 
-        
         private void OnGlobalHotkeyReset(Border entry)
         {
             var saved = entry.Tag as GlobalHotkey;
@@ -3050,13 +3036,12 @@ namespace WinVClip
                 {
                     GlobalHotkeyEntriesPanel.Children.RemoveAt(idx);
                     GlobalHotkeyEntriesPanel.Children.Insert(idx, rebuilt);
-                    
+
                     ValidateGlobalHotkeyEntry(rebuilt, showMessage: false);
                 }
             }), System.Windows.Threading.DispatcherPriority.Background);
         }
 
-        
         private GlobalHotkey ReadGlobalHotkeyEntry(Border entry)
         {
             var gh = new GlobalHotkey();
@@ -3095,7 +3080,7 @@ namespace WinVClip
                     }
                     else if (child is Grid g)
                     {
-                        
+
                         foreach (var c in g.Children)
                         {
                             if (c is TextBox tb && tb.Name == GhKeyTextBox)
@@ -3104,23 +3089,18 @@ namespace WinVClip
                     }
                 }
             }
-            
+
             var enabledCb = FindQcChildByName<CheckBox>(entry, GhEnabledCheckBox);
             if (enabledCb != null) gh.Enabled = enabledCb.IsChecked == true;
             return gh;
         }
 
-        
-        
-        
-        
-        
         private bool IsGlobalHotkeyAvailable(GlobalHotkey current, UIElement exceptSelf, out string conflictDesc)
         {
             conflictDesc = "";
             var rawStr = current.ToHotkeyString();
             var curStr = HotkeyService.NormalizeHotkey(rawStr);
-            
+
             var showHide = HotkeyService.NormalizeHotkey(_settingsService.Settings.Hotkey);
             if (!string.IsNullOrEmpty(showHide) && string.Equals(curStr, showHide, StringComparison.OrdinalIgnoreCase))
             {
@@ -3137,7 +3117,7 @@ namespace WinVClip
                 conflictDesc = curStr + " (" + Loc.Get("Settings.Hotkey.SequentialPaste.Conflict", "与顺序粘贴热键冲突") + ")";
                 return false;
             }
-            
+
             foreach (var child in GlobalHotkeyEntriesPanel.Children)
             {
                 if (child == exceptSelf || !(child is Border other)) continue;
@@ -3149,11 +3129,10 @@ namespace WinVClip
                     return false;
                 }
             }
-            
-            
+
             if (IsOwnRegisteredHotkey(curStr))
                 return true;
-            
+
             if (!IsHotkeyAvailable(rawStr))
             {
                 conflictDesc = curStr + " (" + Loc.Get("Settings.Hotkey.AlreadyInUse", "该快捷键已被占用或无效") + ")";
@@ -3162,10 +3141,6 @@ namespace WinVClip
             return true;
         }
 
-        
-        
-        
-        
         private bool IsOwnRegisteredHotkey(string normalizedCandidate)
         {
             if (string.IsNullOrEmpty(normalizedCandidate)) return false;
@@ -3187,7 +3162,6 @@ namespace WinVClip
             return false;
         }
 
-        
         private void CollectGlobalHotkeyEntries()
         {
             var list = new List<GlobalHotkey>();
@@ -3199,7 +3173,6 @@ namespace WinVClip
             _settingsService.Settings.GlobalHotkeys = list;
         }
 
-        
         private void SyncGlobalHotkeyEntrySnapshots()
         {
             foreach (var child in GlobalHotkeyEntriesPanel.Children)
@@ -3217,17 +3190,6 @@ namespace WinVClip
         private const string QcRulesPanel = "QcRulesPanel";
         private const string QcEnabledCheckBox = "QcEnabledCheckBox";
 
-        
-        private const string QcRuleEnabledSuffix = "_Enabled";
-        private const string QcRuleFuncSuffix = "_Func";
-        private const string QcRuleP1Suffix = "_P1";
-        private const string QcRuleP2Suffix = "_P2";
-        private const string QcRuleUpSuffix = "_Up";
-        private const string QcRuleDownSuffix = "_Down";
-        private const string QcRuleDelSuffix = "_Del";
-        private static string RuleCtrlName(int idx, string suffix) => "QcRule_" + idx + suffix;
-
-        
         private void LoadQuickCommandEntries()
         {
             QuickCommandEntriesPanel.Children.Clear();
@@ -3242,7 +3204,6 @@ namespace WinVClip
             }
         }
 
-        
         private void AddQuickCommandEntry_Click(object sender, RoutedEventArgs e)
         {
             var defaults = new QuickCommand
@@ -3263,7 +3224,6 @@ namespace WinVClip
             QuickCommandEntriesPanel.Children.Add(BuildQuickCommandEntry(defaults));
         }
 
-        
         private void QuickCommandTemplateButton_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button btn) return;
@@ -3275,7 +3235,7 @@ namespace WinVClip
                 PlacementTarget = btn
             };
 
-            foreach (var tpl in GetQuickCommandTemplates())
+            foreach (var tpl in QuickCommand.CreateTemplates())
             {
                 var captured = tpl; 
                 var item = new MenuItem
@@ -3293,248 +3253,8 @@ namespace WinVClip
             menu.IsOpen = true;
         }
 
-        
-        
-        
-        private System.Collections.Generic.List<QuickCommand> GetQuickCommandTemplates()
-        {
-            return new System.Collections.Generic.List<QuickCommand>
-            {
-                
-                new QuickCommand
-                {
-                    Name = Loc.Get("Settings.QuickCommand.Template.Phone", "提取全部手机号"),
-                    ClipboardType = -2, 
-                    Rules = new List<QuickCommandRule>
-                    {
-                        new QuickCommandRule
-                        {
-                            Enabled = true,Function = QuickCommandFunction.RegexMatches,Param1 = @"1[3-9](?:[\s\-]?\d){9}",Param2 = ","
-                        },
-                        new QuickCommandRule
-                        {
-                            Enabled = true,Function = QuickCommandFunction.RemoveWhiteSpace,Param1 = "",Param2 = ""
-                        },
-                        new QuickCommandRule
-                        {
-                            Enabled = true,Function = QuickCommandFunction.StringReplace,Param1 = "-",Param2 = ""
-                        },
-                        new QuickCommandRule
-                        {
-                            Enabled = true,Function = QuickCommandFunction.RegexReplace,Param1 = @"(?<=\d{11})(?=1[3-9]\d{9}(?!\d))",Param2 = ","
-                        }
-                    }
-                },
-                new QuickCommand
-                {
-                    Name = Loc.Get("Settings.QuickCommand.Template.IdCard", "提取全部身份证号"),
-                    ClipboardType = -2,
-                    Rules = new List<QuickCommandRule>
-                    {
-                        new QuickCommandRule
-                        {
-                            Enabled = true,
-                            Function = QuickCommandFunction.RegexMatches,
-                            Param1 = @"\b[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[0-9Xx]\b",
-                            Param2 = ","
-                        },
-                        new QuickCommandRule
-                        {
-                            Enabled = true,
-                            Function = QuickCommandFunction.StringReplace,
-                            Param1 = " ",
-                            Param2 = ""
-                        }
-                    }
-                },
-                new QuickCommand
-                {
-                    Name = Loc.Get("Settings.QuickCommand.Template.Email", "提取全部邮箱地址"),
-                    ClipboardType = -2,
-                    Rules = new List<QuickCommandRule>
-                    {
-                        new QuickCommandRule
-                        {
-                            Enabled = true,
-                            Function = QuickCommandFunction.RegexMatches,
-                            Param1 = @"\b[\w\.\-]+@[\w\-]+(?:\.[\w\-]+)+\b",
-                            Param2 = ","
-                        }
-                    }
-                },
-                new QuickCommand
-                {
-                    Name = Loc.Get("Settings.QuickCommand.Template.Url", "提取全部网址链接"),
-                    ClipboardType = -2,
-                    Rules = new List<QuickCommandRule>
-                    {
-                        new QuickCommandRule
-                        {
-                            Enabled = true,
-                            Function = QuickCommandFunction.RegexMatches,
-                            Param1 = @"\b(?:https?://)?(?:www\.)?(?:[a-zA-Z0-9\-]+\.)+[a-zA-Z]{2,}|https?://[^\s\)\]\}>]+|\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b",
-                            Param2 = ","
-                        }
-                    }
-                },
-                new QuickCommand
-                {
-                    Name = Loc.Get("Settings.QuickCommand.Template.NumberSplit", "提取全部数字（逗号分割）"),
-                    ClipboardType = -2,
-                    Rules = new List<QuickCommandRule>
-                    {
-                        new QuickCommandRule
-                        {
-                            Enabled = true,
-                            Function = QuickCommandFunction.RegexMatches,
-                            Param1 = @"\d+",
-                            Param2 = ","
-                        }
-                    }
-                },
-                new QuickCommand
-                {
-                    Name = Loc.Get("Settings.QuickCommand.Template.NumberConcat", "提取全部数字（不分割）"),
-                    ClipboardType = -2,
-                    Rules = new List<QuickCommandRule>
-                    {
-                        new QuickCommandRule
-                        {
-                            Enabled = true,
-                            Function = QuickCommandFunction.RegexMatches,
-                            Param1 = @"\d+",
-                            Param2 = ""
-                        }
-                    }
-                },
-                new QuickCommand
-                {
-                    Name = Loc.Get("Settings.QuickCommand.Template.Chinese", "提取全部中文汉字"),
-                    ClipboardType = -2,
-                    Rules = new List<QuickCommandRule>
-                    {
-                        new QuickCommandRule
-                        {
-                            Enabled = true,
-                            Function = QuickCommandFunction.RegexMatches,
-                            Param1 = @"[\u4e00-\u9fa5]",
-                            Param2 = ""
-                        }
-                    }
-                },
-                new QuickCommand
-                {
-                    Name = Loc.Get("Settings.QuickCommand.Template.CollapseSpaces", "清除多余空格"),
-                    ClipboardType = -2,
-                    Rules = new List<QuickCommandRule>
-                    {
-                        new QuickCommandRule
-                        {
-                            Enabled = true,
-                            Function = QuickCommandFunction.RegexReplace,
-                            Param1 = @"[\t]+",
-                            Param2 = " "
-                        },
-                        new QuickCommandRule
-                        {
-                            Enabled = true,
-                            Function = QuickCommandFunction.RegexReplace,
-                            Param1 = @"\s{2,}",
-                            Param2 = " "
-                        },
-                        new QuickCommandRule
-                        {
-                            Enabled = true,
-                            Function = QuickCommandFunction.RegexReplace,
-                            Param1 = @"^\s+|\s+$",
-                            Param2 = ""
-                        }
-                    }
-                },
-                new QuickCommand
-                {
-                    Name = Loc.Get("Settings.QuickCommand.Template.DistinctLines", "列表去重（换行数据）"),
-                    ClipboardType = -2,
-                    Rules = new List<QuickCommandRule>
-                    {
-                        new QuickCommandRule
-                        {
-                            Enabled = true,
-                            Function = QuickCommandFunction.RegexReplace,
-                            Param1 = @"(?m)^\s+|\s+$",
-                            Param2 = ""
-                        },
-                        new QuickCommandRule
-                        {
-                            Enabled = true,
-                            Function = QuickCommandFunction.RegexReplace,
-                            Param1 = @"(?ms)^(.*?)(?:\r?\n\1)+(?=\r?\n|$)",
-                            Param2 = "$1"
-                        }
-                    }
-                },
-                new QuickCommand
-                {
-                    Name = Loc.Get("Settings.QuickCommand.Template.LinesToComma", "多行转逗号一行"),
-                    ClipboardType = -2,
-                    Rules = new List<QuickCommandRule>
-                    {
-                        new QuickCommandRule
-                        {
-                            Enabled = true,
-                            Function = QuickCommandFunction.RegexReplace,
-                            Param1 = @"\r?\n",
-                            Param2 = ","
-                        }
-                    }
-                },
-                new QuickCommand
-                {
-                    Name = Loc.Get("Settings.QuickCommand.Template.CommaToLines", "逗号转多行（半角/全角逗号）"),
-                    ClipboardType = -2,
-                    Rules = new List<QuickCommandRule>
-                    {
-                        new QuickCommandRule
-                        {
-                            Enabled = true,
-                            Function = QuickCommandFunction.RegexReplace,
-                            Param1 = @"[,，]",
-                            Param2 = "\r\n"
-                        }
-                    }
-                },
-                new QuickCommand
-                {
-                    Name = Loc.Get("Settings.QuickCommand.Template.StripHtml", "去除HTML标签"),
-                    ClipboardType = -2,
-                    Rules = new List<QuickCommandRule>
-                    {
-                        new QuickCommandRule
-                        {
-                            Enabled = true,
-                            Function = QuickCommandFunction.RegexReplace,
-                            Param1 = @"<[^>]+>",
-                            Param2 = ""
-                        },
-                        new QuickCommandRule
-                        {
-                            Enabled = true,
-                            Function = QuickCommandFunction.StringReplace,
-                            Param1 = "&nbsp;",
-                            Param2 = " "
-                        }
-                    }
-                }
-            };
-        }
-
         #region 快捷命令 - 构建 & 校验
 
-        
-        
-        
-        
-        
         private Style _compactIconButtonStyle;
         private Style CompactIconButtonStyle
         {
@@ -3542,7 +3262,6 @@ namespace WinVClip
             {
                 if (_compactIconButtonStyle != null) return _compactIconButtonStyle;
 
-                
                 Brush buttonBg = TryFindResource("ButtonBackground") as Brush
                                  ?? new SolidColorBrush(Color.FromRgb(243, 244, 246));
                 Brush textFg = TryFindResource("TextForeground") as Brush
@@ -3553,7 +3272,7 @@ namespace WinVClip
                                 ?? new SolidColorBrush(Color.FromRgb(229, 231, 235));
 
                 var style = new Style(typeof(Button));
-                
+
                 style.Setters.Add(new Setter(Button.BackgroundProperty, buttonBg));
                 style.Setters.Add(new Setter(Button.ForegroundProperty, textFg));
                 style.Setters.Add(new Setter(Button.BorderBrushProperty, borderBrush));
@@ -3565,7 +3284,6 @@ namespace WinVClip
                 style.Setters.Add(new Setter(Button.HorizontalContentAlignmentProperty, HorizontalAlignment.Center));
                 style.Setters.Add(new Setter(Button.VerticalContentAlignmentProperty, VerticalAlignment.Center));
 
-                
                 var ct = new ControlTemplate(typeof(Button));
                 var borderFactory = new FrameworkElementFactory(typeof(Border));
                 borderFactory.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Button.BackgroundProperty));
@@ -3580,11 +3298,10 @@ namespace WinVClip
                 borderFactory.AppendChild(cp);
                 ct.VisualTree = borderFactory;
 
-                
                 var trig = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
                 trig.Setters.Add(new Setter(Button.BackgroundProperty, hoverBg));
                 ct.Triggers.Add(trig);
-                
+
                 var trigDisabled = new Trigger { Property = UIElement.IsEnabledProperty, Value = false };
                 trigDisabled.Setters.Add(new Setter(UIElement.OpacityProperty, 0.45));
                 ct.Triggers.Add(trigDisabled);
@@ -3595,11 +3312,6 @@ namespace WinVClip
             }
         }
 
-        
-        
-        
-        
-        
         private object BuildRuleButtonIcon(string glyph)
         {
             var fg = TryFindResource("TextForeground") as Brush
@@ -3616,95 +3328,15 @@ namespace WinVClip
             };
         }
 
-        
         private const string IconArrowUp = "▲";
         private const string IconArrowDown = "▼";
         private const string IconClose = "✕";
 
-        
-        private static readonly QuickCommandFunction[] OrderedFunctions = new[]
-        {
-            QuickCommandFunction.StringReplace,
-            QuickCommandFunction.RegexReplace,
-            QuickCommandFunction.RegexMatches,
-            QuickCommandFunction.RegexEscape,
-            QuickCommandFunction.StringTrim,
-            QuickCommandFunction.StringToUpper,
-            QuickCommandFunction.StringToLower,
-            QuickCommandFunction.RegexSplit,
-            QuickCommandFunction.DistinctRemoveDuplicate,
-            QuickCommandFunction.RemoveWhiteSpace,
-            QuickCommandFunction.RemoveNewLines
-        };
-
-        
-        private static string FunctionDisplayName(QuickCommandFunction f)
-        {
-            switch (f)
-            {
-                case QuickCommandFunction.StringReplace:          return Loc.Get("Settings.QuickCommand.Function.StringReplace",          "字面查找替换");
-                case QuickCommandFunction.RegexReplace:           return Loc.Get("Settings.QuickCommand.Function.RegexReplace",           "正则查找替换");
-                case QuickCommandFunction.RegexMatches:           return Loc.Get("Settings.QuickCommand.Function.RegexMatches",           "正则提取匹配");
-                case QuickCommandFunction.RegexEscape:            return Loc.Get("Settings.QuickCommand.Function.RegexEscape",            "正则转义文本");
-                case QuickCommandFunction.StringTrim:             return Loc.Get("Settings.QuickCommand.Function.StringTrim",             "去除首尾空白");
-                case QuickCommandFunction.StringToUpper:          return Loc.Get("Settings.QuickCommand.Function.StringToUpper",          "转大写");
-                case QuickCommandFunction.StringToLower:          return Loc.Get("Settings.QuickCommand.Function.StringToLower",          "转小写");
-                case QuickCommandFunction.RegexSplit:             return Loc.Get("Settings.QuickCommand.Function.RegexSplit",             "正则分割(换行拼接)");
-                case QuickCommandFunction.DistinctRemoveDuplicate:return Loc.Get("Settings.QuickCommand.Function.DistinctRemoveDuplicate","按行去重");
-                case QuickCommandFunction.RemoveWhiteSpace:       return Loc.Get("Settings.QuickCommand.Function.RemoveWhiteSpace",       "移除全部空白");
-                case QuickCommandFunction.RemoveNewLines:         return Loc.Get("Settings.QuickCommand.Function.RemoveNewLines",         "移除换行");
-            }
-            return f.ToString();
-        }
-
-        
-        private static int FunctionParamCount(QuickCommandFunction f)
-        {
-            switch (f)
-            {
-                case QuickCommandFunction.StringReplace:
-                case QuickCommandFunction.RegexReplace:
-                case QuickCommandFunction.RegexMatches: 
-                    return 2;
-                case QuickCommandFunction.RegexSplit:
-                    return 1;
-                default:
-                    return 0;
-            }
-        }
-
-        
-        private static string ParamToolTip(QuickCommandFunction f, int paramIndex)
-        {
-            if (paramIndex == 1)
-            {
-                switch (f)
-                {
-                    case QuickCommandFunction.StringReplace: return Loc.Get("Settings.QuickCommand.Param.Find", "查找串");
-                    case QuickCommandFunction.RegexReplace:
-                    case QuickCommandFunction.RegexMatches:
-                    case QuickCommandFunction.RegexSplit:
-                        return Loc.Get("Settings.QuickCommand.Param.Pattern", "正则 Pattern");
-                }
-            }
-            else if (paramIndex == 2)
-            {
-                switch (f)
-                {
-                    case QuickCommandFunction.StringReplace: return Loc.Get("Settings.QuickCommand.Param.Replace", "替换串");
-                    case QuickCommandFunction.RegexReplace:  return Loc.Get("Settings.QuickCommand.Param.ReplTemplate", "替换模板(支持$1组引用)");
-                    case QuickCommandFunction.RegexMatches:  return Loc.Get("Settings.QuickCommand.Param.Separator", "多个结果分隔符(留空=直接拼接)");
-                }
-            }
-            return "";
-        }
-
-        
         private Border BuildQuickCommandEntry(QuickCommand saved)
         {
             if (saved == null) saved = new QuickCommand();
             if (saved.Rules == null) saved.Rules = new System.Collections.Generic.List<QuickCommandRule>();
-            
+
             if (saved.Rules.Count == 0)
                 saved.Rules.Add(new QuickCommandRule { Enabled = true, Function = QuickCommandFunction.StringReplace });
 
@@ -3725,7 +3357,6 @@ namespace WinVClip
             const double ruleBoxHeight = 36;   
             Brush labelFg = (Brush)FindResource("SecondaryTextForeground");
 
-            
             var row1 = new DockPanel { LastChildFill = true, Margin = new Thickness(0, 0, 0, 6) };
             var nameLabel = new TextBlock
             {
@@ -3747,7 +3378,6 @@ namespace WinVClip
             row1.Children.Add(nameBox);
             root.Children.Add(row1);
 
-            
             var rulesPanel = new StackPanel
             {
                 Name = QcRulesPanel,
@@ -3755,7 +3385,6 @@ namespace WinVClip
             };
             root.Children.Add(rulesPanel);
 
-            
             var addRuleBtn = new Button
             {
                 Content = Loc.Get("Settings.QuickCommand.Button.AddRule", "＋ 添加规则"),
@@ -3774,7 +3403,6 @@ namespace WinVClip
             };
             root.Children.Add(addRuleBtn);
 
-            
             foreach (var rule in saved.Rules)
             {
                 var r = BuildSingleRuleRow(rule, rulesPanel, entryBorder, ruleBoxHeight);
@@ -3782,7 +3410,6 @@ namespace WinVClip
             }
             RefreshRuleArrows(rulesPanel);
 
-            
             var buttonBar = new DockPanel { LastChildFill = false, Margin = new Thickness(0, 4, 0, 0) };
 
             var confirmBtn = new Button
@@ -3817,7 +3444,6 @@ namespace WinVClip
             DockPanel.SetDock(resetBtn, Dock.Right);
             buttonBar.Children.Add(resetBtn);
 
-            
             var enabledCb = new CheckBox
             {
                 Name = QcEnabledCheckBox,
@@ -3835,10 +3461,6 @@ namespace WinVClip
             return entryBorder;
         }
 
-        
-        
-        
-        
         private Grid BuildSingleRuleRow(QuickCommandRule rule, StackPanel rulesPanel, Border entryBorder, double ruleBoxHeight)
         {
             var row = new Grid { Margin = new Thickness(0, 0, 0, 4) };
@@ -3848,7 +3470,6 @@ namespace WinVClip
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); 
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });           
 
-            
             var enabledCb = new CheckBox
             {
                 Name = "RuleEnabled",
@@ -3862,7 +3483,6 @@ namespace WinVClip
             Grid.SetColumn(enabledCb, 0);
             row.Children.Add(enabledCb);
 
-            
             var funcCb = new ComboBox
             {
                 Name = "RuleFunc",
@@ -3871,12 +3491,12 @@ namespace WinVClip
                 Height = ruleBoxHeight,
                 Style = (Style)FindResource("ModernComboBoxStyle")
             };
-            foreach (var fn in OrderedFunctions)
+            foreach (var fn in QuickCommand.OrderedFunctions)
             {
                 var item = new ComboBoxItem
                 {
                     Tag = fn,
-                    Content = FunctionDisplayName(fn)
+                    Content = QuickCommand.FunctionDisplayName(fn)
                 };
                 funcCb.Items.Add(item);
                 if (fn == rule.Function)
@@ -3885,7 +3505,6 @@ namespace WinVClip
             Grid.SetColumn(funcCb, 1);
             row.Children.Add(funcCb);
 
-            
             var p1Tb = new TextBox
             {
                 Name = "RuleP1",
@@ -3899,7 +3518,6 @@ namespace WinVClip
             Grid.SetColumn(p1Tb, 2);
             row.Children.Add(p1Tb);
 
-            
             var p2Tb = new TextBox
             {
                 Name = "RuleP2",
@@ -3912,7 +3530,6 @@ namespace WinVClip
             Grid.SetColumn(p2Tb, 3);
             row.Children.Add(p2Tb);
 
-            
             var actionsPanel = new WrapPanel
             {
                 Orientation = Orientation.Horizontal,
@@ -3971,7 +3588,7 @@ namespace WinVClip
             {
                 if (rulesPanel.Children.Count <= 1)
                 {
-                    
+
                     if (enabledCb != null) enabledCb.IsChecked = true;
                     funcCb.SelectedIndex = 0; 
                     p1Tb.Text = "";
@@ -3992,7 +3609,6 @@ namespace WinVClip
             Grid.SetColumn(actionsPanel, 4);
             row.Children.Add(actionsPanel);
 
-            
             void FuncChanged(object sender, SelectionChangedEventArgs e)
             {
                 if (funcCb.SelectedItem is ComboBoxItem cbi && cbi.Tag is QuickCommandFunction fn)
@@ -4002,16 +3618,15 @@ namespace WinVClip
                 }
             }
             funcCb.SelectionChanged += FuncChanged;
-            
+
             ApplyParamVisibilityToRuleRow(row, rule.Function);
 
             return row;
         }
 
-        
         private static void ApplyParamVisibilityToRuleRow(Grid row, QuickCommandFunction fn)
         {
-            int need = FunctionParamCount(fn);
+            int need = QuickCommand.FunctionParamCount(fn);
             TextBox p1 = null, p2 = null;
             foreach (var child in row.Children)
             {
@@ -4025,22 +3640,18 @@ namespace WinVClip
             {
                 bool show = need >= 1;
                 p1.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-                p1.ToolTip = show ? ParamToolTip(fn, 1) : null;
+                p1.ToolTip = show ? QuickCommand.ParamToolTip(fn, 1) : null;
                 if (!show) p1.Text = "";
             }
             if (p2 != null)
             {
                 bool show = need >= 2;
                 p2.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-                p2.ToolTip = show ? ParamToolTip(fn, 2) : null;
+                p2.ToolTip = show ? QuickCommand.ParamToolTip(fn, 2) : null;
                 if (!show) p2.Text = "";
             }
         }
 
-        
-        
-        
-        
         private static void RefreshRuleArrows(Panel rulesPanel)
         {
             int count = rulesPanel.Children.Count;
@@ -4067,18 +3678,15 @@ namespace WinVClip
             }
         }
 
-        
         private void OnQuickCommandConfirm(Border entry)
         {
             ValidateQuickCommandEntry(entry, showMessage: true);
         }
 
-        
         private bool ValidateQuickCommandEntry(Border entry, bool showMessage)
         {
             var current = ReadQuickCommandEntry(entry);
 
-            
             if (string.IsNullOrWhiteSpace(current.Name))
             {
                 ResetEntryBorder(entry);
@@ -4089,7 +3697,7 @@ namespace WinVClip
                 }
                 return false;
             }
-            
+
             foreach (var child in QuickCommandEntriesPanel.Children)
             {
                 if (child == entry || !(child is Border other)) continue;
@@ -4106,7 +3714,7 @@ namespace WinVClip
                     return false;
                 }
             }
-            
+
             if (current.Rules != null)
             {
                 for (int i = 0; i < current.Rules.Count; i++)
@@ -4115,8 +3723,8 @@ namespace WinVClip
                     if (r == null || !r.Enabled) continue;
                     string ruleLabel = string.Format(
                         Loc.Get("Settings.QuickCommand.Error.RuleN", "规则 #{0} [{1}]"),
-                        (i + 1), FunctionDisplayName(r.Function));
-                    int need = FunctionParamCount(r.Function);
+                        (i + 1), QuickCommand.FunctionDisplayName(r.Function));
+                    int need = QuickCommand.FunctionParamCount(r.Function);
                     if (need >= 1 && string.IsNullOrEmpty(r.Param1))
                     {
                         ResetEntryBorder(entry);
@@ -4124,7 +3732,7 @@ namespace WinVClip
                         {
                             string msg = string.Format(
                                 Loc.Get("Settings.QuickCommand.Error.Param1Required", "{0} 的参数一（{1}）不能为空。"),
-                                ruleLabel, ParamToolTip(r.Function, 1));
+                                ruleLabel, QuickCommand.ParamToolTip(r.Function, 1));
                             AppMessageBox.Show(msg, Loc.Get("Common.Error", "错误"),
                                 MessageBoxButton.OK, MessageBoxImage.Warning);
                         }
@@ -4134,10 +3742,9 @@ namespace WinVClip
                         (r.Function == QuickCommandFunction.StringReplace ||
                          r.Function == QuickCommandFunction.RegexReplace))
                     {
-                        
-                        
+
                     }
-                    
+
                     if (r.Function == QuickCommandFunction.RegexReplace ||
                         r.Function == QuickCommandFunction.RegexMatches ||
                         r.Function == QuickCommandFunction.RegexSplit)
@@ -4164,12 +3771,10 @@ namespace WinVClip
                 }
             }
 
-            
             SetEntryConfirmedBorder(entry);
             return true;
         }
 
-        
         private void OnQuickCommandReset(Border entry)
         {
             var saved = entry.Tag as QuickCommand;
@@ -4182,7 +3787,7 @@ namespace WinVClip
                 {
                     QuickCommandEntriesPanel.Children.RemoveAt(idx);
                     QuickCommandEntriesPanel.Children.Insert(idx, rebuilt);
-                    
+
                     ValidateQuickCommandEntry(rebuilt, showMessage: false);
                 }
             }), System.Windows.Threading.DispatcherPriority.Background);
@@ -4192,13 +3797,11 @@ namespace WinVClip
 
         #region 快捷命令 - 读取与收集
 
-        
         private static System.Collections.Generic.IEnumerable<System.Windows.DependencyObject> EnumerateDirectChildren(
             System.Windows.DependencyObject parent)
         {
             if (parent == null) yield break;
 
-            
             if (parent is Panel p)
             {
                 foreach (System.Windows.UIElement c in p.Children)
@@ -4206,14 +3809,12 @@ namespace WinVClip
                 yield break;
             }
 
-            
             if (parent is Decorator dec && dec.Child != null)
             {
                 yield return dec.Child;
                 yield break;
             }
 
-            
             if (parent is ContentControl cc && cc.Content is System.Windows.DependencyObject ccChild)
             {
                 yield return ccChild;
@@ -4221,7 +3822,6 @@ namespace WinVClip
             }
         }
 
-        
         private static T FindQcChildByName<T>(System.Windows.DependencyObject parent, string name)
             where T : FrameworkElement
         {
@@ -4236,7 +3836,6 @@ namespace WinVClip
             return null;
         }
 
-        
         private static QuickCommandRule ReadRuleRow(Grid rowGrid)
         {
             var rule = new QuickCommandRule { Enabled = true };
@@ -4257,7 +3856,6 @@ namespace WinVClip
             return rule;
         }
 
-        
         private QuickCommand ReadQuickCommandEntry(Border entry)
         {
             var qc = new QuickCommand();
@@ -4270,7 +3868,7 @@ namespace WinVClip
             var rulesPanel = FindQcChildByName<StackPanel>(entry, QcRulesPanel);
             if (rulesPanel != null)
             {
-                
+
                 foreach (var child in rulesPanel.Children)
                 {
                     if (child is Grid rowGrid)
@@ -4278,14 +3876,12 @@ namespace WinVClip
                 }
             }
 
-            
             var enabledCb = FindQcChildByName<CheckBox>(entry, QcEnabledCheckBox);
             if (enabledCb != null) qc.Enabled = enabledCb.IsChecked == true;
 
             return qc;
         }
 
-        
         private void CollectQuickCommandEntries()
         {
             var list = new List<QuickCommand>();
@@ -4297,7 +3893,6 @@ namespace WinVClip
             _settingsService.Settings.QuickCommands = list;
         }
 
-        
         private void SyncQuickCommandEntrySnapshots()
         {
             foreach (var child in QuickCommandEntriesPanel.Children)

@@ -388,7 +388,6 @@ namespace WinVClip
             var sequence = new List<string> { elements[index] };
             index++;
 
-            
             if (IsRegionalIndicator(sequence[0]) && index < elements.Count && IsRegionalIndicator(elements[index]))
             {
                 sequence.Add(elements[index]);
@@ -396,7 +395,6 @@ namespace WinVClip
                 return string.Join("", sequence);
             }
 
-            
             while (index < elements.Count)
             {
                 string next = elements[index];

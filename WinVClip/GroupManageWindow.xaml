@@ -26,6 +26,7 @@
             </Setter>
         </Style>
         <local:DefaultGroupVisibilityConverter x:Key="DefaultGroupVisibilityConverter"/>
+        <local:GroupNameConverter x:Key="GroupNameConverter"/>
     </Window.Resources>
     
     <Border Background="{DynamicResource WindowBackground}" 
@@ -93,7 +94,7 @@
                                            Foreground="{DynamicResource TextForeground}"
                                            FontSize="15"
                                            VerticalAlignment="Center">
-                                    <Run Text="{Binding Icon, Mode=OneWay}"/><Run Text=" "/><Run Text="{Binding Name, Mode=OneWay}"/>
+                                    <Run Text="{Binding Icon, Mode=OneWay}"/><Run Text=" "/><Run Text="{Binding Name, Mode=OneWay, Converter={StaticResource GroupNameConverter}}"/>
                                 </TextBlock>
 
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0"

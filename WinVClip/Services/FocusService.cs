@@ -26,15 +26,7 @@ namespace WinVClip.Services
         private const uint WINEVENT_OUTOFCONTEXT = 0x0000;
 
         public IntPtr LastFocusHwnd => _lastFocusHwnd;
-        public int FocusHistoryCount => _focusHistory.Count;
         public event Action<IntPtr>? FocusChanged;
-
-        public IntPtr GetFocusHistory(int index)
-        {
-            if (index < 0 || index >= _focusHistory.Count)
-                return IntPtr.Zero;
-            return _focusHistory[index];
-        }
 
         public IntPtr GetPreviousFocusHwnd(int steps = 1)
         {
@@ -42,11 +34,6 @@ namespace WinVClip.Services
             if (index < 0 || index >= _focusHistory.Count)
                 return IntPtr.Zero;
             return _focusHistory[index];
-        }
-
-        public void ClearFocusHistory()
-        {
-            _focusHistory.Clear();
         }
 
         public IntPtr GetLiveForegroundTarget()

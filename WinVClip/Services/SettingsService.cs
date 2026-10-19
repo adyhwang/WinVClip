@@ -123,6 +123,19 @@ namespace WinVClip.Services
         {
             try
             {
+                SaveSettingsQuiet();
+                SettingsChanged?.Invoke();
+            }
+            catch
+            {
+            }
+        }
+
+        /// <summary>静默落盘：只写文件、不触发 SettingsChanged，用于窗口尺寸这类无需联动刷新的字段。</summary>
+        public void SaveSettingsQuiet()
+        {
+            try
+            {
                 lock (_lock)
                 {
                     var options = new JsonSerializerOptions(AppJsonContext.Default.Options)
@@ -132,7 +145,6 @@ namespace WinVClip.Services
                     var json = JsonSerializer.Serialize(_settings, options);
                     File.WriteAllText(_settingsPath, json);
                 }
-                SettingsChanged?.Invoke();
             }
             catch
             {

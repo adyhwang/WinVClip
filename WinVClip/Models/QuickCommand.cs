@@ -2,52 +2,46 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using WinVClip.Services;
 
 namespace WinVClip.Models
 {
-    
+
     public enum QuickCommandFunction
     {
-        
+
         StringReplace,
-        
+
         RegexReplace,
-        
+
         RegexMatches,
-        
+
         RegexEscape,
-        
+
         StringTrim,
-        
+
         StringToUpper,
-        
+
         StringToLower,
-        
+
         RegexSplit,
-        
+
         DistinctRemoveDuplicate,
-        
+
         RemoveWhiteSpace,
-        
+
         RemoveNewLines
     }
 
-    
-    
-    
-    
     public class QuickCommandRule
     {
-        
+
         public bool Enabled { get; set; } = true;
 
-        
         public QuickCommandFunction Function { get; set; } = QuickCommandFunction.StringReplace;
 
-        
         public string Param1 { get; set; } = "";
 
-        
         public string Param2 { get; set; } = "";
 
         public QuickCommandRule Clone()
@@ -62,29 +56,19 @@ namespace WinVClip.Models
         }
     }
 
-    
-    
-    
-    
     public class QuickCommand
     {
-        
+
         public string Name { get; set; } = "";
 
-        
         public List<QuickCommandRule> Rules { get; set; } = new List<QuickCommandRule>();
 
-        
         public bool Enabled { get; set; } = true;
 
-        
         public int ClipboardType { get; set; } = -1;
 
         #region 类型判断辅助
 
-        
-        
-        
         public static bool TypeIncludes(int configuredType, int actualItemType)
         {
             if (configuredType == -1) return true;
@@ -94,9 +78,6 @@ namespace WinVClip.Models
             return false;
         }
 
-        
-        
-        
         public static bool TypesIntersect(int typeA, int typeB)
         {
             if (typeA == -1 || typeB == -1) return true;
@@ -110,6 +91,82 @@ namespace WinVClip.Models
 
         #endregion
 
+        /// <summary>规则函数下拉的展示顺序。</summary>
+        public static readonly QuickCommandFunction[] OrderedFunctions = new[]
+        {
+            QuickCommandFunction.StringReplace,
+            QuickCommandFunction.RegexReplace,
+            QuickCommandFunction.RegexMatches,
+            QuickCommandFunction.RegexEscape,
+            QuickCommandFunction.StringTrim,
+            QuickCommandFunction.StringToUpper,
+            QuickCommandFunction.StringToLower,
+            QuickCommandFunction.RegexSplit,
+            QuickCommandFunction.DistinctRemoveDuplicate,
+            QuickCommandFunction.RemoveWhiteSpace,
+            QuickCommandFunction.RemoveNewLines
+        };
+
+        public static string FunctionDisplayName(QuickCommandFunction f)
+        {
+            switch (f)
+            {
+                case QuickCommandFunction.StringReplace:          return Loc.Get("Settings.QuickCommand.Function.StringReplace",          "字面查找替换");
+                case QuickCommandFunction.RegexReplace:           return Loc.Get("Settings.QuickCommand.Function.RegexReplace",           "正则查找替换");
+                case QuickCommandFunction.RegexMatches:           return Loc.Get("Settings.QuickCommand.Function.RegexMatches",           "正则提取匹配");
+                case QuickCommandFunction.RegexEscape:            return Loc.Get("Settings.QuickCommand.Function.RegexEscape",            "正则转义文本");
+                case QuickCommandFunction.StringTrim:             return Loc.Get("Settings.QuickCommand.Function.StringTrim",             "去除首尾空白");
+                case QuickCommandFunction.StringToUpper:          return Loc.Get("Settings.QuickCommand.Function.StringToUpper",          "转大写");
+                case QuickCommandFunction.StringToLower:          return Loc.Get("Settings.QuickCommand.Function.StringToLower",          "转小写");
+                case QuickCommandFunction.RegexSplit:             return Loc.Get("Settings.QuickCommand.Function.RegexSplit",             "正则分割(换行拼接)");
+                case QuickCommandFunction.DistinctRemoveDuplicate:return Loc.Get("Settings.QuickCommand.Function.DistinctRemoveDuplicate","按行去重");
+                case QuickCommandFunction.RemoveWhiteSpace:       return Loc.Get("Settings.QuickCommand.Function.RemoveWhiteSpace",       "移除全部空白");
+                case QuickCommandFunction.RemoveNewLines:         return Loc.Get("Settings.QuickCommand.Function.RemoveNewLines",         "移除换行");
+            }
+            return f.ToString();
+        }
+
+        /// <summary>函数需要的参数个数（0~2）。</summary>
+        public static int FunctionParamCount(QuickCommandFunction f)
+        {
+            switch (f)
+            {
+                case QuickCommandFunction.StringReplace:
+                case QuickCommandFunction.RegexReplace:
+                case QuickCommandFunction.RegexMatches:
+                    return 2;
+                case QuickCommandFunction.RegexSplit:
+                    return 1;
+                default:
+                    return 0;
+            }
+        }
+
+        public static string ParamToolTip(QuickCommandFunction f, int paramIndex)
+        {
+            if (paramIndex == 1)
+            {
+                switch (f)
+                {
+                    case QuickCommandFunction.StringReplace: return Loc.Get("Settings.QuickCommand.Param.Find", "查找串");
+                    case QuickCommandFunction.RegexReplace:
+                    case QuickCommandFunction.RegexMatches:
+                    case QuickCommandFunction.RegexSplit:
+                        return Loc.Get("Settings.QuickCommand.Param.Pattern", "正则 Pattern");
+                }
+            }
+            else if (paramIndex == 2)
+            {
+                switch (f)
+                {
+                    case QuickCommandFunction.StringReplace: return Loc.Get("Settings.QuickCommand.Param.Replace", "替换串");
+                    case QuickCommandFunction.RegexReplace:  return Loc.Get("Settings.QuickCommand.Param.ReplTemplate", "替换模板(支持$1组引用)");
+                    case QuickCommandFunction.RegexMatches:  return Loc.Get("Settings.QuickCommand.Param.Separator", "多个结果分隔符(留空=直接拼接)");
+                }
+            }
+            return "";
+        }
+
         public QuickCommand Clone()
         {
             var cloned = new QuickCommand
@@ -122,10 +179,6 @@ namespace WinVClip.Models
             return cloned;
         }
 
-        
-        
-        
-        
         public static string ApplyRules(string input, IEnumerable<QuickCommandRule> rules, bool firstOnly = false)
         {
             if (input == null) input = "";
@@ -140,9 +193,6 @@ namespace WinVClip.Models
             return current;
         }
 
-        
-        
-        
         public static string ApplyRule(string input, QuickCommandFunction func, string param1, string param2, bool firstOnly)
         {
             if (input == null) input = "";
@@ -228,50 +278,254 @@ namespace WinVClip.Models
             }
         }
 
-        
-        public static List<QuickCommand> CreateDefaults()
+        /// <summary>内置快捷命令模板（名称按当前语言本地化）。</summary>
+        public static List<QuickCommand> CreateTemplates()
         {
-            var list = new List<QuickCommand>();
-
-            var extractPhones = new QuickCommand
+            return new List<QuickCommand>
             {
-                Name = "提取全部手机号",
-                ClipboardType = -2, 
-                Rules = new List<QuickCommandRule>
+                new QuickCommand
                 {
-                    new QuickCommandRule
+                    Name = Loc.Get("Settings.QuickCommand.Template.Phone", "提取全部手机号"),
+                    ClipboardType = -2,
+                    Rules = new List<QuickCommandRule>
                     {
-                        Enabled = true,
-                        Function = QuickCommandFunction.RegexMatches,
-                        Param1 = @"1[3-9](?:[\s\-]?\d){9}",
-                        Param2 = ","
-                    },
-                    new QuickCommandRule
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.RegexMatches,
+                            Param1 = @"1[3-9](?:[\s\-]?\d){9}",
+                            Param2 = ","
+                        },
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.RemoveWhiteSpace,
+                            Param1 = "",
+                            Param2 = ""
+                        },
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.StringReplace,
+                            Param1 = "-",
+                            Param2 = ""
+                        },
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.RegexReplace,
+                            Param1 = @"(?<=\d{11})(?=1[3-9]\d{9}(?!\d))",
+                            Param2 = ","
+                        }
+                    }
+                },
+                new QuickCommand
+                {
+                    Name = Loc.Get("Settings.QuickCommand.Template.IdCard", "提取全部身份证号"),
+                    ClipboardType = -2,
+                    Rules = new List<QuickCommandRule>
                     {
-                        Enabled = true,
-                        Function = QuickCommandFunction.RemoveWhiteSpace,
-                        Param1 = "",
-                        Param2 = ""
-                    },
-                    new QuickCommandRule
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.RegexMatches,
+                            Param1 = @"\b[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[0-9Xx]\b",
+                            Param2 = ","
+                        },
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.StringReplace,
+                            Param1 = " ",
+                            Param2 = ""
+                        }
+                    }
+                },
+                new QuickCommand
+                {
+                    Name = Loc.Get("Settings.QuickCommand.Template.Email", "提取全部邮箱地址"),
+                    ClipboardType = -2,
+                    Rules = new List<QuickCommandRule>
                     {
-                        Enabled = true,
-                        Function = QuickCommandFunction.StringReplace,
-                        Param1 = "-",
-                        Param2 = ""
-                    },
-                    new QuickCommandRule
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.RegexMatches,
+                            Param1 = @"\b[\w\.\-]+@[\w\-]+(?:\.[\w\-]+)+\b",
+                            Param2 = ","
+                        }
+                    }
+                },
+                new QuickCommand
+                {
+                    Name = Loc.Get("Settings.QuickCommand.Template.Url", "提取全部网址链接"),
+                    ClipboardType = -2,
+                    Rules = new List<QuickCommandRule>
                     {
-                        Enabled = true,
-                        Function = QuickCommandFunction.RegexReplace,
-                        Param1 = @"(?<=\d{11})(?=1[3-9]\d{9}(?!\d))",
-                        Param2 = ","
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.RegexMatches,
+                            Param1 = DatabaseService.LinkMatchPattern,
+                            Param2 = ","
+                        }
+                    }
+                },
+                new QuickCommand
+                {
+                    Name = Loc.Get("Settings.QuickCommand.Template.NumberSplit", "提取全部数字（逗号分割）"),
+                    ClipboardType = -2,
+                    Rules = new List<QuickCommandRule>
+                    {
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.RegexMatches,
+                            Param1 = @"\d+",
+                            Param2 = ","
+                        }
+                    }
+                },
+                new QuickCommand
+                {
+                    Name = Loc.Get("Settings.QuickCommand.Template.NumberConcat", "提取全部数字（不分割）"),
+                    ClipboardType = -2,
+                    Rules = new List<QuickCommandRule>
+                    {
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.RegexMatches,
+                            Param1 = @"\d+",
+                            Param2 = ""
+                        }
+                    }
+                },
+                new QuickCommand
+                {
+                    Name = Loc.Get("Settings.QuickCommand.Template.Chinese", "提取全部中文汉字"),
+                    ClipboardType = -2,
+                    Rules = new List<QuickCommandRule>
+                    {
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.RegexMatches,
+                            Param1 = @"[\u4e00-\u9fa5]",
+                            Param2 = ""
+                        }
+                    }
+                },
+                new QuickCommand
+                {
+                    Name = Loc.Get("Settings.QuickCommand.Template.CollapseSpaces", "清除多余空格"),
+                    ClipboardType = -2,
+                    Rules = new List<QuickCommandRule>
+                    {
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.RegexReplace,
+                            Param1 = @"[\t]+",
+                            Param2 = " "
+                        },
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.RegexReplace,
+                            Param1 = @"\s{2,}",
+                            Param2 = " "
+                        },
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.RegexReplace,
+                            Param1 = @"^\s+|\s+$",
+                            Param2 = ""
+                        }
+                    }
+                },
+                new QuickCommand
+                {
+                    Name = Loc.Get("Settings.QuickCommand.Template.DistinctLines", "列表去重（换行数据）"),
+                    ClipboardType = -2,
+                    Rules = new List<QuickCommandRule>
+                    {
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.RegexReplace,
+                            Param1 = @"(?m)^\s+|\s+$",
+                            Param2 = ""
+                        },
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.RegexReplace,
+                            Param1 = @"(?ms)^(.*?)(?:\r?\n\1)+(?=\r?\n|$)",
+                            Param2 = "$1"
+                        }
+                    }
+                },
+                new QuickCommand
+                {
+                    Name = Loc.Get("Settings.QuickCommand.Template.LinesToComma", "多行转逗号一行"),
+                    ClipboardType = -2,
+                    Rules = new List<QuickCommandRule>
+                    {
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.RegexReplace,
+                            Param1 = @"\r?\n",
+                            Param2 = ","
+                        }
+                    }
+                },
+                new QuickCommand
+                {
+                    Name = Loc.Get("Settings.QuickCommand.Template.CommaToLines", "逗号转多行（半角/全角逗号）"),
+                    ClipboardType = -2,
+                    Rules = new List<QuickCommandRule>
+                    {
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.RegexReplace,
+                            Param1 = @"[,，]",
+                            Param2 = "\r\n"
+                        }
+                    }
+                },
+                new QuickCommand
+                {
+                    Name = Loc.Get("Settings.QuickCommand.Template.StripHtml", "去除HTML标签"),
+                    ClipboardType = -2,
+                    Rules = new List<QuickCommandRule>
+                    {
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.RegexReplace,
+                            Param1 = @"<[^>]+>",
+                            Param2 = ""
+                        },
+                        new QuickCommandRule
+                        {
+                            Enabled = true,
+                            Function = QuickCommandFunction.StringReplace,
+                            Param1 = "&nbsp;",
+                            Param2 = " "
+                        }
                     }
                 }
             };
-            list.Add(extractPhones);
+        }
 
-            return list;
+        /// <summary>新用户默认快捷命令：取内置模板第一条。</summary>
+        public static List<QuickCommand> CreateDefaults()
+        {
+            return new List<QuickCommand> { CreateTemplates()[0].Clone() };
         }
     }
 }

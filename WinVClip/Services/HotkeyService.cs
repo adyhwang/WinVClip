@@ -34,17 +34,14 @@ namespace WinVClip.Services
                 if (key == Key.None)
                     return false;
 
-                
                 if (modifiers == 0 && !IsFunctionKey(key.ToString()))
                     return false;
 
-                
                 var normalizedHotkey = NormalizeHotkey(hotkey);
 
-                
                 if (_hotkeyToId.TryGetValue(normalizedHotkey, out var existingId))
                 {
-                    
+
                     _hotkeyActions[existingId] = action;
                     return true;
                 }
@@ -103,7 +100,7 @@ namespace WinVClip.Services
             {
                 if (IsModifierKey(part))
                 {
-                    
+
                     if (!modifiers.Add(part))
                         return false;
                 }
@@ -115,7 +112,6 @@ namespace WinVClip.Services
                 }
             }
 
-            
             if (modifiers.Count == 0)
             {
                 return regularKey != null && IsFunctionKey(regularKey);
@@ -147,7 +143,6 @@ namespace WinVClip.Services
 
             var parts = hotkey.Split('+').Select(p => p.Trim()).Where(p => !string.IsNullOrEmpty(p)).ToList();
 
-            
             var modifierOrder = new[] { "Ctrl", "Alt", "Shift", "Win" };
             var modifiers = new List<string>();
             string? regularKey = null;
@@ -168,7 +163,6 @@ namespace WinVClip.Services
                 }
             }
 
-            
             var orderedModifiers = modifierOrder
                 .Where(m => modifiers.Contains(m, StringComparer.OrdinalIgnoreCase))
                 .Select(m => m);
@@ -221,26 +215,22 @@ namespace WinVClip.Services
             if (string.IsNullOrEmpty(keyPart))
                 return Key.None;
 
-            
             if (Enum.TryParse<Key>(keyPart, true, out var key))
             {
-                
+
                 if (!IsModifierKey(keyPart))
                     return key;
             }
 
-            
             if (keyPart.Length == 1)
             {
                 var ch = char.ToUpper(keyPart[0]);
 
-                
                 if (ch >= 'A' && ch <= 'Z')
                 {
                     return KeyInterop.KeyFromVirtualKey((int)ch);
                 }
 
-                
                 if (ch >= '0' && ch <= '9')
                 {
                     if (Enum.TryParse<Key>($"D{ch}", out var digitKey))
@@ -248,7 +238,6 @@ namespace WinVClip.Services
                 }
             }
 
-            
             var keyMappings = new Dictionary<string, Key>(StringComparer.OrdinalIgnoreCase)
             {
                 ["0"] = Key.D0, ["1"] = Key.D1, ["2"] = Key.D2, ["3"] = Key.D3, ["4"] = Key.D4,

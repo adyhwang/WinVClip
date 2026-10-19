@@ -205,7 +205,7 @@ namespace WinVClip
             if (sender is Button button && button.DataContext is Group selectedGroup)
             {
                 var result = AppMessageBox.Show(
-                    string.Format(Loc.Get("GroupManage.ConfirmDelete", "确定要删除分组 \"{0}\" 吗？"), selectedGroup.Name),
+                    string.Format(Loc.Get("GroupManage.ConfirmDelete", "确定要删除分组 \"{0}\" 吗？"), Loc.GetGroupName(selectedGroup.Name)),
                     Loc.Get("Common.Delete", "确认删除"),
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Question);

@@ -2,14 +2,10 @@ using System.Collections.Generic;
 
 namespace WinVClip.Models
 {
-    
-    
-    
-    
-    
+
     public class GlobalHotkey
     {
-        
+
         public int ItemIndex { get; set; } = 1;
 
         public bool Ctrl { get; set; }
@@ -17,19 +13,14 @@ namespace WinVClip.Models
         public bool Alt { get; set; }
         public bool Win { get; set; }
 
-        
         public string Key { get; set; } = "";
 
-        
         public QuickPasteAction Action { get; set; } = QuickPasteAction.PasteAsPlainText;
 
-        
         public string QuickCommandName { get; set; } = "";
 
-        
         public bool Enabled { get; set; } = true;
 
-        
         public string ToHotkeyString()
         {
             var parts = new List<string>(5);
@@ -41,7 +32,6 @@ namespace WinVClip.Models
             return string.Join("+", parts);
         }
 
-        
         public GlobalHotkey Clone()
         {
             return new GlobalHotkey
@@ -58,7 +48,6 @@ namespace WinVClip.Models
             };
         }
 
-        
         public static List<GlobalHotkey> CreateDefaults() => new();
     }
 }

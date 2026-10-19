@@ -14,10 +14,8 @@ namespace WinVClip
         private readonly string _content;
         private BitmapSource _qrCodeBitmap;
 
-        
         public const int MaxQrBytes = 2331;
 
-        
         public static bool IsContentTooLarge(string content)
         {
             return System.Text.Encoding.UTF8.GetByteCount(content ?? "") > MaxQrBytes;
@@ -45,7 +43,7 @@ namespace WinVClip
 
         private void GenerateQRCode()
         {
-            
+
             var byteCount = System.Text.Encoding.UTF8.GetByteCount(_content);
 
             if (byteCount > MaxQrBytes)

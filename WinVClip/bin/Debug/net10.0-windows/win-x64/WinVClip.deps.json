@@ -7,11 +7,12 @@
   "targets": {
     ".NETCoreApp,Version=v10.0": {},
     ".NETCoreApp,Version=v10.0/win-x64": {
-      "WinVClip/3.3": {
+      "WinVClip/3.4": {
         "dependencies": {
           "Microsoft.Data.Sqlite": "10.0.0",
           "QRCoder": "1.8.0",
-          "SQLitePCLRaw.bundle_e_sqlite3": "2.1.13"
+          "SQLitePCLRaw.bundle_e_sqlite3": "2.1.13",
+          "TinyPinyin.Net": "1.0.2"
         },
         "runtime": {
           "WinVClip.dll": {}
@@ -80,11 +81,19 @@
             "fileVersion": "2.1.13.3146"
           }
         }
+      },
+      "TinyPinyin.Net/1.0.2": {
+        "runtime": {
+          "lib/net5.0/TinyPinyin.dll": {
+            "assemblyVersion": "1.0.0.2",
+            "fileVersion": "1.0.0.2"
+          }
+        }
       }
     }
   },
   "libraries": {
-    "WinVClip/3.3": {
+    "WinVClip/3.4": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
@@ -137,6 +146,13 @@
       "sha512": "sha512-ZU60dSqoSNRe49KcQDUmOVgdRtjITOssVXFtiISs+zJXDI4D2Sndwpn2NOtzDQNPu0ZAvpoLPQ+GLKv6iEZn8Q==",
       "path": "sqlitepclraw.provider.e_sqlite3/2.1.13",
       "hashPath": "sqlitepclraw.provider.e_sqlite3.2.1.13.nupkg.sha512"
+    },
+    "TinyPinyin.Net/1.0.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-dbQcaukn7DEOsgFJn4YFQT0zfbALWHZiZMIvsvLOaMQRnCnOfYPE5Fq4PoIqCgGMnPt21NsLxEuXYRq4QQSnDA==",
+      "path": "tinypinyin.net/1.0.2",
+      "hashPath": "tinypinyin.net.1.0.2.nupkg.sha512"
     }
   }
 }

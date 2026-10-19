@@ -118,7 +118,78 @@ namespace WinVClip.Services
             if (_isIgnoringChange)
                 return;
 
+            // 忽略窗口：前台窗口标题或进程名命中关键词时不记录（CopyQ ignore windows 同类功能）
+            if (IsForegroundWindowIgnored())
+                return;
+
             ScheduleDebouncedProcess();
+        }
+
+        private bool IsForegroundWindowIgnored()
+        {
+            try
+            {
+                var keywords = _settingsService.Settings.IgnoredWindowKeywords;
+                if (keywords == null || keywords.Count == 0)
+                    return false;
+
+                IntPtr hwnd = GetForegroundWindow();
+                if (hwnd == IntPtr.Zero)
+                    return false;
+
+                string windowTitle = GetWindowTitle(hwnd);
+                string processName = GetWindowProcessName(hwnd);
+                if (string.IsNullOrEmpty(windowTitle) && string.IsNullOrEmpty(processName))
+                    return false;
+
+                foreach (var keyword in keywords)
+                {
+                    var k = keyword?.Trim();
+                    if (string.IsNullOrEmpty(k))
+                        continue;
+
+                    if (!string.IsNullOrEmpty(windowTitle) && windowTitle.IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0)
+                        return true;
+
+                    if (!string.IsNullOrEmpty(processName) && processName.IndexOf(k, StringComparison.OrdinalIgnoreCase) >= 0)
+                        return true;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static string GetWindowTitle(IntPtr hwnd)
+        {
+            var buf = new StringBuilder(512);
+            return GetWindowText(hwnd, buf, buf.Capacity) > 0 ? buf.ToString() : string.Empty;
+        }
+
+        private static string GetWindowProcessName(IntPtr hwnd)
+        {
+            if (GetWindowThreadProcessId(hwnd, out uint pid) == 0 || pid == 0)
+                return string.Empty;
+
+            IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+            if (hProcess == IntPtr.Zero)
+                return string.Empty;
+
+            try
+            {
+                var buf = new StringBuilder(1024);
+                int size = buf.Capacity;
+                if (QueryFullProcessImageName(hProcess, 0, buf, ref size) && size > 0)
+                    return System.IO.Path.GetFileName(buf.ToString(0, size));
+                return string.Empty;
+            }
+            finally
+            {
+                CloseHandle(hProcess);
+            }
         }
 
         private void ScheduleDebouncedProcess()
@@ -159,8 +230,9 @@ namespace WinVClip.Services
             {
                 ProcessClipboard();
             }
-            catch
+            catch (Exception ex)
             {
+                App.LogCrash("ClipboardMonitor.Process", ex);
             }
         }
 
@@ -170,58 +242,38 @@ namespace WinVClip.Services
 
             try
             {
-                var dataObject = ClipboardWin32Helper.GetDataObject();
-                bool hasText = ClipboardWin32Helper.ContainsText();
-                bool hasImage = ClipboardWin32Helper.ContainsImage();
-                bool hasFileDrop = ClipboardWin32Helper.ContainsFileDropList();
-                bool hasRichText = dataObject?.GetDataPresent(System.Windows.DataFormats.Html) == true ||
-                                   dataObject?.GetDataPresent(System.Windows.DataFormats.Rtf) == true;
+                var snapshot = ReadClipboardSnapshot();
+                if (snapshot == null)
+                    return;
 
-                if (hasRichText && hasText)
+                if (snapshot.HasRichText && snapshot.HasText &&
+                    !string.IsNullOrWhiteSpace(snapshot.Text) && !string.IsNullOrWhiteSpace(snapshot.RichContent))
                 {
-                    string richContent = null;
-                    if (dataObject.GetDataPresent(System.Windows.DataFormats.Html))
-                        richContent = dataObject.GetData(System.Windows.DataFormats.Html) as string;
-                    else if (dataObject.GetDataPresent(System.Windows.DataFormats.Rtf))
-                        richContent = dataObject.GetData(System.Windows.DataFormats.Rtf) as string;
-
-                    var text = ClipboardWin32Helper.GetText();
-                    if (!string.IsNullOrWhiteSpace(text) && !string.IsNullOrWhiteSpace(richContent))
-                    {
-                        _lastContentSignatures[ClipboardType.RichText] = ComputeSignature(ClipboardType.RichText, text + richContent);
-                    }
+                    _lastContentSignatures[ClipboardType.RichText] =
+                        ComputeSignature(ClipboardType.RichText, snapshot.Text + snapshot.RichContent);
                 }
-                else if (hasText)
+                else if (snapshot.HasText)
                 {
-                    var text = ClipboardWin32Helper.GetText();
-                    _lastContentSignatures[ClipboardType.Text] = ComputeSignature(ClipboardType.Text, text);
+                    _lastContentSignatures[ClipboardType.Text] =
+                        ComputeSignature(ClipboardType.Text, snapshot.Text);
                 }
 
-                if (hasImage)
+                if (snapshot.Image != null)
                 {
-                    var image = ClipboardWin32Helper.GetImage();
-                    if (image != null)
-                    {
-                        _lastContentSignatures[ClipboardType.Image] = ComputeSignature(ClipboardType.Image, $"{image.PixelWidth}x{image.PixelHeight}_{image.Format}");
-                    }
+                    var image = snapshot.Image;
+                    _lastContentSignatures[ClipboardType.Image] =
+                        ComputeSignature(ClipboardType.Image, $"{image.PixelWidth}x{image.PixelHeight}_{image.Format}");
                 }
 
-                if (hasFileDrop)
+                if (snapshot.FilePaths.Length > 0)
                 {
-                    if (dataObject.GetDataPresent(System.Windows.DataFormats.FileDrop))
-                    {
-                        var fileList = dataObject.GetData(System.Windows.DataFormats.FileDrop) as string[];
-                        if (fileList != null && fileList.Length > 0)
-                        {
-                            var sortedPaths = fileList.OrderBy(p => p.ToLowerInvariant()).ToList();
-                            var hash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", sortedPaths)));
-                            _lastContentSignatures[ClipboardType.FileList] = ComputeSignature(ClipboardType.FileList, hash);
-                        }
-                    }
+                    var hash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", NormalizeFilePaths(snapshot.FilePaths))));
+                    _lastContentSignatures[ClipboardType.FileList] = ComputeSignature(ClipboardType.FileList, hash);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                App.LogCrash("ClipboardMonitor.UpdateState", ex);
             }
         }
 
@@ -236,8 +288,11 @@ namespace WinVClip.Services
             UnregisterListener();
         }
 
-        private bool _isIgnoringChange = false;
-        private bool _isPasteOperation = false;
+        private volatile bool _isIgnoringChange = false;
+
+        /// <summary>粘贴写入剪贴板的时间戳（0 表示当前没有待处理的粘贴操作）。</summary>
+        private int _pasteOperationTimestamp;
+        private const int PasteOperationTimeoutMs = 1000;
         private string _lastPasteHash = string.Empty;
 
         public void IgnoreNextChange(int milliseconds = 500)
@@ -268,7 +323,7 @@ namespace WinVClip.Services
 
         public void MarkPasteOperation()
         {
-            _isPasteOperation = true;
+            Interlocked.Exchange(ref _pasteOperationTimestamp, Environment.TickCount);
         }
 
         public void SetLastPasteHashText(string text)
@@ -278,8 +333,7 @@ namespace WinVClip.Services
 
         public void SetLastPasteHashFiles(List<string> filePaths)
         {
-            var sortedPaths = filePaths.OrderBy(p => p.ToLowerInvariant()).ToList();
-            _lastPasteHash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", sortedPaths)));
+            _lastPasteHash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", NormalizeFilePaths(filePaths))));
         }
 
         private bool IsRecentlyPastedContent(string content)
@@ -292,183 +346,229 @@ namespace WinVClip.Services
 
         public bool CheckAndClearPasteOperation()
         {
-            if (_isPasteOperation)
+            int timestamp = Interlocked.Exchange(ref _pasteOperationTimestamp, 0);
+            if (timestamp == 0)
+                return false;
+
+            // 超过超时仍未等到剪贴板更新，视为本次写入未生效，避免吞掉用户后续的真实复制
+            return unchecked(Environment.TickCount - timestamp) <= PasteOperationTimeoutMs;
+        }
+
+        /// <summary>
+        /// 单次剪贴板更新的内容快照：一次读取全部所需格式，
+        /// 供类型判定、去重与落库复用，避免在监听链路中反复开合剪贴板。
+        /// </summary>
+        private sealed class ClipboardSnapshot
+        {
+            public bool HasText;
+            public bool HasImage;
+            public bool HasFileDrop;
+            public bool HasRichText;
+            public string Text;
+            public string Html;
+            public string Rtf;
+            public string Csv;
+            public string[] FilePaths = Array.Empty<string>();
+            public BitmapSource Image;
+
+            public bool HasAny => HasText || HasImage || HasFileDrop || HasRichText;
+            public string RichFormat => Html != null ? "HTML" : Rtf != null ? "RTF" : null;
+            public string RichContent => Html ?? Rtf;
+        }
+
+        /// <summary>读取一次剪贴板生成内容快照；内容不可用时返回 null。</summary>
+        private ClipboardSnapshot ReadClipboardSnapshot()
+        {
+            try
             {
-                _isPasteOperation = false;
-                return true;
+                var dataObject = ClipboardWin32Helper.GetDataObject();
+                if (dataObject == null)
+                    return null;
+
+                var snapshot = new ClipboardSnapshot
+                {
+                    HasText = dataObject.GetDataPresent(System.Windows.DataFormats.UnicodeText) ||
+                              dataObject.GetDataPresent(System.Windows.DataFormats.Text),
+                    HasFileDrop = dataObject.GetDataPresent(System.Windows.DataFormats.FileDrop),
+                    HasImage = dataObject.GetDataPresent(System.Windows.DataFormats.Bitmap) ||
+                               dataObject.GetDataPresent(System.Windows.DataFormats.Dib),
+                    HasRichText = dataObject.GetDataPresent(System.Windows.DataFormats.Html) ||
+                                  dataObject.GetDataPresent(System.Windows.DataFormats.Rtf)
+                };
+
+                if (snapshot.HasText)
+                    snapshot.Text = ClipboardWin32Helper.GetText();
+
+                if (dataObject.GetDataPresent(System.Windows.DataFormats.Html))
+                    snapshot.Html = dataObject.GetData(System.Windows.DataFormats.Html) as string;
+                else if (dataObject.GetDataPresent(System.Windows.DataFormats.Rtf))
+                    snapshot.Rtf = dataObject.GetData(System.Windows.DataFormats.Rtf) as string;
+
+                if (dataObject.GetDataPresent(System.Windows.DataFormats.CommaSeparatedValue))
+                    snapshot.Csv = dataObject.GetData(System.Windows.DataFormats.CommaSeparatedValue) as string;
+
+                if (snapshot.HasFileDrop && dataObject.GetData(System.Windows.DataFormats.FileDrop) is string[] fileList)
+                {
+                    snapshot.FilePaths = fileList
+                        .Where(f => File.Exists(f) || Directory.Exists(f))
+                        .ToArray();
+                }
+
+                if (snapshot.HasImage)
+                    snapshot.Image = GetClipboardImage(dataObject);
+
+                return snapshot;
             }
-            return false;
+            catch
+            {
+                return null;
+            }
         }
 
         private void ProcessClipboard()
         {
-            bool hasText = false;
-            bool hasImage = false;
-            bool hasFileDrop = false;
-            bool hasRichText = false;
+            var snapshot = ReadClipboardSnapshot();
+            if (snapshot == null || !snapshot.HasAny)
+                return;
 
-            try
+            var settings = _settingsService.Settings;
+
+            if (snapshot.FilePaths.Length > 0 && settings.CaptureFiles)
             {
-                hasText = ClipboardWin32Helper.ContainsText();
-                hasImage = ClipboardWin32Helper.ContainsImage();
-                hasFileDrop = ClipboardWin32Helper.ContainsFileDropList();
-                
-                var dataObject = ClipboardWin32Helper.GetDataObject();
-                hasRichText = dataObject.GetDataPresent(System.Windows.DataFormats.Html) || 
-                              dataObject.GetDataPresent(System.Windows.DataFormats.Rtf);
-            }
-            catch
-            {
+                ProcessFileListClipboard(snapshot);
                 return;
             }
 
-            if (!hasText && !hasImage && !hasFileDrop && !hasRichText)
-                return;
-
-            if (hasFileDrop && _settingsService.Settings.CaptureFiles)
+            if (snapshot.HasRichText && snapshot.HasText && settings.CaptureText &&
+                !string.IsNullOrWhiteSpace(snapshot.Text) && !string.IsNullOrWhiteSpace(snapshot.RichContent))
             {
-                var dataObject = ClipboardWin32Helper.GetDataObject();
-                if (dataObject.GetDataPresent(System.Windows.DataFormats.FileDrop))
-                {
-                    var fileList = dataObject.GetData(System.Windows.DataFormats.FileDrop) as string[];
-                    if (fileList != null && fileList.Length > 0)
-                    {
-                        var filePaths = fileList.Where(f => File.Exists(f) || Directory.Exists(f)).ToList();
-                        var sortedPaths = filePaths.OrderBy(p => p.ToLowerInvariant()).ToList();
-                        if (ShouldProcessFileList(filePaths))
-                        {
-                            var item = new ClipboardItem
-                            {
-                                Type = ClipboardType.FileList,
-                                FilePaths = filePaths,
-                                Content = string.Join("\n", sortedPaths),
-                                CreatedAt = DateTime.Now
-                            };
-                            
-                            if (filePaths.Count == 1)
-                            {
-                                item.PreviewText = Path.GetFileName(filePaths[0]);
-                            }
-                            else
-                            {
-                                var fileNames = filePaths.Take(2).Select(p => Path.GetFileName(p)).ToList();
-                                if (filePaths.Count > 2)
-                                {
-                                    fileNames.Add(string.Format(Loc.Get("Preview.FilesAndFoldersShort", "……(共{0}个文件/目录)"), filePaths.Count));
-                                }
-                                item.PreviewText = string.Join("\n", fileNames);
-                            }
-                            
-                            SaveItem(item);
-                        }
-                        return;
-                    }
-                }
-            }
-
-            if (hasRichText && hasText && _settingsService.Settings.CaptureImages)
-            {
-                var dataObject = ClipboardWin32Helper.GetDataObject();
-                string richContent = null;
-                string richFormat = null;
-                string csvContent = null;
-
-                if (dataObject.GetDataPresent(System.Windows.DataFormats.Html))
-                {
-                    richContent = dataObject.GetData(System.Windows.DataFormats.Html) as string;
-                    richFormat = "HTML";
-                }
-                else if (dataObject.GetDataPresent(System.Windows.DataFormats.Rtf))
-                {
-                    richContent = dataObject.GetData(System.Windows.DataFormats.Rtf) as string;
-                    richFormat = "RTF";
-                }
-
-                if (dataObject.GetDataPresent(System.Windows.DataFormats.CommaSeparatedValue))
-                {
-                    csvContent = dataObject.GetData(System.Windows.DataFormats.CommaSeparatedValue) as string;
-                }
-
-                var text = ClipboardWin32Helper.GetText();
-                if (!string.IsNullOrWhiteSpace(text) && !string.IsNullOrWhiteSpace(richContent))
-                {
-                    if (ShouldProcessRichText(text, richContent, richFormat))
-                    {
-                        string imagePath = null;
-                        string imageHash = null;
-
-                        if (hasImage)
-                        {
-                            var image = GetClipboardImage();
-                            if (image != null)
-                            {
-                                var imageData = ImageToBytes(image);
-                                if (imageData.Length > 0)
-                                {
-                                    imageHash = ComputeHash(imageData);
-                                    
-                                    string imagesFolder = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "images");
-                                    System.IO.Directory.CreateDirectory(imagesFolder);
-                                    
-                                    string timestamp = DateTime.Now.ToString("yyyyMMddHHmmssfff");
-                                    string fileName = $"{timestamp}_{imageHash.Substring(0, 8)}.png";
-                                    imagePath = System.IO.Path.Combine("images", fileName);
-                                    string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, imagePath);
-                                    
-                                    System.IO.File.WriteAllBytes(fullPath, imageData);
-                                    imageData = null;
-                                }
-                                image = null;
-                            }
-                        }
-
-                        var item = new ClipboardItem
-                        {
-                            Type = ClipboardType.RichText,
-                            Content = text,
-                            RichContent = richContent,
-                            RichFormat = richFormat,
-                            CsvContent = csvContent,
-                            ImagePath = imagePath,
-                            ImageHash = imageHash,
-                            PreviewText = text.Length > 100 ? text.Substring(0, 100) : text,
-                            CreatedAt = DateTime.Now
-                        };
-                        SaveItem(item);
-                        if (hasImage)
-                            SchedulePostProcessGc();
-                    }
-                    return;
-                }
-            }
-
-            if (hasImage && _settingsService.Settings.CaptureImages)
-            {
-                var image = GetClipboardImage();
-                if (image != null)
-                {
-                    ProcessImageClipboard(image);
-                    image = null;
-                }
+                ProcessRichTextClipboard(snapshot);
                 return;
             }
 
-            if (hasText && _settingsService.Settings.CaptureImages)
+            if (snapshot.HasImage && settings.CaptureImages)
             {
-                var text = ClipboardWin32Helper.GetText();
-                if (ShouldProcessText(text))
+                ProcessImageClipboard(snapshot.Image);
+                return;
+            }
+
+            if (snapshot.HasText && settings.CaptureText && ShouldProcessText(snapshot.Text))
+            {
+                SaveItem(new ClipboardItem
                 {
-                    var item = new ClipboardItem
-                    {
-                        Type = ClipboardType.Text,
-                        Content = text,
-                        PreviewText = text.Length > 100 ? text.Substring(0, 100) : text,
-                        CreatedAt = DateTime.Now
-                    };
-                    SaveItem(item);
-                }
+                    Type = ClipboardType.Text,
+                    Content = snapshot.Text,
+                    PreviewText = BuildTextPreview(snapshot.Text),
+                    CreatedAt = DateTime.Now
+                });
             }
         }
+
+        /// <summary>处理文件与目录列表，签名命中时不记录。</summary>
+        private void ProcessFileListClipboard(ClipboardSnapshot snapshot)
+        {
+            var filePaths = snapshot.FilePaths.ToList();
+            if (!ShouldProcessFileList(filePaths))
+                return;
+
+            var item = new ClipboardItem
+            {
+                Type = ClipboardType.FileList,
+                FilePaths = filePaths,
+                Content = string.Join("\n", NormalizeFilePaths(filePaths)),
+                CreatedAt = DateTime.Now
+            };
+
+            if (filePaths.Count == 1)
+            {
+                item.PreviewText = Path.GetFileName(filePaths[0]);
+            }
+            else
+            {
+                var fileNames = filePaths.Take(2).Select(p => Path.GetFileName(p)).ToList();
+                if (filePaths.Count > 2)
+                {
+                    fileNames.Add(string.Format(Loc.Get("Preview.FilesAndFoldersShort", "……(共{0}个文件/目录)"), filePaths.Count));
+                }
+                item.PreviewText = string.Join("\n", fileNames);
+            }
+
+            SaveItem(item);
+        }
+
+        /// <summary>处理富文本：命中签名或重复时不记录；剪贴板同时含图片时先编码再落库，编码在后台线程完成。</summary>
+        private void ProcessRichTextClipboard(ClipboardSnapshot snapshot)
+        {
+            if (!ShouldProcessRichText(snapshot.Text, snapshot.RichContent, snapshot.RichFormat))
+                return;
+
+            if (snapshot.Image == null)
+            {
+                SaveRichTextItem(snapshot, null, null);
+                return;
+            }
+
+            EncodeImageInBackground(snapshot.Image, imageData =>
+            {
+                string imagePath = null;
+                string imageHash = null;
+
+                if (imageData.Length > 0)
+                {
+                    imageHash = ComputeHash(imageData);
+                    imagePath = SaveImageFile(imageData, imageHash);
+                }
+
+                SaveRichTextItem(snapshot, imagePath, imageHash);
+                SchedulePostProcessGc();
+            });
+        }
+
+        private void SaveRichTextItem(ClipboardSnapshot snapshot, string imagePath, string imageHash)
+        {
+            SaveItem(new ClipboardItem
+            {
+                Type = ClipboardType.RichText,
+                Content = snapshot.Text,
+                RichContent = snapshot.RichContent,
+                RichFormat = snapshot.RichFormat,
+                CsvContent = snapshot.Csv,
+                ImagePath = imagePath,
+                ImageHash = imageHash,
+                PreviewText = BuildTextPreview(snapshot.Text ?? ""),
+                CreatedAt = DateTime.Now
+            });
+        }
+
+        /// <summary>后台线程完成图片编码后回到 UI 线程执行后续落库，避免 PNG 压缩阻塞主线程。</summary>
+        private void EncodeImageInBackground(BitmapSource image, Action<byte[]> onEncoded)
+        {
+            Task.Run(() => ImageToBytes(image)).ContinueWith(task =>
+            {
+                byte[] imageData = task.IsCompletedSuccessfully ? task.Result : Array.Empty<byte>();
+                _dispatcher.BeginInvoke(() => onEncoded(imageData));
+            });
+        }
+
+        /// <summary>将编码后的图片写入 images 目录，返回相对路径。</summary>
+        private static string SaveImageFile(byte[] imageData, string imageHash)
+        {
+            string imagesFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "images");
+            Directory.CreateDirectory(imagesFolder);
+
+            string fileName = $"{DateTime.Now:yyyyMMddHHmmssfff}_{imageHash.Substring(0, 8)}.png";
+            string relativePath = Path.Combine("images", fileName);
+            File.WriteAllBytes(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, relativePath), imageData);
+            return relativePath;
+        }
+
+        /// <summary>文件路径排序（不区分大小写），用于生成稳定的内容顺序。</summary>
+        private static List<string> NormalizeFilePaths(IEnumerable<string> filePaths)
+            => filePaths.OrderBy(p => p.ToLowerInvariant()).ToList();
+
+        /// <summary>列表预览文本：超过 100 字符时截断。</summary>
+        private static string BuildTextPreview(string text)
+            => text.Length > 100 ? text.Substring(0, 100) : text;
 
         private bool ShouldProcessText(string text)
         {
@@ -476,13 +576,13 @@ namespace WinVClip.Services
                 return false;
 
             var signature = ComputeSignature(ClipboardType.Text, text);
-            
+
             if (_lastContentSignatures.TryGetValue(ClipboardType.Text, out var lastSig) && signature == lastSig)
                 return false;
 
             if (_settingsService.Settings.RemoveDuplicates && _databaseService.TextExistsInDatabase(text))
             {
-                
+
                 if (!IsRecentlyPastedContent(text))
                 {
                     _databaseService.UpdateDuplicateItemTimestamp(text, (int)ClipboardType.Text);
@@ -502,13 +602,13 @@ namespace WinVClip.Services
                 return false;
 
             var signature = ComputeSignature(ClipboardType.RichText, text + richContent);
-            
+
             if (_lastContentSignatures.TryGetValue(ClipboardType.RichText, out var lastSig) && signature == lastSig)
                 return false;
 
             if (_settingsService.Settings.RemoveDuplicates && _databaseService.RichTextExistsInDatabase(text, richContent))
             {
-                
+
                 if (!IsRecentlyPastedContent(text))
                 {
                     _databaseService.UpdateDuplicateRichTextTimestamp(text, richContent);
@@ -528,13 +628,13 @@ namespace WinVClip.Services
                 return false;
 
             var signature = ComputeSignature(ClipboardType.Image, imageHash);
-            
+
             if (_lastContentSignatures.TryGetValue(ClipboardType.Image, out var lastSig) && signature == lastSig)
                 return false;
 
             if (_settingsService.Settings.RemoveDuplicates && _databaseService.ImageExistsInDatabase(imageHash))
             {
-                
+
                 if (!IsRecentlyPastedContent(imageHash))
                 {
                     _databaseService.UpdateDuplicateImageTimestamp(imageHash);
@@ -553,11 +653,11 @@ namespace WinVClip.Services
             if (filePaths == null || filePaths.Count == 0)
                 return false;
 
-            var sortedPaths = filePaths.OrderBy(p => p.ToLowerInvariant()).ToList();
+            var sortedPaths = NormalizeFilePaths(filePaths);
             var content = string.Join("\n", sortedPaths);
             var hash = ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Join("|", sortedPaths)));
             var signature = ComputeSignature(ClipboardType.FileList, hash);
-            
+
             if (_lastContentSignatures.TryGetValue(ClipboardType.FileList, out var lastSig) && signature == lastSig)
                 return false;
 
@@ -565,7 +665,7 @@ namespace WinVClip.Services
             {
                 if (!string.IsNullOrEmpty(matchingContent))
                 {
-                    
+
                     if (!IsRecentlyPastedContent(hash))
                     {
                         _databaseService.UpdateDuplicateItemTimestamp(matchingContent, (int)ClipboardType.FileList);
@@ -623,39 +723,39 @@ namespace WinVClip.Services
             try
             {
                 BitmapSource processImage = image;
-                
+
                 const int maxDimension = 1920;
                 if (image.PixelWidth > maxDimension || image.PixelHeight > maxDimension)
                 {
                     double scale = Math.Min((double)maxDimension / image.PixelWidth, (double)maxDimension / image.PixelHeight);
                     int newWidth = (int)(image.PixelWidth * scale);
                     int newHeight = (int)(image.PixelHeight * scale);
-                    
+
                     var scaledBitmap = new System.Windows.Media.Imaging.TransformedBitmap(image, new System.Windows.Media.ScaleTransform(scale, scale));
                     if (scaledBitmap.CanFreeze)
                         scaledBitmap.Freeze();
                     processImage = scaledBitmap;
                 }
-                
+
                 BitmapSource writableBitmap = CreateWritableBitmap(processImage);
-                
+
                 byte[] result = TryEncodeWithPngEncoder(writableBitmap);
-                
+
                 if (result.Length == 0)
                 {
                     result = TryEncodeWithJpegEncoder(writableBitmap);
                 }
-                
+
                 if (result.Length == 0)
                 {
                     result = TryEncodeWithBmpEncoder(writableBitmap);
                 }
-                
+
                 if (result.Length == 0)
                 {
                     result = TryEncodeWithGdiPlus(writableBitmap);
                 }
-                
+
                 return result;
             }
             catch
@@ -668,23 +768,21 @@ namespace WinVClip.Services
         {
             try
             {
-                
+
                 if (source.Format != System.Windows.Media.PixelFormats.Bgr32 &&
                     source.Format != System.Windows.Media.PixelFormats.Pbgra32)
                 {
-                    
+
                     var converted = new FormatConvertedBitmap();
                     converted.BeginInit();
                     converted.Source = source;
                     converted.DestinationFormat = System.Windows.Media.PixelFormats.Bgr32;
                     converted.EndInit();
 
-                    
                     converted.Freeze();
                     return converted;
                 }
 
-                
                 return source;
             }
             catch
@@ -755,119 +853,100 @@ namespace WinVClip.Services
             }
         }
 
-        private BitmapSource? GetClipboardImage()
+        /// <summary>
+        /// 从已读取的剪贴板数据对象中提取位图，避免为取图再次开合剪贴板。
+        /// 依次尝试 WPF 位图、GDI 位图与 DIB 字节流；均无法解析时退回一次性读取以保证兼容性。
+        /// </summary>
+        private static BitmapSource GetClipboardImage(IDataObject dataObject)
         {
             try
             {
+                if (dataObject.GetDataPresent(System.Windows.DataFormats.Bitmap))
+                {
+                    var bitmap = dataObject.GetData(System.Windows.DataFormats.Bitmap);
+
+                    if (bitmap is BitmapSource source)
+                    {
+                        if (source.CanFreeze)
+                            source.Freeze();
+                        return source;
+                    }
+
+                    if (bitmap is System.Drawing.Bitmap gdiBitmap)
+                    {
+                        IntPtr hBitmap = gdiBitmap.GetHbitmap();
+                        try
+                        {
+                            var result = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+                                hBitmap,
+                                IntPtr.Zero,
+                                Int32Rect.Empty,
+                                BitmapSizeOptions.FromEmptyOptions());
+                            if (result.CanFreeze)
+                                result.Freeze();
+                            return result;
+                        }
+                        finally
+                        {
+                            DeleteObject(hBitmap);
+                        }
+                    }
+                }
+
+                if (dataObject.GetDataPresent(System.Windows.DataFormats.Dib) &&
+                    dataObject.GetData(System.Windows.DataFormats.Dib) is byte[] dibBytes)
+                {
+                    using var stream = new MemoryStream(dibBytes);
+                    var bitmapImage = new BitmapImage();
+                    bitmapImage.BeginInit();
+                    bitmapImage.StreamSource = stream;
+                    bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmapImage.EndInit();
+                    if (bitmapImage.CanFreeze)
+                        bitmapImage.Freeze();
+                    return bitmapImage;
+                }
+
                 var image = ClipboardWin32Helper.GetImage();
-                if (image != null)
-                {
-                    if (image.CanFreeze)
-                        image.Freeze();
-                    return image;
-                }
-                    
-                var dataObject = ClipboardWin32Helper.GetDataObject();
-                if (dataObject != null)
-                {
-                    if (dataObject.GetDataPresent(System.Windows.DataFormats.Bitmap))
-                    {
-                        var bitmap = dataObject.GetData(System.Windows.DataFormats.Bitmap);
-                        if (bitmap is System.Drawing.Bitmap gdiBitmap)
-                        {
-                            IntPtr hBitmap = gdiBitmap.GetHbitmap();
-                            try
-                            {
-                                var result = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
-                                    hBitmap,
-                                    IntPtr.Zero,
-                                    Int32Rect.Empty,
-                                    BitmapSizeOptions.FromEmptyOptions());
-                                if (result.CanFreeze)
-                                    result.Freeze();
-                                return result;
-                            }
-                            finally
-                            {
-                                DeleteObject(hBitmap);
-                            }
-                        }
-                    }
-                    else if (dataObject.GetDataPresent(System.Windows.DataFormats.Dib))
-                    {
-                        var dibData = dataObject.GetData(System.Windows.DataFormats.Dib);
-                        if (dibData is byte[] dibBytes)
-                        {
-                            using var stream = new MemoryStream(dibBytes);
-                            var bitmapImage = new BitmapImage();
-                            bitmapImage.BeginInit();
-                            bitmapImage.StreamSource = stream;
-                            bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
-                            bitmapImage.EndInit();
-                            if (bitmapImage.CanFreeze)
-                                bitmapImage.Freeze();
-                            return bitmapImage;
-                        }
-                    }
-                }
+                if (image != null && image.CanFreeze)
+                    image.Freeze();
+                return image;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Get clipboard image error: {ex.Message}");
+                App.LogCrash("ClipboardMonitor.GetImage", ex);
             }
-            
+
             return null;
         }
 
+        /// <summary>处理图片：编码在后台线程完成，回到 UI 线程后按哈希去重并落库。</summary>
         private void ProcessImageClipboard(BitmapSource image)
         {
-            try
+            if (image == null)
+                return;
+
+            EncodeImageInBackground(image, imageData =>
             {
-                string imagesFolder = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "images");
-                System.IO.Directory.CreateDirectory(imagesFolder);
-                
-                var imageData = ImageToBytes(image);
-                
                 if (imageData.Length == 0)
-                {
                     return;
-                }
-                
+
                 string imageHash = ComputeHash(imageData);
-                
+
                 if (ShouldProcessImage(imageData, imageHash))
                 {
-                    string timestamp = DateTime.Now.ToString("yyyyMMddHHmmssfff");
-                    string extension = ".png";
-                    string fileName = $"{timestamp}_{imageHash.Substring(0, 8)}{extension}";
-                    string relativePath = System.IO.Path.Combine("images", fileName);
-                    string fullPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, relativePath);
-                    
-                    System.IO.File.WriteAllBytes(fullPath, imageData);
-                    imageData = null;
-                    
-                    var item = new ClipboardItem
+                    SaveItem(new ClipboardItem
                     {
                         Type = ClipboardType.Image,
-                        ImagePath = relativePath,
+                        ImagePath = SaveImageFile(imageData, imageHash),
                         ImageHash = imageHash,
                         PreviewText = $"{image.PixelWidth}x{image.PixelHeight}",
                         CreatedAt = DateTime.Now
-                    };
-
-                    SaveItem(item);
-                }
-                else
-                {
-                    imageData = null;
+                    });
                 }
 
                 SchedulePostProcessGc();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Process image clipboard error: {ex.Message}");
-            }
+            });
         }
 
         public void Dispose()
@@ -897,6 +976,27 @@ namespace WinVClip.Services
         [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool RemoveClipboardFormatListener(IntPtr hwnd);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, uint dwProcessId);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool CloseHandle(IntPtr hObject);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        private static extern bool QueryFullProcessImageName(IntPtr hProcess, uint dwFlags, StringBuilder lpExeName, ref int lpdwSize);
+
+        private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 
         [DllImport("gdi32.dll")]
         private static extern bool DeleteObject(IntPtr hObject);

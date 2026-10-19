@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using WinVClip.Models;
 using WinVClip.Services;
@@ -49,6 +50,19 @@ namespace WinVClip
             return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "clipboard_history.db");
         }
 
+        /// <summary>全局异常兜底：崩溃信息追加写入 crash.log，日志失败不得二次抛出</summary>
+        public static void LogCrash(string source, Exception? ex)
+        {
+            try
+            {
+                var path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash.log");
+                File.AppendAllText(path, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{source}] {ex}\r\n\r\n");
+            }
+            catch
+            {
+            }
+        }
+
         private const int WM_SHOWMAINWINDOW = 0x0400 + 0x0001;
 
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
@@ -62,6 +76,22 @@ namespace WinVClip
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            // 全局异常兜底：未处理异常只记录日志，不使进程崩溃
+            DispatcherUnhandledException += (s, e) =>
+            {
+                LogCrash("UI", e.Exception);
+                e.Handled = true;
+            };
+            TaskScheduler.UnobservedTaskException += (s, e) =>
+            {
+                LogCrash("Task", e.Exception);
+                e.SetObserved();
+            };
+            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+            {
+                LogCrash("AppDomain", e.ExceptionObject as Exception);
+            };
+
             _mutex = new Mutex(true, "WinVClip_Mutex", out var createdNew);
             if (!createdNew)
             {
@@ -104,7 +134,7 @@ namespace WinVClip
             // 启动时清理 images 文件夹中不再被数据库引用的孤儿图片文件
             _databaseService.CleanupOrphanImageFiles();
 
-            // 启动时将 WAL 日志合并回主库并截断为 0，避免 -wal 文件长期占磁盘
+            // 启动时将 WAL 日志合并回主库并截断为 0
             _databaseService.CheckpointDatabase();
 
             ThemeService.Instance.Initialize(_settingsService.Settings);
@@ -115,16 +145,15 @@ namespace WinVClip
             _windowStateService = WindowStateService;
 
             _mainWindow = new MainWindow(_databaseService, _settingsService);
-            
-            
+
             Application.Current.MainWindow = _mainWindow;
-            
+
             var windowInteropHelper = new System.Windows.Interop.WindowInteropHelper(_mainWindow);
             windowInteropHelper.EnsureHandle();
             var windowHandle = windowInteropHelper.Handle;
             _focusService.AddExcludedHwnd(windowHandle);
             _hotkeyService = new HotkeyService(windowHandle);
-            
+
             var hotkeyRegistered = RegisterAllHotkeys();
 
             _trayService = new TrayService(_settingsService, windowHandle);
@@ -154,28 +183,22 @@ namespace WinVClip
             }
 
             _clipboardMonitor = new ClipboardMonitor(_databaseService, _settingsService);
-            _clipboardMonitor.OnClipboardChanged += item => 
+            _clipboardMonitor.OnClipboardChanged += item =>
             {
-                
-                
-                
-                
+                // 主界面隐藏时跳过实时 UI 更新
                 Dispatcher.Invoke(() =>
                 {
-                    if (_mainWindow?.ViewModel != null)
+                    if (_mainWindow is { IsMainWindowVisible: true, ViewModel: not null })
                         _mainWindow.ViewModel.AddItem(item);
                 });
             };
-            _clipboardMonitor.OnDuplicateUpdated += () => 
+            _clipboardMonitor.OnDuplicateUpdated += () =>
             {
-                if (_mainWindow?.ViewModel != null)
+                Dispatcher.Invoke(() =>
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        if (_mainWindow?.ViewModel != null)
-                            _mainWindow.ViewModel.LoadItems();
-                    });
-                }
+                    if (_mainWindow is { IsMainWindowVisible: true, ViewModel: not null })
+                        _mainWindow.ViewModel.LoadItems();
+                });
             };
             _clipboardMonitor.Start();
 
@@ -185,9 +208,6 @@ namespace WinVClip
                 _cleanupService.Start(_settingsService.Settings.RetentionDays);
             }
 
-            
-            
-            
             _mainWindow.PreheatRender();
 
             _mainWindow.HideWindow();
@@ -196,15 +216,12 @@ namespace WinVClip
             {
                 CheckAndPerformPeriodicVacuum();
 
-                
                 _checkpointTimer = new System.Threading.Timer(
                     callback: _ => Dispatcher.Invoke(() => _databaseService?.CheckpointDatabase()),
                     state: null,
                     dueTime: TimeSpan.FromHours(6),
                     period: TimeSpan.FromHours(6));
 
-                
-                
                 _vacuumTimer = new System.Threading.Timer(
                     callback: _ => Dispatcher.Invoke(() => CheckAndPerformPeriodicVacuum()),
                     state: null,
@@ -224,7 +241,7 @@ namespace WinVClip
             _hotkeyService?.Dispose();
             _cleanupService?.Dispose();
             _trayService?.Dispose();
-            
+
             _databaseService?.CheckpointDatabase();
             _databaseService?.Dispose();
             _focusService?.Dispose();
@@ -243,10 +260,6 @@ namespace WinVClip
             }
         }
 
-        
-        
-        
-        
         public static bool RegisterAllHotkeys()
         {
             if (_hotkeyService == null) return false;
@@ -265,7 +278,6 @@ namespace WinVClip
                         Current.Dispatcher.Invoke(() => _mainWindow?.ToggleVisibility()));
                     if (!showHideOk) failedHotkeys.Add(hk);
                 }
-
 
                 var list = settings.GlobalHotkeys;
                 if (list != null)
@@ -310,7 +322,6 @@ namespace WinVClip
             if (failedHotkeys.Count > 0)
             {
                 LastFailedHotkeys = failedHotkeys;
-                System.Diagnostics.Debug.WriteLine($"[Hotkey] 注册失败（可能被其他程序占用）: {string.Join(", ", failedHotkeys)}");
                 _trayService?.ShowNotification(
                     Loc.Get("App.HotkeyRegisterFailed", "快捷键注册失败"),
                     string.Join("、", failedHotkeys) + Loc.Get("App.HotkeyRegisterFailedOccupied", " 注册失败，可能已被其他程序占用"));
@@ -325,13 +336,11 @@ namespace WinVClip
         // 最近一次 RegisterAllHotkeys 中注册失败的热键（用于启动后托盘提示）
         public static List<string>? LastFailedHotkeys { get; private set; }
 
-        
         public static void ProcessHotkey(int id)
         {
             _hotkeyService?.ProcessHotkey(id);
         }
 
-        
         public static void UpdateHotkey(string hotkey)
         {
             RegisterAllHotkeys();
@@ -377,10 +386,9 @@ namespace WinVClip
 
         public static void RecreateTrayIcon()
         {
-            
+
             _trayService?.Dispose();
 
-            
             if (_settingsService != null && _mainWindow != null)
             {
                 var windowHandle = new System.Windows.Interop.WindowInteropHelper(_mainWindow).Handle;
@@ -444,12 +452,9 @@ namespace WinVClip
                 var lastVacuumDate = _settingsService?.Settings?.LastVacuumDate?.Date ?? DateTime.MinValue;
                 var daysSinceLastVacuum = (today - lastVacuumDate).TotalDays;
 
-                
                 if (daysSinceLastVacuum >= 2)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[Vacuum] 开始执行数据库压缩，上次执行: {lastVacuumDate:yyyy-MM-dd}");
 
-                    
                     try
                     {
                         _databaseService?.VacuumDatabase();
@@ -457,22 +462,17 @@ namespace WinVClip
                         {
                             _settingsService.Settings.LastVacuumDate = today;
                             _settingsService.SaveSettings();
-                            System.Diagnostics.Debug.WriteLine($"[Vacuum] 数据库压缩成功，已更新日期: {today:yyyy-MM-dd}");
                         }
                     }
-                    catch (Exception ex)
+                    catch
                     {
-                        System.Diagnostics.Debug.WriteLine($"[Vacuum] 数据库压缩失败: {ex.Message}");
+                        // 压缩失败不影响程序运行
                     }
                 }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine($"[Vacuum] 距离上次压缩 {daysSinceLastVacuum:F1} 天，无需执行");
-                }
             }
-            catch (Exception ex)
+            catch
             {
-                System.Diagnostics.Debug.WriteLine($"[Vacuum] 检查压缩状态失败: {ex.Message}");
+                // 检查压缩状态失败不影响程序运行
             }
         }
     }

@@ -1,4 +1,4 @@
-#nullable disable
+﻿#nullable disable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -27,7 +27,7 @@ using WinVClip.Services;
 
 namespace WinVClip
 {
-    
+
     public static class ScrollViewerBehavior
     {
         public static readonly DependencyProperty VerticalOffsetProperty =
@@ -56,7 +56,6 @@ namespace WinVClip
         }
     }
 
-    
     public abstract class BaseConverter : MarkupExtension, IValueConverter
     {
         public override object ProvideValue(IServiceProvider serviceProvider) => this;
@@ -116,7 +115,7 @@ namespace WinVClip
             var boolValue = value is true;
             if (parameter?.ToString() == "Invert")
                 boolValue = !boolValue;
-            
+
             return boolValue ? Visibility.Visible : Visibility.Collapsed;
         }
 
@@ -135,7 +134,7 @@ namespace WinVClip
         private static (double enabled, double disabled) ParseOpacityParameters(object parameter)
         {
             if (parameter == null) return (1.0, 0.4);
-            
+
             var parts = parameter.ToString()?.Split(',');
             if (parts?.Length == 2 && 
                 double.TryParse(parts[0], out var enabled) && 
@@ -190,20 +189,6 @@ namespace WinVClip
                 : Visibility.Collapsed;
     }
 
-    public class ItemTypeToUrlVisibilityConverter : BaseConverter
-    {
-        public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (value is not ClipboardItem item)
-                return Visibility.Collapsed;
-
-            if (item.Type != ClipboardType.Text && item.Type != ClipboardType.RichText)
-                return Visibility.Collapsed;
-
-            return Visibility.Visible;
-        }
-    }
-
     public class ItemTypeToFolderVisibilityConverter : BaseConverter
     {
         public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -241,6 +226,20 @@ namespace WinVClip
             => !string.IsNullOrEmpty(value?.ToString()) ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    /// <summary>筛选按钮激活态判定：ConverterParameter 编码目标筛选类型，3 为链接筛选。</summary>
+    internal static class FilterState
+    {
+        public static bool IsActive(int? currentFilter, int targetTypeValue) => targetTypeValue switch
+        {
+            -1 => !currentFilter.HasValue,
+            0 => currentFilter == (int)ClipboardType.Text,
+            1 => currentFilter == (int)ClipboardType.Image,
+            2 => currentFilter == (int)ClipboardType.FileList,
+            3 => currentFilter == FilterType.Link,
+            _ => false
+        };
+    }
+
     public class TypeFilterToBackgroundConverter : BaseConverter
     {
         private static readonly SolidColorBrush ActiveFilterBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 122, 204));
@@ -250,16 +249,8 @@ namespace WinVClip
             if (int.TryParse(parameter?.ToString(), out int targetTypeValue))
             {
                 int? currentFilter = value as int?;
-                bool isActive = targetTypeValue switch
-                {
-                    -1 => !currentFilter.HasValue,
-                    0 => currentFilter == (int)ClipboardType.Text,
-                    1 => currentFilter == (int)ClipboardType.Image,
-                    2 => currentFilter == (int)ClipboardType.FileList,
-                    3 => currentFilter == FilterType.Link,
-                    _ => false
-                };
-                
+                bool isActive = FilterState.IsActive(currentFilter, targetTypeValue);
+
                 if (isActive)
                     return ActiveFilterBrush;
             }
@@ -274,16 +265,8 @@ namespace WinVClip
             if (int.TryParse(parameter?.ToString(), out int targetTypeValue))
             {
                 int? currentFilter = value as int?;
-                bool isActive = targetTypeValue switch
-                {
-                    -1 => !currentFilter.HasValue,
-                    0 => currentFilter == (int)ClipboardType.Text,
-                    1 => currentFilter == (int)ClipboardType.Image,
-                    2 => currentFilter == (int)ClipboardType.FileList,
-                    3 => currentFilter == FilterType.Link,
-                    _ => false
-                };
-                
+                bool isActive = FilterState.IsActive(currentFilter, targetTypeValue);
+
                 if (isActive)
                     return System.Windows.Media.Brushes.White;
             }
@@ -291,11 +274,33 @@ namespace WinVClip
         }
     }
 
-    public class GroupTab
+    public class GroupTab : INotifyPropertyChanged
     {
         public long GroupId { get; set; }
-        public string DisplayName { get; set; } = "";
-        public string ToolTip { get; set; } = "";
+
+        private string _displayName = "";
+        public string DisplayName
+        {
+            get => _displayName;
+            set
+            {
+                _displayName = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DisplayName)));
+            }
+        }
+
+        private string _toolTip = "";
+        public string ToolTip
+        {
+            get => _toolTip;
+            set
+            {
+                _toolTip = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ToolTip)));
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         public static string GetAbbreviation(string name)
         {
@@ -311,6 +316,13 @@ namespace WinVClip
         }
     }
 
+    /// <summary>分组名显示转换：内置默认分组（库中名为 Favorite）按当前语言展示。</summary>
+    public class GroupNameConverter : BaseConverter
+    {
+        public override object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            => Loc.GetGroupName(value?.ToString());
+    }
+
     public class EditMenuVisibilityConverter : MarkupExtension, IMultiValueConverter
     {
         public override object ProvideValue(IServiceProvider serviceProvider)
@@ -324,7 +336,7 @@ namespace WinVClip
             {
                 if (viewModel.IsMultiSelectMode)
                     return Visibility.Collapsed;
-                
+
                 if (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText)
                     return Visibility.Visible;
             }
@@ -370,10 +382,10 @@ namespace WinVClip
             const int maxLines = 10;
 
             var lines = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-            
+
             bool isTruncated = false;
             string result;
-            
+
             if (lines.Length == 1 && content.Length > maxCharsPerLine)
             {
                 result = content.Substring(0, maxCharsPerLine);
@@ -385,7 +397,7 @@ namespace WinVClip
                 result = string.Join("\n", previewLines);
                 isTruncated = lines.Length > maxLines;
             }
-            
+
             var suffix = isTruncated ? "……" : "";
             return $"{result}\n{suffix}{string.Format(Loc.Get("Preview.CharCount", "(共{0}个字符)"), content.Length)}";
         }
@@ -400,12 +412,12 @@ namespace WinVClip
 
             var previewPaths = filePaths.Take(10).Select(FormatFilePath).ToList();
             var result = string.Join("\n", previewPaths);
-            
+
             if (filePaths.Count > 10)
             {
                 result += "\n" + GetFileCountSuffix(filePaths);
             }
-            
+
             return result;
         }
 
@@ -424,7 +436,7 @@ namespace WinVClip
                 if (Directory.Exists(p)) folderCount++;
                 else fileCount++;
             }
-            
+
             return folderCount > 0 && fileCount > 0
                 ? string.Format(Loc.Get("Preview.FilesAndFolders", "……(共{0}个文件、{1}个目录)"), fileCount, folderCount)
                 : folderCount > 0
@@ -446,7 +458,7 @@ namespace WinVClip
                 return null;
 
             string fullPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, imagePath);
-            
+
             lock (_lock)
             {
                 if (_cache.TryGetValue(fullPath, out var cachedImage))
@@ -517,12 +529,10 @@ namespace WinVClip
         private readonly FileValidationService _fileValidationService;
         private readonly System.Timers.Timer _searchDelayTimer;
 
-        private List<ClipboardItem> _filteredLinkItems = new List<ClipboardItem>();
-
         public RangeObservableCollection<ClipboardItem> ClipboardItems { get; } = new RangeObservableCollection<ClipboardItem>();
 
         public string Hotkey => _settingsService.Settings.Hotkey;
-        
+
         public string ImageBadgeText => Loc.Get("MainWindow.Badge.Image", "图片");
         public string InvalidFileBadgeText => Loc.Get("MainWindow.Badge.InvalidFile", "失效");
 
@@ -573,9 +583,146 @@ namespace WinVClip
             {
                 _searchText = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(SearchKeywordsText));
                 _searchDelayTimer?.Stop();
                 _searchDelayTimer?.Start();
             }
+        }
+
+        // ===== 搜索选项（持久化在 settings.json，Popup 与设置页共用） =====
+
+        public bool IsSearchHighlightEnabled
+        {
+            get => _settingsService.Settings.SearchHighlightEnabled;
+            set
+            {
+                _settingsService.Settings.SearchHighlightEnabled = value;
+                _settingsService.SaveSettings();
+                OnPropertyChanged();
+            }
+        }
+
+        public bool IsSearchExactEnabled
+        {
+            get => _settingsService.Settings.SearchExactModeEnabled;
+            set
+            {
+                _settingsService.Settings.SearchExactModeEnabled = value;
+                _settingsService.SaveSettings();
+                OnPropertyChanged();
+                LoadItems();
+            }
+        }
+
+        public bool IsSearchHistoryEnabled
+        {
+            get => _settingsService.Settings.SearchHistoryEnabled;
+            set
+            {
+                _settingsService.Settings.SearchHistoryEnabled = value;
+                _settingsService.SaveSettings();
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsSearchHistoryVisible));
+            }
+        }
+
+        public bool IsSearchPinyinEnabled
+        {
+            get => _settingsService.Settings.SearchPinyinEnabled;
+            set
+            {
+                _settingsService.Settings.SearchPinyinEnabled = value;
+                _settingsService.SaveSettings();
+                OnPropertyChanged();
+                LoadItems();
+            }
+        }
+
+        public bool IsSearchRegexEnabled
+        {
+            get => _settingsService.Settings.SearchRegexEnabled;
+            set
+            {
+                _settingsService.Settings.SearchRegexEnabled = value;
+                if (value && _settingsService.Settings.SearchWildcardEnabled)
+                {
+                    _settingsService.Settings.SearchWildcardEnabled = false;
+                    OnPropertyChanged(nameof(IsSearchWildcardEnabled));
+                }
+                _settingsService.SaveSettings();
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SearchModeText));
+                LoadItems();
+            }
+        }
+
+        public bool IsSearchWildcardEnabled
+        {
+            get => _settingsService.Settings.SearchWildcardEnabled;
+            set
+            {
+                _settingsService.Settings.SearchWildcardEnabled = value;
+                if (value && _settingsService.Settings.SearchRegexEnabled)
+                {
+                    _settingsService.Settings.SearchRegexEnabled = false;
+                    OnPropertyChanged(nameof(IsSearchRegexEnabled));
+                }
+                _settingsService.SaveSettings();
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SearchModeText));
+                LoadItems();
+            }
+        }
+
+        public System.Windows.Visibility IsSearchHistoryVisible =>
+            IsSearchHistoryEnabled ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+
+        /// <summary>搜索历史（返回副本，确保集合变化时绑定刷新；Popup 打开前由外部触发通知）</summary>
+        public List<string> SearchHistoryView => _settingsService.Settings.SearchHistory.ToList();
+
+        /// <summary>当前搜索词（原样，供高亮行为绑定）</summary>
+        public string SearchKeywordsText => SearchText ?? string.Empty;
+
+        /// <summary>高亮匹配模式：Normal（分词）/ Regex / Wildcard</summary>
+        public string SearchModeText =>
+            _settingsService.Settings.SearchRegexEnabled ? "Regex"
+            : _settingsService.Settings.SearchWildcardEnabled ? "Wildcard"
+            : "Normal";
+
+        /// <summary>由设置派生当前搜索选项</summary>
+        private Models.SearchOptions BuildSearchOptions()
+        {
+            var s = _settingsService.Settings;
+            return new Models.SearchOptions
+            {
+                ExactMode = s.SearchExactModeEnabled,
+                UseRegex = s.SearchRegexEnabled,
+                UseWildcard = s.SearchWildcardEnabled,
+                UsePinyin = s.SearchPinyinEnabled
+            };
+        }
+
+        /// <summary>记录搜索历史（去重、上限 10 条、持久化；按 Enter 或搜索框失焦时调用）</summary>
+        public void RecordSearchHistory()
+        {
+            var s = _settingsService.Settings;
+            var term = SearchText?.Trim();
+            if (string.IsNullOrEmpty(term) || !s.SearchHistoryEnabled)
+                return;
+            s.SearchHistory.Remove(term);
+            s.SearchHistory.Insert(0, term);
+            if (s.SearchHistory.Count > 10)
+                s.SearchHistory.RemoveAt(s.SearchHistory.Count - 1);
+            _settingsService.SaveSettings();
+            OnPropertyChanged(nameof(SearchHistoryView));
+        }
+
+        /// <summary>清空搜索历史</summary>
+        public void ClearSearchHistory()
+        {
+            _settingsService.Settings.SearchHistory.Clear();
+            _settingsService.SaveSettings();
+            OnPropertyChanged(nameof(SearchHistoryView));
         }
 
         private int? _typeFilter;
@@ -642,10 +789,32 @@ namespace WinVClip
             {
                 Groups.Add(group);
                 var displayName = !string.IsNullOrEmpty(group.Icon) ? group.Icon : GroupTab.GetAbbreviation(group.Name);
-                GroupTabs.Add(new GroupTab { GroupId = group.Id, DisplayName = displayName, ToolTip = group.Name });
+                GroupTabs.Add(new GroupTab { GroupId = group.Id, DisplayName = displayName, ToolTip = Loc.GetGroupName(group.Name) });
             }
             GroupTabs.Add(new GroupTab { GroupId = -1, DisplayName = "➕", ToolTip = Loc.Get("MainWindow.GroupManage", "分组管理") });
             SelectedGroupTabIndex = 0;
+        }
+
+        /// <summary>语言切换后刷新分组标签的提示文案，保留当前选中项。</summary>
+        public void RefreshGroupTabTexts()
+        {
+            foreach (var tab in GroupTabs)
+            {
+                if (tab.GroupId == -1)
+                {
+                    tab.ToolTip = Loc.Get("MainWindow.GroupManage", "分组管理");
+                }
+                else if (tab.GroupId == 0)
+                {
+                    tab.ToolTip = Loc.Get("Common.All", "全部");
+                }
+                else
+                {
+                    var group = Groups.FirstOrDefault(g => g.Id == tab.GroupId);
+                    if (group != null)
+                        tab.ToolTip = Loc.GetGroupName(group.Name);
+                }
+            }
         }
 
         public bool HasItems => ClipboardItems.Count > 0;
@@ -659,94 +828,16 @@ namespace WinVClip
             {
                 field = value;
                 OnPropertyChanged();
-                OnPropertyChanged(nameof(StatusText));
                 OnPropertyChanged(nameof(BottomRecordStats));
             }
         }
 
-        public int TextCount
-        {
-            get => field;
-            set
-            {
-                field = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(BottomStatsToolTip));
-            }
-        }
-
-        public int ImageCount
-        {
-            get => field;
-            set
-            {
-                field = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(BottomStatsToolTip));
-            }
-        }
-
-        public int FileCount
-        {
-            get => field;
-            set
-            {
-                field = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(BottomStatsToolTip));
-            }
-        }
-
-        public int RichTextCount
-        {
-            get => field;
-            set
-            {
-                field = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(BottomStatsToolTip));
-            }
-        }
-
-        public int LinkCount
-        {
-            get => field;
-            set
-            {
-                field = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(BottomStatsToolTip));
-            }
-        }
-
-        public string StatusText
-        {
-            get
-            {
-                if (IsAnyFilterActive || !string.IsNullOrEmpty(SearchText))
-                {
-                    return Loc.Get("MainWindow.Status.Filtered", TotalCount, GrandTotalCount);
-                }
-                return Loc.Get("MainWindow.Status.Total", TotalCount);
-            }
-        }
-
-        public int GrandTotalCount
-        {
-            get => field;
-            set
-            {
-                field = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(StatusText));
-            }
-        }
-
+        /// <summary>左下角统计：格式为「已加载数 / 总数 条」</summary>
         public string BottomRecordStats
         {
             get
             {
-                string records = string.Format(Loc.Get("MainWindow.Bottom.RecordsCount", "{0} 条记录"), TotalCount);
+                string records = string.Format(Loc.Get("MainWindow.Bottom.LoadedOfTotal", "{0} / {1} 条"), ClipboardItems.Count, TotalCount);
                 if (!IsMultiSelectMode)
                     return records;
 
@@ -754,20 +845,6 @@ namespace WinVClip
                 return string.Format(Loc.Get("MainWindow.Bottom.RecordsAndSelected", "{0} | {1}"), records, selected);
             }
         }
-
-        public string BottomStatsToolTip
-        {
-            get
-            {
-                string text = string.Format(Loc.Get("MainWindow.Bottom.StatsText", "文本 {0} 条"), TextCount);
-                string link = string.Format(Loc.Get("MainWindow.Bottom.StatsLink", "链接 {0} 条"), LinkCount);
-                string image = string.Format(Loc.Get("MainWindow.Bottom.StatsImage", "图片 {0} 条"), ImageCount);
-                string file = string.Format(Loc.Get("MainWindow.Bottom.StatsFile", "文件 {0} 条"), FileCount);
-                return string.Join("\n", text, link, image, file);
-            }
-        }
-
-        public bool IsWindowVisible { get; set; }
 
         private bool _isLoading = false;
         public bool IsLoading
@@ -808,6 +885,9 @@ namespace WinVClip
         public event PropertyChangedEventHandler PropertyChanged;
         public event EventHandler ItemAdded;
 
+        // 数据版本号：AddItem/RemoveItem 时递增，用于检测列表加载期间的并发写入
+        private int _dataVersion;
+
         public void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -829,36 +909,29 @@ namespace WinVClip
             IsLoading = true;
             _currentOffset = 0;
             HasMoreItems = true;
-            _filteredLinkItems.Clear();
+            int startVersion = _dataVersion;
+            bool stale = false;
             try
             {
                 List<ClipboardItem> newItems = null;
-                Dictionary<int, int> typeCounts = null;
                 int totalCount = 0;
-                int grandTotalCount = 0;
-                int linkFilterCount = 0;
-                int linkCount = 0;
+                var searchOptions = BuildSearchOptions();
                 await Task.Run(() =>
                 {
                     if (TypeFilter == FilterType.Link)
-                {
-                    var allTextItems = _databaseService.GetItems(int.MaxValue, 0, SearchText,
-                        (int)ClipboardType.Text, GroupFilter);
-                    _filteredLinkItems = allTextItems?.Where(item => MainWindow.IsValidUrl(item.Content)).ToList() ?? new List<ClipboardItem>();
-                    newItems = _filteredLinkItems.Take(PageSize).ToList();
-                    linkFilterCount = _filteredLinkItems.Count;
-                }
+                    {
+                        newItems = _databaseService.GetLinkItems(PageSize, _currentOffset, SearchText,
+                            GroupFilter, searchOptions);
+                        totalCount = _databaseService.GetLinkTotalCount(SearchText, GroupFilter, searchOptions);
+                    }
                     else
                     {
                         newItems = _databaseService.GetItems(PageSize, _currentOffset, SearchText,
-                            TypeFilter, GroupFilter);
+                            TypeFilter, GroupFilter, searchOptions);
+                        totalCount = _databaseService.GetTotalCount(SearchText, TypeFilter, GroupFilter, searchOptions);
                     }
-                    totalCount = _databaseService.GetTotalCount(SearchText, TypeFilter, GroupFilter);
-                    grandTotalCount = _databaseService.GetTotalCount(null, null, null);
-                    typeCounts = _databaseService.GetItemCountsByType(null, null);
-                    linkCount = _databaseService.GetLinkCount();
                 });
-                
+
                 if (newItems == null)
                     return;
 
@@ -882,24 +955,10 @@ namespace WinVClip
 
                     _fileValidationService.ValidateItems(newItems);
 
-                    if (TypeFilter == FilterType.Link)
-                    {
-                        TotalCount = linkFilterCount;
-                    }
-                    else
-                    {
-                        TotalCount = totalCount;
-                    }
-                    GrandTotalCount = grandTotalCount;
-                    LinkCount = linkCount;
-                    if (typeCounts != null)
-                    {
-                        TextCount = typeCounts.ContainsKey((int)ClipboardType.Text) ? typeCounts[(int)ClipboardType.Text] : 0;
-                        ImageCount = typeCounts.ContainsKey((int)ClipboardType.Image) ? typeCounts[(int)ClipboardType.Image] : 0;
-                        FileCount = typeCounts.ContainsKey((int)ClipboardType.FileList) ? typeCounts[(int)ClipboardType.FileList] : 0;
-                        RichTextCount = typeCounts.ContainsKey((int)ClipboardType.RichText) ? typeCounts[(int)ClipboardType.RichText] : 0;
-                    }
+                    TotalCount = totalCount;
                 });
+
+                stale = _dataVersion != startVersion;
             }
             catch (Exception)
             {
@@ -909,6 +968,10 @@ namespace WinVClip
             {
                 IsLoading = false;
             }
+
+            // 加载期间有记录增删：首页快照已过期，重载一次
+            if (stale)
+                _ = LoadItemsAsync();
         }
 
         public async Task LoadMoreItemsAsync()
@@ -920,19 +983,21 @@ namespace WinVClip
             try
             {
                 List<ClipboardItem> newItems = null;
+                var searchOptions = BuildSearchOptions();
                 await Task.Run(() =>
                 {
                     if (TypeFilter == FilterType.Link)
                     {
-                        newItems = _filteredLinkItems.Skip(_currentOffset).Take(PageSize).ToList();
+                        newItems = _databaseService.GetLinkItems(PageSize, _currentOffset, SearchText,
+                            GroupFilter, searchOptions);
                     }
                     else
                     {
                         newItems = _databaseService.GetItems(PageSize, _currentOffset, SearchText,
-                            TypeFilter, GroupFilter);
+                            TypeFilter, GroupFilter, searchOptions);
                     }
                 });
-                
+
                 if (newItems == null || newItems.Count == 0)
                 {
                     HasMoreItems = false;
@@ -952,6 +1017,7 @@ namespace WinVClip
                     }
 
                     _fileValidationService.ValidateItems(newItems);
+                    OnPropertyChanged(nameof(BottomRecordStats));
                 });
             }
             catch (Exception)
@@ -976,6 +1042,7 @@ namespace WinVClip
                 item.ReleaseMemory();
             }
             ClipboardItems.Clear();
+            OnPropertyChanged(nameof(BottomRecordStats));
             _currentOffset = 0;
             HasMoreItems = true;
             SelectedItemIds.Clear();
@@ -986,29 +1053,6 @@ namespace WinVClip
             foreach (var item in ClipboardItems)
             {
                 item.TrimLargeObjects();
-            }
-        }
-
-        public bool HasCachedItems => ClipboardItems.Count > 0 || _currentOffset != 0;
-
-        
-        
-        public bool IsCacheValid()
-        {
-            if (!HasCachedItems) return false;
-            
-            if (!string.IsNullOrWhiteSpace(SearchText)) return false;
-            if (TypeFilter != null) return false;
-            if (GroupFilter != null) return false;
-            try
-            {
-                
-                int actualTotal = _databaseService.GetTotalCount(null, null, null);
-                return actualTotal == GrandTotalCount;
-            }
-            catch
-            {
-                return false;
             }
         }
 
@@ -1024,7 +1068,7 @@ namespace WinVClip
                 SelectedItemIds.Remove(item.Id);
             else
                 SelectedItemIds.Add(item.Id);
-            
+
             item.IsSelected = !isSelected;
             OnPropertyChanged(nameof(SelectedItemIds));
             OnPropertyChanged(nameof(BottomRecordStats));
@@ -1048,9 +1092,7 @@ namespace WinVClip
 
         public void AddItem(ClipboardItem item)
         {
-            
-            
-            
+
             ClipboardItems.Insert(0, item);
             if (ClipboardItems.Count > 200)
             {
@@ -1060,24 +1102,7 @@ namespace WinVClip
             OnPropertyChanged(nameof(IsEmpty));
 
             TotalCount++;
-            GrandTotalCount++;
-            switch (item.Type)
-            {
-                case ClipboardType.Text:
-                    TextCount++;
-                    break;
-                case ClipboardType.Image:
-                    ImageCount++;
-                    break;
-                case ClipboardType.FileList:
-                    FileCount++;
-                    break;
-                case ClipboardType.RichText:
-                    RichTextCount++;
-                    TextCount++;
-                    break;
-            }
-            OnPropertyChanged(nameof(StatusText));
+            _dataVersion++;
 
             if (item.Type == ClipboardType.FileList)
                 _fileValidationService.ValidateItem(item);
@@ -1092,23 +1117,7 @@ namespace WinVClip
             OnPropertyChanged(nameof(IsEmpty));
 
             if (TotalCount > 0) TotalCount--;
-            switch (item.Type)
-            {
-                case ClipboardType.Text:
-                    if (TextCount > 0) TextCount--;
-                    break;
-                case ClipboardType.Image:
-                    if (ImageCount > 0) ImageCount--;
-                    break;
-                case ClipboardType.FileList:
-                    if (FileCount > 0) FileCount--;
-                    break;
-                case ClipboardType.RichText:
-                    if (RichTextCount > 0) RichTextCount--;
-                    if (TextCount > 0) TextCount--;
-                    break;
-            }
-            OnPropertyChanged(nameof(StatusText));
+            _dataVersion++;
         }
     }
 
@@ -1118,11 +1127,14 @@ namespace WinVClip
         private readonly DatabaseService _databaseService;
         private readonly SettingsService _settingsService;
         private bool _isVisible = false;
+
+        /// <summary>主界面当前是否可见（供 App 层门控剪贴板实时 UI 更新）</summary>
+        public bool IsMainWindowVisible => _isVisible;
         private HwndSource _hwndSource;
         private double _savedLeft;
         private double _savedTop;
         private System.Windows.Point _dragStartPoint;
-        
+
         private bool _isDragStarted;
 
         private System.Windows.Threading.DispatcherTimer _tooltipTimer;
@@ -1140,17 +1152,25 @@ namespace WinVClip
         private List<ClipboardItem> _seqPasteQueueFifo;
         private int _seqPasteIndexFifo;
         private DateTime _seqPasteLastPressFifo = DateTime.MinValue;
+
+        // 顺序粘贴异步执行守卫：执行期间的新按键只暂存一个待处理按键，避免并发交错
+        private bool _seqPasteBusy;
+        private bool _seqPasteHasPending;
+        private bool _seqPastePendingFifo;
+        private DateTime _seqPastePendingTime;
         private List<Models.QuickPasteShortcut> _quickPasteShortcuts = new List<Models.QuickPasteShortcut>();
 
-        
         private System.Windows.Threading.DispatcherTimer _pasteAndDeleteClearTimer;
         private System.Windows.Threading.DispatcherTimer _bottomActionDelayTimer;
-        
+
         private string _pasteAndDeleteClearText;
-        
+
         private List<string> _pasteAndDeleteClearFiles;
 
         private System.Threading.Timer _backgroundGcTimer;
+
+        // 主窗口尺寸去抖落盘定时器：拖拽调整过程中 SizeChanged 会连续触发，避免反复写盘
+        private System.Windows.Threading.DispatcherTimer _windowSizeSaveTimer;
 
         private DoubleAnimation _currentScrollAnimation;
         private bool _isAnimatingScroll = false;
@@ -1181,20 +1201,25 @@ namespace WinVClip
 
             DataContext = _viewModel;
             InitializeComponent();
-            
+
             ClipboardListBox.Loaded += (s, e) =>
             {
                 _listBoxScrollViewer = FindVisualChild<ScrollViewer>(ClipboardListBox);
             };
-            
+
             ApplyLocalization();
             ApplyFontSize();
             _charGroups = LoadPanelDataRaw("Characters", "characters.json", "WinVClip.Resources.Characters.characters.json") ?? new List<CharGroupData>();
             _viewModel.LoadGroups();
 
+            RestoreWindowSize();
             _savedLeft = Left;
             _savedTop = Top;
-            
+
+            // 尺寸恢复之后再订阅，避免布局阶段的 SizeChanged 把默认尺寸写回设置
+            SizeChanged += MainWindow_SizeChanged;
+            Closed += MainWindow_Closed;
+
             SourceInitialized += MainWindow_SourceInitialized;
             _settingsService.SettingsChanged += OnSettingsChanged;
             _viewModel.ItemAdded += OnItemAdded;
@@ -1202,7 +1227,6 @@ namespace WinVClip
             LoadQuickPasteShortcuts();
         }
 
-        
         private void LoadQuickPasteShortcuts()
         {
             _quickPasteShortcuts = _settingsService.Settings.QuickPasteShortcuts?
@@ -1211,53 +1235,63 @@ namespace WinVClip
 
         private void ApplyLocalization()
         {
-            FilterToggleButton.ToolTip = Loc.Get("MainWindow.ToolTip.Filter", "筛选");
-            SettingsButton.ToolTip = Loc.Get("MainWindow.ToolTip.Settings", "设置");
-            PinButton.ToolTip = Loc.Get("MainWindow.ToolTip.Pin", "置顶");
-            CloseButton.ToolTip = Loc.Get("MainWindow.ToolTip.Close", "关闭 (ESC)");
-            
-            FilterAllButton.ToolTip = Loc.Get("MainWindow.Filter.All", "全部");
-            FilterTextButton.ToolTip = Loc.Get("MainWindow.Filter.Text", "文本");
-            FilterLinkButton.ToolTip = Loc.Get("MainWindow.Filter.Link", "链接");
-            FilterImageButton.ToolTip = Loc.Get("MainWindow.Filter.Image", "图片");
-            FilterFileButton.ToolTip = Loc.Get("MainWindow.Filter.File", "文件");
-            
-            MenuPasteWithFormat.Header = Loc.Get("MainWindow.ContextMenu.PasteWithFormat", "带格式粘贴");
-            MenuPasteAsText.Header = Loc.Get("MainWindow.ContextMenu.PasteAsText", "纯文本粘贴");
-            MenuPasteRemoveNewlines.Header = Loc.Get("MainWindow.ContextMenu.PasteRemoveNewlines", "纯文本去换行粘贴");
-            MenuPasteAndDelete.Header = Loc.Get("MainWindow.ContextMenu.PasteAndDelete", "粘贴后删除");
-            MenuPasteAsImage.Header = Loc.Get("MainWindow.ContextMenu.PasteAsImage", "图片粘贴");
-            MenuImagePaste.Header = Loc.Get("MainWindow.ContextMenu.ImagePaste", "图片粘贴");
-            MenuImageFilePaste.Header = Loc.Get("MainWindow.ContextMenu.ImageFilePaste", "图片文件粘贴");
-            MenuOpenInBrowser.Header = Loc.Get("MainWindow.ContextMenu.OpenInBrowser", "在浏览器打开");
-            MenuOpenFolder.Header = Loc.Get("MainWindow.ContextMenu.OpenFolder", "打开文件夹");
-            MenuEdit.Header = Loc.Get("MainWindow.ContextMenu.Edit", "编辑");
-            MenuQuickCommands.Header = Loc.Get("MainWindow.ContextMenu.QuickCommands", "快捷命令");
-            MenuCopy.Header = Loc.Get("MainWindow.ContextMenu.Copy", "复制");
-            MenuGroup.Header = Loc.Get("MainWindow.ContextMenu.Group", "分组");
-            MenuDelete.Header = Loc.Get("MainWindow.ContextMenu.Delete", "删除");
-            MenuBatchDelete.Header = Loc.Get("MainWindow.ContextMenu.BatchDelete", "批量删除");
-            MenuBatchPaste.Header = Loc.Get("MainWindow.ContextMenu.BatchPaste", "批量粘贴");
-            MenuBatchGroup.Header = Loc.Get("MainWindow.ContextMenu.BatchGroup", "批量分组");
+            this.LocalizeAll(
+                (FilterToggleButton, "MainWindow.ToolTip.Filter", "筛选", LocProp.ToolTip),
+                (SettingsButton, "MainWindow.ToolTip.Settings", "设置", LocProp.ToolTip),
+                (PinButton, "MainWindow.ToolTip.Pin", "置顶", LocProp.ToolTip),
+                (CloseButton, "MainWindow.ToolTip.Close", "关闭 (ESC)", LocProp.ToolTip),
 
-            BottomDeleteAllButton.Content = Loc.Get("MainWindow.Bottom.DeleteAll", "全部");
-            BottomDeleteDuplicatesButton.Content = Loc.Get("MainWindow.Bottom.DeleteDuplicates", "重复");
-            BottomLabelNormal.Text = Loc.Get("MainWindow.Bottom.DeleteLabel", "删除：");
-            BottomLabelMulti.Text = Loc.Get("MainWindow.Bottom.BatchLabel", "批量：");
-            BottomDeleteAllUngroupedButton.Content = Loc.Get("MainWindow.Bottom.DeleteAllUngrouped", "无分组");
-            BottomDeleteInvalidButton.Content = Loc.Get("MainWindow.Bottom.DeleteInvalid", "无效记录");
-            BottomBatchPasteButton.Content = Loc.Get("MainWindow.Bottom.BatchPaste", "粘贴");
-            BottomBatchDeleteButton.Content = Loc.Get("MainWindow.Bottom.BatchDelete", "删除");
-            BottomBatchGroupButton.Content = Loc.Get("MainWindow.Bottom.BatchGroup", "分组");
+                (FilterAllButton, "MainWindow.Filter.All", "全部", LocProp.ToolTip),
+                (FilterTextButton, "MainWindow.Filter.Text", "文本", LocProp.ToolTip),
+                (FilterLinkButton, "MainWindow.Filter.Link", "链接", LocProp.ToolTip),
+                (FilterImageButton, "MainWindow.Filter.Image", "图片", LocProp.ToolTip),
+                (FilterFileButton, "MainWindow.Filter.File", "文件", LocProp.ToolTip),
+                (PanelToggleButton, "Panel.ToolTip.Toggle", "字符面板", LocProp.ToolTip));
 
-            LoadingMoreText.Text = Loc.Get("MainWindow.Status.LoadingMore", "加载更多...");
-            EmptyStateText.Text = Loc.Get("MainWindow.Status.Empty", "暂无剪贴板记录");
-            LoadingText.Text = Loc.Get("MainWindow.Status.Loading", "加载中...");
-            
+            this.LocalizeAll(
+                (MenuPasteWithFormat, "MainWindow.ContextMenu.PasteWithFormat", "带格式粘贴"),
+                (MenuPasteAsText, "MainWindow.ContextMenu.PasteAsText", "纯文本粘贴"),
+                (MenuPasteRemoveNewlines, "MainWindow.ContextMenu.PasteRemoveNewlines", "纯文本去换行粘贴"),
+                (MenuPasteAndDelete, "MainWindow.ContextMenu.PasteAndDelete", "粘贴后删除"),
+                (MenuPasteAsImage, "MainWindow.ContextMenu.PasteAsImage", "图片粘贴"),
+                (MenuImagePaste, "MainWindow.ContextMenu.ImagePaste", "图片粘贴"),
+                (MenuImageFilePaste, "MainWindow.ContextMenu.ImageFilePaste", "图片文件粘贴"),
+                (MenuOpenInBrowser, "MainWindow.ContextMenu.OpenInBrowser", "在浏览器打开"),
+                (MenuOpenFolder, "MainWindow.ContextMenu.OpenFolder", "打开文件夹"),
+                (MenuEdit, "MainWindow.ContextMenu.Edit", "编辑"),
+                (MenuQuickCommands, "MainWindow.ContextMenu.QuickCommands", "快捷命令"),
+                (MenuCopy, "MainWindow.ContextMenu.Copy", "复制"),
+                (MenuGroup, "MainWindow.ContextMenu.Group", "分组"),
+                (MenuDelete, "MainWindow.ContextMenu.Delete", "删除"),
+                (MenuBatchDelete, "MainWindow.ContextMenu.BatchDelete", "批量删除"),
+                (MenuBatchPaste, "MainWindow.ContextMenu.BatchPaste", "批量粘贴"),
+                (MenuBatchGroup, "MainWindow.ContextMenu.BatchGroup", "批量分组"),
 
+                (BottomDeleteAllButton, "MainWindow.Bottom.DeleteAll", "全部"),
+                (BottomDeleteDuplicatesButton, "MainWindow.Bottom.DeleteDuplicates", "重复"),
+                (BottomLabelNormal, "MainWindow.Bottom.DeleteLabel", "删除："),
+                (BottomLabelMulti, "MainWindow.Bottom.BatchLabel", "批量："),
+                (BottomDeleteAllUngroupedButton, "MainWindow.Bottom.DeleteAllUngrouped", "无分组"),
+                (BottomDeleteInvalidButton, "MainWindow.Bottom.DeleteInvalid", "无效记录"),
+                (BottomBatchPasteButton, "MainWindow.Bottom.BatchPaste", "粘贴"),
+                (BottomBatchDeleteButton, "MainWindow.Bottom.BatchDelete", "删除"),
+                (BottomBatchGroupButton, "MainWindow.Bottom.BatchGroup", "分组"),
 
+                (LoadingMoreText, "MainWindow.Status.LoadingMore", "加载更多..."),
+                (EmptyStateText, "MainWindow.Status.Empty", "暂无剪贴板记录"),
+                (LoadingText, "MainWindow.Status.Loading", "加载中..."),
 
-            PanelToggleButton.ToolTip = Loc.Get("Panel.ToolTip.Toggle", "字符面板");
+                (SearchOptionsTitleText, "MainWindow.Search.OptionsTitle", "搜索选项"),
+                (OptHighlightCheck, "MainWindow.Search.Highlight", "关键词高亮"),
+                (OptExactCheck, "MainWindow.Search.MatchAll", "匹配全部关键词"),
+                (OptHistoryCheck, "MainWindow.Search.History", "搜索历史"),
+                (OptPinyinCheck, "MainWindow.Search.Pinyin", "拼音搜索"),
+                (OptRegexCheck, "MainWindow.Search.Regex", "使用正则"),
+                (OptWildcardCheck, "MainWindow.Search.Wildcard", "使用通配符"),
+                (SearchHistoryTitleText, "MainWindow.Search.HistoryTitle", "最近搜索"),
+                (ClearSearchHistoryButton, "MainWindow.Search.ClearHistory", "清空"),
+                (SearchHistoryEmptyText, "MainWindow.Search.HistoryEmpty", "暂无搜索历史"));
+
             RefreshPanelLocalization(_charGroups, CharTabControl, "CharPanel");
         }
 
@@ -1296,9 +1330,8 @@ namespace WinVClip
                 ApplyLocalization();
                 _viewModel.OnPropertyChanged(nameof(MainViewModel.ImageBadgeText));
                 _viewModel.OnPropertyChanged(nameof(MainViewModel.InvalidFileBadgeText));
-                _viewModel.OnPropertyChanged(nameof(MainViewModel.StatusText));
                 _viewModel.OnPropertyChanged(nameof(MainViewModel.BottomRecordStats));
-                _viewModel.OnPropertyChanged(nameof(MainViewModel.BottomStatsToolTip));
+                _viewModel.RefreshGroupTabTexts();
             });
         }
 
@@ -1308,7 +1341,6 @@ namespace WinVClip
             _hwndSource = HwndSource.FromHwnd(handle);
             _hwndSource.AddHook(WndProc);
 
-            
             ClipboardWin32Helper.SetWindowHandle(handle);
 
             DisableMaximizeAndAeroSnap(handle);
@@ -1339,8 +1371,7 @@ namespace WinVClip
             const int WM_SHOWMAINWINDOW = 0x0401;
             if (msg == WM_HOTKEY)
             {
-                
-                
+
                 App.ProcessHotkey(wParam.ToInt32());
                 handled = true;
                 return (IntPtr)1;
@@ -1362,57 +1393,28 @@ namespace WinVClip
             var mousePosDevice = GetCursorPosition();
             var hMonitor = MonitorFromPoint(mousePosDevice, MONITOR_DEFAULTTONEAREST);
             var screen = GetScreenFromPoint(mousePosDevice);
-            
+
             _lastFocusHwndWhenShow = GetForegroundWindow();
             _capturedTargetHwnd = IntPtr.Zero;
-            
-            
+
             var mousePos = DevicePixelsToLogicalPixels(mousePosDevice, hMonitor);
             var workingArea = DevicePixelsToLogicalPixels(screen.WorkingArea, hMonitor);
-            
-            
+
             var position = CalculateOptimalWindowPosition(mousePos, workingArea);
-            
+
             Left = position.X;
             Top = position.Y;
-            
-            
+
             ShowWithoutActivation();
             _isVisible = true;
-            _viewModel.IsWindowVisible = true;
-            
+
             _backgroundGcTimer?.Dispose();
             _backgroundGcTimer = null;
-            
+
             SavePosition();
 
-            
-            
-            
-            bool cacheValid = _viewModel.IsCacheValid();
-            if (!cacheValid)
-            {
-                _viewModel.LoadItems();
-            }
+            _viewModel.LoadItems();
 
-            
-            if (cacheValid)
-            {
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    var scroll = _listBoxScrollViewer;
-                    if (scroll != null)
-                    {
-                        
-                        
-                        var offset = scroll.VerticalOffset;
-                        scroll.ScrollToVerticalOffset(offset > 0 ? offset - 1 : offset + 1);
-                        scroll.ScrollToVerticalOffset(offset);
-                    }
-                }), System.Windows.Threading.DispatcherPriority.Background);
-            }
-
-            
             if (ClipboardListBox.SelectedItem == null && _viewModel.ClipboardItems.Count > 0)
                 ClipboardListBox.SelectedIndex = 0;
 
@@ -1421,7 +1423,6 @@ namespace WinVClip
             if (_charPanelBuilt && CharTabControl.SelectedItem is TabItem charTab)
                 LoadGroupContent(_charGroups.FirstOrDefault(g => g.Id == charTab.Tag as string) ?? _charGroups.FirstOrDefault(), CharContentPanel, "CharPanel");
 
-            
             SetGlobalMouseHook();
         }
 
@@ -1429,33 +1430,28 @@ namespace WinVClip
         {
             int windowWidth = (int)Width;
             int windowHeight = (int)Height;
-            
+
             const int margin = 12; 
-            
-            
+
             int x = mousePos.X + margin;
             int y = mousePos.Y + margin;
-            
-            
+
             int workRight = workingArea.Left + workingArea.Width;
             int workBottom = workingArea.Top + workingArea.Height;
-            
-            
+
             if (x + windowWidth > workRight)
             {
                 x = mousePos.X - windowWidth - margin;
             }
-            
-            
+
             if (y + windowHeight > workBottom)
             {
                 y = mousePos.Y - windowHeight - margin;
             }
-            
-            
+
             x = Math.Max(workingArea.Left, Math.Min(x, workRight - windowWidth));
             y = Math.Max(workingArea.Top, Math.Min(y, workBottom - windowHeight));
-            
+
             return new System.Drawing.Point(x, y);
         }
 
@@ -1466,9 +1462,6 @@ namespace WinVClip
             return point;
         }
 
-        
-        
-        
         private System.Drawing.Point DevicePixelsToLogicalPixels(System.Drawing.Point devicePoint, IntPtr monitorHandle)
         {
             var dpi = GetDpiForMonitor(monitorHandle);
@@ -1477,9 +1470,6 @@ namespace WinVClip
                 (int)(devicePoint.Y * 96.0 / dpi.Y));
         }
 
-        
-        
-        
         private System.Drawing.Rectangle DevicePixelsToLogicalPixels(System.Drawing.Rectangle deviceRect, IntPtr monitorHandle)
         {
             var dpi = GetDpiForMonitor(monitorHandle);
@@ -1490,9 +1480,6 @@ namespace WinVClip
                 (int)(deviceRect.Height * 96.0 / dpi.Y));
         }
 
-        
-        
-        
         private (double X, double Y) GetDpiForMonitor(IntPtr hMonitor)
         {
             uint dpiX = 96, dpiY = 96;
@@ -1502,7 +1489,7 @@ namespace WinVClip
             }
             catch
             {
-                
+
                 var hwnd = new WindowInteropHelper(this).Handle;
                 if (hwnd != IntPtr.Zero)
                 {
@@ -1510,7 +1497,7 @@ namespace WinVClip
                 }
                 else
                 {
-                    
+
                     dpiX = dpiY = 96;
                 }
             }
@@ -1536,7 +1523,7 @@ namespace WinVClip
             var hMonitor = MonitorFromPoint(point, MONITOR_DEFAULTTONEAREST);
             var info = new MonitorInfo();
             info.cbSize = Marshal.SizeOf(typeof(MonitorInfo));
-            
+
             if (GetMonitorInfo(hMonitor, ref info))
             {
                 return new ScreenInfo
@@ -1548,7 +1535,7 @@ namespace WinVClip
                         info.rcWork.bottom - info.rcWork.top)
                 };
             }
-            
+
             return new ScreenInfo
             {
                 WorkingArea = new System.Drawing.Rectangle(0, 0, 
@@ -1568,7 +1555,6 @@ namespace WinVClip
 
         private const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
 
-        
         [DllImport("user32.dll")]
         private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
 
@@ -1636,7 +1622,6 @@ namespace WinVClip
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool SetProcessWorkingSetSize(IntPtr proc, IntPtr min, IntPtr max);
 
-        
         private const int GWL_STYLE = -16;
         private const int GWL_EXSTYLE = -20;
         private const int WS_MAXIMIZEBOX = 0x00010000;
@@ -1648,12 +1633,10 @@ namespace WinVClip
         private const int SWP_NOSIZE = 0x0001;
         private const int SWP_FRAMECHANGED = 0x0020;
 
-        
         private const int WH_MOUSE_LL = 14;
         private const int WM_LBUTTONDOWN = 0x0201;
         private const int WM_RBUTTONDOWN = 0x0204;
 
-        
         private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
         private LowLevelMouseProc _mouseProc;
         private IntPtr _mouseHookId = IntPtr.Zero;
@@ -1697,6 +1680,46 @@ namespace WinVClip
             }
         }
 
+        /// <summary>恢复上次保存的主窗口尺寸；未保存过（0）则沿用 MainWindow.xaml 的默认值。</summary>
+        private void RestoreWindowSize()
+        {
+            var settings = _settingsService.Settings;
+            if (settings.MainWindowWidth > 0)
+                Width = Math.Max(settings.MainWindowWidth, MinWidth);
+            if (settings.MainWindowHeight > 0)
+                Height = Math.Max(settings.MainWindowHeight, MinHeight);
+        }
+
+        /// <summary>尺寸变化时先记入内存设置，再用定时器去抖落盘（不触发 SettingsChanged）。</summary>
+        private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            var settings = _settingsService.Settings;
+            settings.MainWindowWidth = Width;
+            settings.MainWindowHeight = Height;
+
+            if (_windowSizeSaveTimer == null)
+            {
+                _windowSizeSaveTimer = new System.Windows.Threading.DispatcherTimer
+                {
+                    Interval = TimeSpan.FromMilliseconds(500)
+                };
+                _windowSizeSaveTimer.Tick += (s, args) =>
+                {
+                    _windowSizeSaveTimer.Stop();
+                    _settingsService.SaveSettingsQuiet();
+                };
+            }
+
+            _windowSizeSaveTimer.Stop();
+            _windowSizeSaveTimer.Start();
+        }
+
+        private void MainWindow_Closed(object sender, EventArgs e)
+        {
+            _windowSizeSaveTimer?.Stop();
+            _settingsService.SaveSettingsQuiet();
+        }
+
         private void SavePosition()
         {
             _savedLeft = Left;
@@ -1708,23 +1731,20 @@ namespace WinVClip
             SavePosition();
             Hide();
             _isVisible = false;
-            _viewModel.IsWindowVisible = false;
-            
+
             HideCustomTooltip();
             _tooltipTimer?.Stop();
-            
-            
-            
+
             _viewModel.TrimLargeObjects();
             ImageCache.Clear();
-            
+
             if (_charPanelBuilt)
                 CharContentPanel.Children.Clear();
-            
+
             GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true);
             GC.WaitForPendingFinalizers();
             GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true);
-            
+
             try
             {
                 using var proc = System.Diagnostics.Process.GetCurrentProcess();
@@ -1745,17 +1765,15 @@ namespace WinVClip
                 }
                 catch { }
             }, null, TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1));
-            
+
             if (_listBoxScrollViewer != null)
             {
                 _listBoxScrollViewer.ScrollToVerticalOffset(0);
             }
-            
+
             RemoveGlobalMouseHook();
         }
 
-        
-        
         private void SetWindowActivateStyle(bool activate)
         {
             var handle = new WindowInteropHelper(this).Handle;
@@ -1776,10 +1794,10 @@ namespace WinVClip
         private void DeactivateWindow()
         {
             if (!_isVisible) return;
-            
+
             var handle = new WindowInteropHelper(this).Handle;
             SetWindowActivateStyle(false);
-            
+
             if (_viewModel.IsPinned)
             {
                 SetWindowPos(handle, (IntPtr)(-1), 0, 0, 0, 0, 
@@ -1793,12 +1811,117 @@ namespace WinVClip
                 System.Windows.Threading.DispatcherPriority.ApplicationIdle);
         }
 
-        
         private void SearchTextBox_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
             ActivateWindow();
             SearchTextBox.Focus();
+
+            // 浮层仅在搜索框为空时显示
+            if (!string.IsNullOrEmpty(SearchTextBox.Text))
+            {
+                e.Handled = false;
+                return;
+            }
+
+            // 已打开时：本次点击按“外部点击”关闭浮层（点击搜索栏 = 切换）
+            if (SearchOptionsPopup.IsOpen)
+            {
+                e.Handled = false;
+                return;
+            }
+
+            // Popup 以 StaysOpen=False 打开时本次点击会被判为外部点击关闭，故延迟到 mouseup 之后再打开
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (!SearchOptionsPopup.IsOpen)
+                    OpenSearchOptionsPopup();
+            }), System.Windows.Threading.DispatcherPriority.Input);
+
             e.Handled = false;
+        }
+
+        /// <summary>按 Enter 时保存搜索历史</summary>
+        private void SearchTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                _viewModel.RecordSearchHistory();
+                _viewModel.OnPropertyChanged(nameof(MainViewModel.SearchHistoryView));
+            }
+        }
+
+        /// <summary>搜索框失焦（点击其他任意位置）时保存搜索历史</summary>
+        private void SearchTextBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+        {
+            _viewModel.RecordSearchHistory();
+            _viewModel.OnPropertyChanged(nameof(MainViewModel.SearchHistoryView));
+        }
+
+        /// <summary>输入时隐藏浮层，清空后重新显示</summary>
+        private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(SearchTextBox.Text))
+            {
+                if (!SearchOptionsPopup.IsOpen && SearchTextBox.IsKeyboardFocusWithin)
+                    OpenSearchOptionsPopup();
+            }
+            else if (SearchOptionsPopup.IsOpen)
+            {
+                SearchOptionsPopup.IsOpen = false;
+            }
+        }
+
+        /// <summary>打开搜索选项浮层（重新读取共享 Settings 实例，刷新选项勾选态与历史列表；选项区默认收起）</summary>
+        private void OpenSearchOptionsPopup()
+        {
+            _viewModel.OnPropertyChanged(nameof(MainViewModel.IsSearchHighlightEnabled));
+            _viewModel.OnPropertyChanged(nameof(MainViewModel.IsSearchExactEnabled));
+            _viewModel.OnPropertyChanged(nameof(MainViewModel.IsSearchHistoryEnabled));
+            _viewModel.OnPropertyChanged(nameof(MainViewModel.IsSearchPinyinEnabled));
+            _viewModel.OnPropertyChanged(nameof(MainViewModel.IsSearchRegexEnabled));
+            _viewModel.OnPropertyChanged(nameof(MainViewModel.IsSearchWildcardEnabled));
+            _viewModel.OnPropertyChanged(nameof(MainViewModel.SearchModeText));
+            _viewModel.OnPropertyChanged(nameof(MainViewModel.SearchHistoryView));
+            _viewModel.OnPropertyChanged(nameof(MainViewModel.IsSearchHistoryVisible));
+            CollapseSearchOptionsPanel();
+            SearchOptionsPopup.IsOpen = true;
+        }
+
+        /// <summary>点击「搜索选项」标题展开/收起选项区</summary>
+        private void SearchOptionsTitle_Click(object sender, MouseButtonEventArgs e)
+        {
+            e.Handled = true;
+            bool expand = SearchOptionsPanel.Visibility != Visibility.Visible;
+            SearchOptionsPanel.Visibility = expand ? Visibility.Visible : Visibility.Collapsed;
+            SearchOptionsArrow.Text = expand ? "▾" : "▸";
+        }
+
+        /// <summary>选项区收起并复位箭头</summary>
+        private void CollapseSearchOptionsPanel()
+        {
+            SearchOptionsPanel.Visibility = Visibility.Collapsed;
+            SearchOptionsArrow.Text = "▸";
+        }
+
+        /// <summary>清空搜索框内容（TextChanged 触发防抖刷新，恢复全部记录）</summary>
+        private void ClearSearchText_Click(object sender, RoutedEventArgs e)
+        {
+            SearchTextBox.Clear();
+        }
+
+        private void ClearSearchHistory_Click(object sender, RoutedEventArgs e)
+        {
+            _viewModel.ClearSearchHistory();
+            _viewModel.OnPropertyChanged(nameof(MainViewModel.SearchHistoryView));
+        }
+
+        private void SearchHistoryTerm_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Content is string term)
+            {
+                SearchOptionsPopup.IsOpen = false;
+                _viewModel.SearchText = term;
+            }
         }
 
         private void Button_PreviewMouseDown(object sender, MouseButtonEventArgs e)
@@ -1816,15 +1939,12 @@ namespace WinVClip
             e.Handled = false;
             DeactivateWindowDeferred();
 
-            
             if (e.ChangedButton == MouseButton.Left)
             {
                 _dragStartPoint = e.GetPosition(this);
                 _isDragStarted = false;
             }
 
-            
-            
             if (!_viewModel.IsMultiSelectMode &&
                 (e.ChangedButton == MouseButton.Left || e.ChangedButton == MouseButton.Middle))
             {
@@ -1851,14 +1971,14 @@ namespace WinVClip
             {
                 if (e.ChangedButton == MouseButton.Middle)
                 {
-                    
+
                     if (TryMatchQuickPasteShortcut(item, Models.QuickPasteMouseButton.Middle, out var matched))
                     {
                         e.Handled = true;
                         ExecuteQuickPasteAction(item, matched.Action, matched.QuickCommandName);
                         return;
                     }
-                    
+
                     if (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText)
                     {
                         e.Handled = true;
@@ -1867,10 +1987,7 @@ namespace WinVClip
                 }
                 else if (e.ChangedButton == MouseButton.Left)
                 {
-                    
-                    
-                    
-                    
+
                 }
             }
         }
@@ -1884,11 +2001,6 @@ namespace WinVClip
                 SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
         }
 
-        
-        
-        
-        
-        
         public void PreheatRender()
         {
             var savedOpacity = Opacity;
@@ -1912,11 +2024,11 @@ namespace WinVClip
         private void SetGlobalMouseHook()
         {
             if (_isMouseHookSet) return;
-            
+
             _mouseProc = MouseHookProc;
             _mouseHookId = SetWindowsHookEx(WH_MOUSE_LL, _mouseProc, 
                 GetModuleHandle(null), 0);
-            
+
             _isMouseHookSet = _mouseHookId != IntPtr.Zero;
         }
 
@@ -1932,35 +2044,40 @@ namespace WinVClip
 
         private IntPtr MouseHookProc(int nCode, IntPtr wParam, IntPtr lParam)
         {
-            if (nCode >= 0 && (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN))
+            try
             {
-                if (_isContextMenuOpen)
+                if (nCode >= 0 && (wParam == (IntPtr)WM_LBUTTONDOWN || wParam == (IntPtr)WM_RBUTTONDOWN))
                 {
-                    return CallNextHookEx(_mouseHookId, nCode, wParam, lParam);
-                }
-
-                
-                var mouseHookStruct = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
-                var clickPoint = new System.Drawing.Point(mouseHookStruct.pt.x, mouseHookStruct.pt.y);
-                
-                
-                if (!IsPointInWindow(clickPoint))
-                {
-                    
-                    if (!IsPointInAnyMenu(clickPoint) && !AppMessageBox.IsPointInDialog(clickPoint))
+                    if (_isContextMenuOpen)
                     {
-                        
-                        Dispatcher.Invoke(() =>
+                        return CallNextHookEx(_mouseHookId, nCode, wParam, lParam);
+                    }
+
+                    var mouseHookStruct = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
+                    var clickPoint = new System.Drawing.Point(mouseHookStruct.pt.x, mouseHookStruct.pt.y);
+
+                    if (!IsPointInWindow(clickPoint))
+                    {
+
+                        if (!IsPointInAnyMenu(clickPoint) && !AppMessageBox.IsPointInDialog(clickPoint))
                         {
-                            if (_isVisible && !_viewModel.IsPinned)
+                            // 低级钩子回调必须立即返回：异步投递到 UI 线程，同步 Invoke 会阻塞鼠标输入，超时后钩子被系统摘除
+                            Dispatcher.BeginInvoke(() =>
                             {
-                                HideWindow();
-                            }
-                        });
+                                if (_isVisible && !_viewModel.IsPinned)
+                                {
+                                    HideWindow();
+                                }
+                            });
+                        }
                     }
                 }
             }
-            
+            catch
+            {
+                // 钩子回调内的异常不得外泄到钩子链
+            }
+
             return CallNextHookEx(_mouseHookId, nCode, wParam, lParam);
         }
 
@@ -1992,7 +2109,7 @@ namespace WinVClip
         {
             var handle = new WindowInteropHelper(this).Handle;
             var windowRect = new RECT();
-            
+
             if (GetWindowRect(handle, ref windowRect))
             {
                 return screenPoint.X >= windowRect.left && 
@@ -2000,7 +2117,7 @@ namespace WinVClip
                        screenPoint.Y >= windowRect.top && 
                        screenPoint.Y <= windowRect.bottom;
             }
-            
+
             return false;
         }
 
@@ -2165,16 +2282,15 @@ namespace WinVClip
             menu.PlacementTarget = placementTarget;
             menu.Opened += ContextMenu_Opened;
             menu.Loaded += (s, args) => SetContextMenuTopmost(menu);            
-            
-            
+
             AddGroupMenuItem(menu, Loc.Get("Common.All", "全部"), null, currentGroupId, onSelect);
             foreach (var group in _databaseService.GetAllGroups())
             {
-                AddGroupMenuItem(menu, group.Name, group.Id, currentGroupId, onSelect);
+                AddGroupMenuItem(menu, Loc.GetGroupName(group.Name), group.Id, currentGroupId, onSelect);
             }
-            
+
             menu.Items.Add(new Separator { Style = TryFindResource("SeparatorStyle") as Style });   
-            
+
             menu.IsOpen = true;
             return menu;
         }
@@ -2189,7 +2305,7 @@ namespace WinVClip
                 Style = TryFindResource("MenuItemStyle") as Style,
                 IsChecked = currentGroupId == groupId
             };
-            
+
             item.Click += (s, args) => 
             {
                 onSelect(groupId);
@@ -2198,7 +2314,7 @@ namespace WinVClip
                     menuItem.IsChecked = menuItem.Tag as long? == groupId;
                 }
             };
-            
+
             menu.Items.Add(item);
         }
 
@@ -2227,7 +2343,7 @@ namespace WinVClip
 
         private void ClipboardListBox_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
-            
+
             var wheelButton = e.Delta > 0 ? Models.QuickPasteMouseButton.WheelUp : Models.QuickPasteMouseButton.WheelDown;
             var hoverItem = GetHoveredClipboardItem();
             if (hoverItem != null && TryMatchQuickPasteShortcut(hoverItem, wheelButton, out var matched))
@@ -2245,7 +2361,6 @@ namespace WinVClip
             }
         }
 
-        
         private ClipboardItem GetHoveredClipboardItem()
         {
             try
@@ -2305,7 +2420,6 @@ namespace WinVClip
             if (IsControlElement(e.OriginalSource))
                 return;
 
-            
             if (!_viewModel.IsMultiSelectMode)
             {
                 _capturedTargetHwnd = ResolvePasteTargetHwnd();
@@ -2319,16 +2433,14 @@ namespace WinVClip
 
             if (ClipboardListBox.SelectedItem is ClipboardItem item)
             {
-                
-                
-                
+
                 if (TryMatchQuickPasteShortcut(item, Models.QuickPasteMouseButton.Left, out var matched))
                 {
                     e.Handled = true;
                     ExecuteQuickPasteAction(item, matched.Action, matched.QuickCommandName);
                     return;
                 }
-                
+
                 if (_viewModel.IsMultiSelectMode)
                     _viewModel.ToggleSelection(item);
                 else
@@ -2365,7 +2477,7 @@ namespace WinVClip
                 return;
 
             string content = item.Content.Trim();
-            string url = IsValidUrl(content) ? content : App.SettingsService.GetSearchUrl(content);
+            string url = IsValidUrl(content) ? EnsureScheme(content) : App.SettingsService.GetSearchUrl(content);
 
             LaunchExternalProcess(url, "打开浏览器失败");
         }
@@ -2427,25 +2539,12 @@ namespace WinVClip
             return text;
         }
 
-        internal static bool IsValidUrl(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text))
-                return false;
+        /// <summary>判断文本是否为链接（含裸域名与 IPv4，规则见 DatabaseService.LinkPattern）。</summary>
+        internal static bool IsValidUrl(string text) => DatabaseService.IsLink(text);
 
-            text = text.Trim();
-
-            if (Uri.TryCreate(text, UriKind.Absolute, out Uri uriResult))
-            {
-                return uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps;
-            }
-
-            if (text.StartsWith("www.", StringComparison.OrdinalIgnoreCase))
-            {
-                return Uri.TryCreate("http://" + text, UriKind.Absolute, out _);
-            }
-
-            return false;
-        }
+        /// <summary>补全协议头：缺少协议时按 http 补上，供浏览器打开使用。</summary>
+        private static string EnsureScheme(string url)
+            => url.Contains("://", StringComparison.Ordinal) ? url : "http://" + url;
 
         private void EditMenuItem_Click(object sender, RoutedEventArgs e)
         {
@@ -2460,7 +2559,6 @@ namespace WinVClip
             var wasRichText = item.Type == ClipboardType.RichText;
             var editWindow = new EditItemWindow(item) { Owner = this };
 
-            
             var wasPinnedBefore = _viewModel.IsPinned;
             _viewModel.IsPinned = true;
             Topmost = true;
@@ -2471,7 +2569,7 @@ namespace WinVClip
                 {
                     if (wasRichText && item.Type == ClipboardType.Text)
                     {
-                        
+
                         _databaseService.UpdateItemAsText(item.Id, item.Content);
                     }
                     else
@@ -2483,7 +2581,7 @@ namespace WinVClip
             }
             finally
             {
-                
+
                 _viewModel.IsPinned = wasPinnedBefore;
                 Topmost = wasPinnedBefore;
             }
@@ -2507,7 +2605,6 @@ namespace WinVClip
             if (string.IsNullOrEmpty(text))
                 return;
 
-            
             var targetHwnd = ResolvePasteTargetHwnd();
 
             var charPickerWindow = new CharPickerWindow(text);
@@ -2540,7 +2637,6 @@ namespace WinVClip
             if (string.IsNullOrEmpty(text))
                 return;
 
-            
             if (QRCodeWindow.IsContentTooLarge(text))
             {
                 var byteCount = System.Text.Encoding.UTF8.GetByteCount(text);
@@ -2563,30 +2659,6 @@ namespace WinVClip
             };
             this.Hide();
             qrWindow.Show();
-        }
-
-        private void StatusTextTip_Loaded(object sender, RoutedEventArgs e)
-        {
-            if (sender is System.Windows.Controls.Panel panel)
-                panel.ToolTip = Loc.Get("ClipboardType.Text", "文本");
-        }
-
-        private void StatusImageTip_Loaded(object sender, RoutedEventArgs e)
-        {
-            if (sender is System.Windows.Controls.Panel panel)
-                panel.ToolTip = Loc.Get("ClipboardType.Image", "图片");
-        }
-
-        private void StatusFileTip_Loaded(object sender, RoutedEventArgs e)
-        {
-            if (sender is System.Windows.Controls.Panel panel)
-                panel.ToolTip = Loc.Get("ClipboardType.FileList", "文件");
-        }
-
-        private void StatusRichTextTip_Loaded(object sender, RoutedEventArgs e)
-        {
-            if (sender is System.Windows.Controls.Panel panel)
-                panel.ToolTip = Loc.Get("ClipboardType.RichText", "富文本");
         }
 
         private void MenuCharPicker_Loaded(object sender, RoutedEventArgs e)
@@ -2613,21 +2685,18 @@ namespace WinVClip
                 PasteItemAsPlainText(item);
         }
 
-        
         private void PasteRemoveNewlines_Click(object sender, RoutedEventArgs e)
         {
             if (ClipboardListBox.SelectedItem is ClipboardItem item)
                 PasteItemAsPlainTextRemoveNewlines(item);
         }
 
-        
         private void PasteAndDelete_Click(object sender, RoutedEventArgs e)
         {
             if (ClipboardListBox.SelectedItem is ClipboardItem item)
                 PasteAndDeleteItem(item);
         }
 
-        
         private void PasteAndDeleteItem(ClipboardItem item)
         {
             if (_isPasting) return;
@@ -2643,13 +2712,10 @@ namespace WinVClip
                 var hashFiles = item.Type == ClipboardType.FileList && item.FilePaths != null
                     ? item.FilePaths : null;
 
-                
                 PostPasteFlow(pasteHashText: hashText, pasteHashFiles: hashFiles);
 
-                
                 DeleteItem(item);
 
-                
                 ScheduleClipboardClearAfterPasteAndDelete(item);
             }
             catch (Exception ex)
@@ -2662,8 +2728,6 @@ namespace WinVClip
             }
         }
 
-        
-        
         private void ScheduleClipboardClearAfterPasteAndDelete(ClipboardItem item)
         {
             _pasteAndDeleteClearText = (item.Type == ClipboardType.Text || item.Type == ClipboardType.RichText)
@@ -2679,12 +2743,11 @@ namespace WinVClip
                 };
                 _pasteAndDeleteClearTimer.Tick += PasteAndDeleteClearTimer_Tick;
             }
-            
+
             _pasteAndDeleteClearTimer.Stop();
             _pasteAndDeleteClearTimer.Start();
         }
 
-        
         private void PasteAndDeleteClearTimer_Tick(object sender, EventArgs e)
         {
             _pasteAndDeleteClearTimer.Stop();
@@ -2702,7 +2765,7 @@ namespace WinVClip
                 else if (files != null)
                     isOurs = IsClipboardFileListEqual(files);
                 else
-                    
+
                     isOurs = ClipboardWin32Helper.ContainsImage();
 
                 if (isOurs)
@@ -2710,11 +2773,10 @@ namespace WinVClip
             }
             catch
             {
-                
+
             }
         }
 
-        
         private static bool IsClipboardFileListEqual(List<string> files)
         {
             if (!ClipboardWin32Helper.ContainsFileDropList())
@@ -2824,7 +2886,6 @@ namespace WinVClip
                 _openMenus.Add(contextMenu);
                 contextMenu.Closed += ContextMenu_Closed;
 
-                
                 RefreshQuickCommandSubmenu(contextMenu);
                 UpdateQuickCommandsTopLevelVisibility(contextMenu);
 
@@ -2837,10 +2898,6 @@ namespace WinVClip
             }
         }
 
-        
-        
-        
-        
         private void UpdateQuickCommandsTopLevelVisibility(ContextMenu contextMenu)
         {
             if (MenuQuickCommands == null) return;
@@ -2859,24 +2916,16 @@ namespace WinVClip
             MenuQuickCommands.Visibility = hasVisibleItem ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        
-        
-        
-        
-        
-        
         private void RefreshQuickCommandSubmenu(ContextMenu contextMenu)
         {
             if (contextMenu == null || MenuQuickCommands == null) return;
             var parent = MenuQuickCommands.Items;
             if (parent == null) return;
 
-            
             var curItem = contextMenu.PlacementTarget is System.Windows.Controls.ListBox lb ? lb.SelectedItem as ClipboardItem : null;
             int curType = curItem != null ? (int)curItem.Type : -1;
             bool canApplyToItem = curItem != null && (curItem.Type == ClipboardType.Text || curItem.Type == ClipboardType.RichText);
 
-            
             int sepIdx = -1;
             for (int i = 0; i < parent.Count; i++)
             {
@@ -2888,7 +2937,6 @@ namespace WinVClip
             }
             if (sepIdx < 0) return;
 
-            
             for (int i = parent.Count - 1; i > sepIdx; i--)
                 parent.RemoveAt(i);
 
@@ -2896,7 +2944,7 @@ namespace WinVClip
             bool anyUser = false;
             if (list != null)
             {
-                
+
                 foreach (var qc in list)
                 {
                     var name = (qc.Name ?? "").Trim();
@@ -2937,25 +2985,25 @@ namespace WinVClip
                 parent.Add(empty);
             }
         }
-        
+
         private void ContextMenu_Closed(object sender, RoutedEventArgs e)
         {
             if (sender is ContextMenu contextMenu)
             {
                 _openMenus.Remove(contextMenu);
-                
+
                 if (_openMenus.Count == 0)
                 {
                     _isContextMenuOpen = false;
                 }
             }
-            
+
             if (_viewModel.IsPinned)
             {
                 Topmost = true;
             }
         }
-        
+
         private async void EnsureContextMenuTopmost(ContextMenu contextMenu)
         {
             for (int i = 0; i < 10; i++)
@@ -2964,7 +3012,7 @@ namespace WinVClip
                 await System.Threading.Tasks.Task.Delay(10);
             }
         }
-        
+
         private void SetContextMenuTopmost(ContextMenu contextMenu)
         {
             try
@@ -3149,17 +3197,12 @@ namespace WinVClip
 
         #region 主界面快捷键
 
-        
-        
-        
-        
         private bool TryMatchQuickPasteShortcut(ClipboardItem item, Models.QuickPasteMouseButton button, out Models.QuickPasteShortcut matched)
         {
             matched = null;
             if (_quickPasteShortcuts == null || _quickPasteShortcuts.Count == 0)
                 return false;
 
-            
             var (ctrl, alt, shift, _) = KeyboardService.GetModifierKeysState();
 
             foreach (var sc in _quickPasteShortcuts)
@@ -3174,10 +3217,9 @@ namespace WinVClip
             return false;
         }
 
-        
         private void ExecuteQuickPasteAction(ClipboardItem item, Models.QuickPasteAction action, string quickCommandName = null)
         {
-            
+
             ClipboardListBox.SelectedItem = item;
             switch (action)
             {
@@ -3212,7 +3254,7 @@ namespace WinVClip
                     GroupMenuItem_Click(null, null);
                     break;
                 case Models.QuickPasteAction.CustomRegex:
-                    
+
                     if (!string.IsNullOrEmpty(quickCommandName))
                     {
                         var qc = App.SettingsService?.Settings?.QuickCommands?
@@ -3223,17 +3265,12 @@ namespace WinVClip
                             break;
                         }
                     }
-                    
+
                     PasteItemAsPlainTextRemoveNewlines(item);
                     break;
             }
         }
 
-        
-        
-        
-        
-        
         public void ExecuteGlobalHotkeyAction(GlobalHotkey gh)
         {
             if (gh == null) return;
@@ -3251,18 +3288,53 @@ namespace WinVClip
         }
 
         /// <summary>
-        /// 顺序粘贴热键处理（全局热键触发）。数据始终基于数据库全量记录。
+        /// 顺序粘贴热键入口（全局热键触发，运行于 UI 线程）。上一次粘贴尚未完成时仅暂存一个待处理按键。
+        /// </summary>
+        public void OnSequentialPasteHotkey(bool fifo)
+        {
+            if (_seqPasteBusy)
+            {
+                _seqPasteHasPending = true;
+                _seqPastePendingFifo = fifo;
+                _seqPastePendingTime = DateTime.Now;
+                return;
+            }
+            _ = RunSequentialPasteAsync(fifo, DateTime.Now);
+        }
+
+        private async Task RunSequentialPasteAsync(bool fifo, DateTime pressTime)
+        {
+            _seqPasteBusy = true;
+            try
+            {
+                while (true)
+                {
+                    await ProcessSequentialPasteOnceAsync(fifo, pressTime);
+                    if (!_seqPasteHasPending) break;
+                    _seqPasteHasPending = false;
+                    fifo = _seqPastePendingFifo;
+                    pressTime = _seqPastePendingTime;
+                }
+            }
+            finally
+            {
+                _seqPasteBusy = false;
+            }
+        }
+
+        /// <summary>
+        /// 顺序粘贴单次处理。数据始终基于数据库全量记录。
         /// fifo=true：先进先出，取最新一批记录（相邻记录间隔时间≤设定秒数视为同一批），按复制先后顺序依次粘贴；
         /// fifo=false：后进先出，从最新记录开始按列表顺序依次粘贴。
         /// 连续按下依次粘贴下一条；两次按下间隔超过设定秒数则重新基于数据库从头开始。
         /// 后进先出/先进先出的序列状态各自独立、互不影响。
         /// </summary>
-        public void OnSequentialPasteHotkey(bool fifo)
+        private async Task ProcessSequentialPasteOnceAsync(bool fifo, DateTime pressTime)
         {
             try
             {
                 int intervalSeconds = Math.Max(1, App.SettingsService?.Settings?.SequentialPasteIntervalSeconds ?? 8);
-                var now = DateTime.Now;
+                var now = pressTime;
 
                 var queue = fifo ? _seqPasteQueueFifo : _seqPasteQueueLifo;
                 var lastPress = fifo ? _seqPasteLastPressFifo : _seqPasteLastPressLifo;
@@ -3275,7 +3347,7 @@ namespace WinVClip
                 if (!continueSequence)
                 {
                     // 新批次：始终基于数据库全量记录重建
-                    var items = _databaseService.GetItems(int.MaxValue, 0, null, null, null);
+                    var items = await Task.Run(() => _databaseService.GetItems(int.MaxValue, 0, null, null, null));
                     if (items == null || items.Count == 0) return;
 
                     if (fifo)
@@ -3318,18 +3390,12 @@ namespace WinVClip
                 if (item == null) return;
                 PasteItem(item);
             }
-            catch (Exception ex)
+            catch
             {
-                System.Diagnostics.Debug.WriteLine($"[SequentialPaste] {ex.Message}");
+                // 单次粘贴失败不中断热键处理
             }
         }
 
-        
-        
-        
-        
-        
-        
         private void PasteWithCustomRegex(ClipboardItem item,
             System.Collections.Generic.IEnumerable<Models.QuickCommandRule> rules)
         {
@@ -3356,7 +3422,7 @@ namespace WinVClip
 
                     try
                     {
-                        current = ApplyQuickCommandRule(current, rule.Function, p1, p2, firstOnly);
+                        current = Models.QuickCommand.ApplyRule(current, rule.Function, p1, p2, firstOnly);
                     }
                     catch (Exception ruleEx)
                     {
@@ -3380,99 +3446,6 @@ namespace WinVClip
             finally
             {
                 _isPasting = false;
-            }
-        }
-
-        
-        private static string ApplyQuickCommandRule(string input,
-            Models.QuickCommandFunction func, string param1, string param2, bool firstOnly)
-        {
-            if (input == null) input = "";
-            switch (func)
-            {
-                case Models.QuickCommandFunction.StringReplace:
-                    if (string.IsNullOrEmpty(param1)) return input;
-                    if (firstOnly)
-                    {
-                        int idx = input.IndexOf(param1, StringComparison.Ordinal);
-                        if (idx < 0) return input;
-                        return input.Substring(0, idx) + (param2 ?? "") +
-                               input.Substring(idx + param1.Length);
-                    }
-                    return input.Replace(param1, param2 ?? "");
-
-                case Models.QuickCommandFunction.RegexReplace:
-                    if (string.IsNullOrEmpty(param1)) return input;
-                    var rr = new System.Text.RegularExpressions.Regex(param1);
-                    if (firstOnly) return rr.Replace(input, param2 ?? "", 1);
-                    return rr.Replace(input, param2 ?? "");
-
-                case Models.QuickCommandFunction.RegexMatches:
-                    
-                    
-                    
-                    
-                    if (string.IsNullOrEmpty(param1)) return "";
-                    var rm2 = new System.Text.RegularExpressions.Regex(param1);
-                    var mc2 = rm2.Matches(input);
-                    if (mc2.Count == 0) return "";
-                    if (string.IsNullOrEmpty(param2))
-                    {
-                        var sb2 = new System.Text.StringBuilder();
-                        foreach (System.Text.RegularExpressions.Match m in mc2)
-                            sb2.Append(m.Value);
-                        return sb2.ToString();
-                    }
-                    
-                    var list = new System.Collections.Generic.List<string>(mc2.Count);
-                    foreach (System.Text.RegularExpressions.Match m2 in mc2)
-                        list.Add(m2.Value);
-                    return string.Join(param2, list);
-
-                case Models.QuickCommandFunction.RegexEscape:
-                    return System.Text.RegularExpressions.Regex.Escape(input);
-
-                case Models.QuickCommandFunction.StringTrim:
-                    return input.Trim();
-
-                case Models.QuickCommandFunction.StringToUpper:
-                    return input.ToUpperInvariant();
-
-                case Models.QuickCommandFunction.StringToLower:
-                    return input.ToLowerInvariant();
-
-                case Models.QuickCommandFunction.RegexSplit:
-                    if (string.IsNullOrEmpty(param1)) return input;
-                    var parts = System.Text.RegularExpressions.Regex.Split(input, param1);
-                    return string.Join(Environment.NewLine, parts);
-
-                case Models.QuickCommandFunction.DistinctRemoveDuplicate:
-                    
-                    string newLine = "\n";
-                    if (input.Contains("\r\n")) newLine = "\r\n";
-                    else if (input.Contains("\r")) newLine = "\r";
-                    string[] lines = input.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
-                    var seen = new System.Collections.Generic.HashSet<string>();
-                    var unique = new System.Collections.Generic.List<string>();
-                    foreach (var line in lines)
-                    {
-                        if (seen.Add(line)) unique.Add(line);
-                    }
-                    return string.Join(newLine, unique);
-
-                case Models.QuickCommandFunction.RemoveWhiteSpace:
-                    var nosp = new System.Text.StringBuilder(input.Length);
-                    foreach (char c in input)
-                    {
-                        if (!char.IsWhiteSpace(c)) nosp.Append(c);
-                    }
-                    return nosp.ToString();
-
-                case Models.QuickCommandFunction.RemoveNewLines:
-                    return input.Replace("\r", "").Replace("\n", "");
-
-                default:
-                    return input;
             }
         }
 
@@ -3526,8 +3499,6 @@ namespace WinVClip
 
             if (!TryBringWindowToForeground(targetHwnd))
             {
-                System.Diagnostics.Debug.WriteLine(
-                    $"[Paste] Aborted: failed to activate target window 0x{targetHwnd.ToInt64():X}");
                 return;
             }
 
@@ -3554,7 +3525,6 @@ namespace WinVClip
                 waited += 10;
             }
 
-            
             Thread.Sleep(30);
         }
 
@@ -3681,8 +3651,6 @@ namespace WinVClip
                 HideWindow();
             }
 
-            
-            
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 ActivateAndPaste(targetHwnd);
@@ -3694,7 +3662,7 @@ namespace WinVClip
 
         private static IntPtr GetDesktopWindow()
         {
-            
+
             var hwnd = FindWindow("Progman", null);
             if (hwnd == IntPtr.Zero)
             {
@@ -3708,7 +3676,7 @@ namespace WinVClip
             try
             {
                 SetClipboardContent(item);
-                
+
                 var clipboardMonitor = App.GetClipboardMonitor();
                 clipboardMonitor?.IgnoreNextChange(1000);
             }
@@ -3753,7 +3721,7 @@ namespace WinVClip
         {
             _viewModel.IsMultiSelectMode = enabled;
             _viewModel.ClearSelection();
-            
+
             _capturedTargetHwnd = IntPtr.Zero;
 
             if (enabled)
@@ -3920,7 +3888,7 @@ namespace WinVClip
             {
                 foreach (var item in selectedItems)
                     _databaseService.DeleteItem(item.Id);
-                
+
                 _viewModel.ClearSelection();
                 _viewModel.LoadItems();
             }
@@ -3935,7 +3903,7 @@ namespace WinVClip
             {
                 foreach (var item in selectedItems)
                     _databaseService.UpdateItemGroup(item.Id, groupId);
-                
+
                 _viewModel.ClearSelection();
                 _viewModel.LoadItems();
             });
@@ -3952,9 +3920,11 @@ namespace WinVClip
             try
             {
                 bool isLink = _viewModel.TypeFilter == FilterType.Link;
-                _databaseService.DeleteItemsByFilter(_viewModel.GroupFilter, isLink ? (int?)null : _viewModel.TypeFilter, _viewModel.SearchText, ungroupedOnly: false, linkOnly: isLink);
+                int deleted = _databaseService.DeleteItemsByFilter(_viewModel.GroupFilter, isLink ? (int?)null : _viewModel.TypeFilter, _viewModel.SearchText, ungroupedOnly: false, linkOnly: isLink);
                 _viewModel.ClearSelection();
                 _viewModel.LoadItems();
+                AppMessageBox.Show(string.Format(Loc.Get("Message.DeletedCount", "已删除 {0} 条记录"), deleted),
+                    Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
@@ -3994,9 +3964,11 @@ namespace WinVClip
             try
             {
                 bool isLink = _viewModel.TypeFilter == FilterType.Link;
-                _databaseService.DeleteItemsByFilter(null, isLink ? (int?)null : _viewModel.TypeFilter, _viewModel.SearchText, ungroupedOnly: true, linkOnly: isLink);
+                int deleted = _databaseService.DeleteItemsByFilter(null, isLink ? (int?)null : _viewModel.TypeFilter, _viewModel.SearchText, ungroupedOnly: true, linkOnly: isLink);
                 _viewModel.ClearSelection();
                 _viewModel.LoadItems();
+                AppMessageBox.Show(string.Format(Loc.Get("Message.DeletedCount", "已删除 {0} 条记录"), deleted),
+                    Loc.Get("Message.Success", "成功"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
@@ -4005,16 +3977,19 @@ namespace WinVClip
             }
         }
 
-        private void DeleteInvalid_Click(object sender, RoutedEventArgs e)
+        private async void DeleteInvalid_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                var allFileItems = _databaseService.GetItems(int.MaxValue, 0, null, (int)ClipboardType.FileList, null);
-                var allImageItems = _databaseService.GetItems(int.MaxValue, 0, null, (int)ClipboardType.Image, null);
-                var invalidItems = allFileItems
-                    .Concat(allImageItems)
-                    .Where(FileValidationService.IsItemInvalid)
-                    .ToList();
+                var invalidItems = await Task.Run(() =>
+                {
+                    var allFileItems = _databaseService.GetItems(int.MaxValue, 0, null, (int)ClipboardType.FileList, null);
+                    var allImageItems = _databaseService.GetItems(int.MaxValue, 0, null, (int)ClipboardType.Image, null);
+                    return allFileItems
+                        .Concat(allImageItems)
+                        .Where(FileValidationService.IsItemInvalid)
+                        .ToList();
+                });
 
                 if (invalidItems.Count == 0)
                 {
@@ -4023,11 +3998,10 @@ namespace WinVClip
                     return;
                 }
 
-                foreach (var item in invalidItems)
-                    _databaseService.DeleteItem(item.Id);
+                int deleted = await Task.Run(() => _databaseService.DeleteItemsByIds(invalidItems.Select(i => i.Id)));
                 _viewModel.LoadItems();
 
-                AppMessageBox.Show(string.Format(Loc.Get("MainWindow.Message.DeletedInvalid", "已删除 {0} 条无效记录"), invalidItems.Count),
+                AppMessageBox.Show(string.Format(Loc.Get("MainWindow.Message.DeletedInvalid", "已删除 {0} 条无效记录"), deleted),
                     Loc.Get("Message.Info", "提示"), MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
@@ -4056,8 +4030,6 @@ namespace WinVClip
                 return;
             }
 
-            
-            
             if (_isDragStarted || sender is not FrameworkElement fe)
                 return;
 
@@ -4080,14 +4052,13 @@ namespace WinVClip
             }
         }
 
-        
         private void StartDrag(ClipboardItem item)
         {
             List<ClipboardItem> items;
             if (_viewModel.IsMultiSelectMode)
             {
                 items = _viewModel.GetSelectedItems();
-                
+
                 if (!items.Contains(item))
                     items = new List<ClipboardItem> { item };
             }
@@ -4103,13 +4074,9 @@ namespace WinVClip
             if (data == null)
                 return;
 
-            
-            
             DragDrop.DoDragDrop(ClipboardListBox, data, DragDropEffects.Copy);
         }
 
-        
-        
         private DataObject BuildDragDataObject(List<ClipboardItem> items)
         {
             if (items.Count == 1)
@@ -4117,8 +4084,6 @@ namespace WinVClip
                 var data = new DataObject();
                 SetClipboardContent(items[0], data);
 
-                
-                
                 var localFiles = TryGetItemLocalFiles(items[0]);
                 if (localFiles.Count > 0)
                 {
@@ -4130,7 +4095,6 @@ namespace WinVClip
                 return data.GetFormats().Length > 0 ? data : null;
             }
 
-            
             var merged = new DataObject();
             var allFiles = new List<string>();
             var textParts = new List<string>();
@@ -4171,8 +4135,6 @@ namespace WinVClip
             return merged.GetFormats().Length > 0 ? merged : null;
         }
 
-        
-        
         private static List<string> TryGetItemLocalFiles(ClipboardItem item)
         {
             var files = new List<string>();
@@ -4201,7 +4163,7 @@ namespace WinVClip
             }
             catch
             {
-                
+
             }
             return files;
         }
@@ -4278,8 +4240,7 @@ namespace WinVClip
         {
             if (App.SettingsService.Settings.UseSystemCharPanel)
             {
-                
-                
+
                 HideWindow();
                 System.Threading.ThreadPool.QueueUserWorkItem(_ =>
                 {

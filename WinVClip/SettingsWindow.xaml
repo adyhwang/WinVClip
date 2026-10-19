@@ -74,9 +74,6 @@
                         <RadioButton x:Name="NavSearch" Content="搜索引擎" GroupName="SettingsNav"
                                      Style="{DynamicResource NavRadioButtonStyle}"
                                      Tag="Search" Checked="NavRadioButton_Checked"/>
-                        <RadioButton x:Name="NavSystem" Content="系统设置" GroupName="SettingsNav"
-                                     Style="{DynamicResource NavRadioButtonStyle}"
-                                     Tag="System" Checked="NavRadioButton_Checked"/>
                         <RadioButton x:Name="NavAbout" Content="关于" GroupName="SettingsNav"
                                      Style="{DynamicResource NavRadioButtonStyle}"
                                      Tag="About" Checked="NavRadioButton_Checked"/>
@@ -172,22 +169,10 @@
                                     
                                     <TextBlock x:Name="FontSizeDescription" Text="调整界面字体大小（需重新打开窗口生效）" Foreground="{DynamicResource SecondaryTextForeground}" 
                                                FontSize="13" Margin="0,0,0,8"/>
-                                    <Grid Margin="0,0,0,4">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Slider x:Name="FontSizeSlider" Grid.Column="0"
-                                                Minimum="10" Maximum="30" Value="{Binding FontSize}"
-                                                IsSnapToTickEnabled="True" TickFrequency="1"
-                                                Style="{DynamicResource SliderStyle}"
-                                                VerticalAlignment="Center" Margin="0,0,12,0"/>
-                                        <TextBlock x:Name="FontSizeValueText" Grid.Column="1"
-                                                   Text="{Binding FontSize}" 
-                                                   FontSize="14" FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource TextForeground}"
-                                                   VerticalAlignment="Center" Width="30" TextAlignment="Center"/>
-                                    </Grid>
+                                    <controls:NumericUpDown x:Name="FontSizeUpDown"
+                                                            Width="110" Minimum="10" Maximum="30" Step="1"
+                                                            Value="{Binding FontSize}"
+                                                            HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,0,4"/>
                                 </StackPanel>
                             </Border>
 
@@ -237,6 +222,28 @@
                                     <TextBlock x:Name="UseSystemCharPanelWarning" Text="仅Windows 10 Version 1709以上版本可用，其他系统请勿勾选。" 
                                                Foreground="#E57373" 
                                                FontSize="11" Margin="28,0,0,0" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+
+                            
+                            <Border Style="{DynamicResource SettingCardStyle}" Margin="0,0,0,16">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                        <TextBlock Text="&#xE7E8;" FontFamily="Segoe MDL2 Assets" FontSize="18" 
+                                                   Foreground="{DynamicResource AccentColor}" Margin="0,0,10,0"/>
+                                        <TextBlock x:Name="SystemOptionsCardTitle" Text="系统选项" FontSize="16" FontWeight="SemiBold" 
+                                                   Foreground="{DynamicResource TextForeground}"/>
+                                    </StackPanel>
+                                    
+                                    <CheckBox x:Name="StartWithWindowsCheckBox" Content="开机自动启动"
+                                              Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"/>
+                                    <TextBlock x:Name="StartWithWindowsDescription" Text="系统启动时自动运行 WinVClip" Foreground="{DynamicResource SecondaryTextForeground}" 
+                                               FontSize="12" Margin="28,-8,0,16"/>
+                                    
+                                    <CheckBox x:Name="ShowHotkeyTipCheckBox" Content="启动时显示快捷键提示" IsChecked="{Binding ShowHotkeyTipOnStartup}" 
+                                              Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"/>
+                                    <TextBlock x:Name="ShowHotkeyTipDescription" Text="程序启动时在托盘通知中显示快捷键信息" Foreground="{DynamicResource SecondaryTextForeground}" 
+                                               FontSize="12" Margin="28,-8,0,0"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -514,6 +521,16 @@
                                                    Foreground="{DynamicResource TextForeground}"/>
                                     </StackPanel>
                                     
+                                    <CheckBox x:Name="EnableMonitorCheckBox" Content="启用剪贴板监控" IsChecked="{Binding MonitorEnabled}" 
+                                              Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"/>
+                                    <TextBlock x:Name="EnableMonitorDescription" Text="监听并记录剪贴板内容变化" Foreground="{DynamicResource SecondaryTextForeground}" 
+                                               FontSize="12" Margin="28,-8,0,16"/>
+                                    
+                                    <CheckBox x:Name="CaptureTextCheckBox" Content="捕获文本" IsChecked="{Binding CaptureText}" 
+                                              Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"/>
+                                    <TextBlock x:Name="CaptureTextDescription" Text="记录复制的纯文本与富文本内容" Foreground="{DynamicResource SecondaryTextForeground}" 
+                                               FontSize="12" Margin="28,-8,0,16"/>
+                                    
                                     <CheckBox x:Name="CaptureImagesCheckBox" Content="捕获图片" IsChecked="{Binding CaptureImages}" 
                                               Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"/>
                                     <TextBlock x:Name="CaptureImagesDescription" Text="自动保存剪贴板中的图片内容" Foreground="{DynamicResource SecondaryTextForeground}" 
@@ -529,10 +546,84 @@
                                     <TextBlock x:Name="RemoveDuplicatesDescription" Text="检测到重复内容时自动删除旧记录。执行顺序粘贴命令时如果其中有重复记录，将受到影响" Foreground="{DynamicResource SecondaryTextForeground}"
                                                FontSize="12" Margin="28,-8,0,16"/>
                                     
-                                    <CheckBox x:Name="MoveToTopCheckBox" Content="粘贴后移动至首位" IsChecked="{Binding MoveToTopAfterPaste}" 
+                                    <CheckBox x:Name="MoveToTopCheckBox" Content="粘贴后移动至首位" IsChecked="{Binding MoveToTopAfterPaste}"
                                               Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"/>
-                                    <TextBlock x:Name="MoveToTopDescription" Text="点击列表项粘贴后，将该未分组记录移到列表最前面" Foreground="{DynamicResource SecondaryTextForeground}" 
+                                    <TextBlock x:Name="MoveToTopDescription" Text="点击列表项粘贴后，将该未分组记录移到列表最前面" Foreground="{DynamicResource SecondaryTextForeground}"
                                                FontSize="12" Margin="28,-8,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{DynamicResource SettingCardStyle}" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                                                   Foreground="{DynamicResource AccentColor}" Margin="0,0,10,0"/>
+                                        <TextBlock x:Name="IgnoredWindowsCardTitle" Text="忽略窗口" FontSize="16" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextForeground}"/>
+                                    </StackPanel>
+
+                                    <TextBlock x:Name="IgnoredWindowsDescription" Text="前台窗口的标题或进程名包含以下任一关键词时，不记录其剪贴板内容"
+                                               Foreground="{DynamicResource SecondaryTextForeground}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+                                    <ItemsControl x:Name="IgnoredWindowsList" Margin="0,0,0,4">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{DynamicResource InputBackground}"
+                                                        BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1"
+                                                        CornerRadius="6" Padding="10,6" Margin="0,0,0,4">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{Binding}" Foreground="{DynamicResource TextForeground}"
+                                                                   FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                                   ToolTip="{Binding}"/>
+                                                        <Button Grid.Column="1" Style="{DynamicResource IconButtonStyle}"
+                                                                Width="26" Height="26" Click="IgnoredWindowDelete_Click">
+                                                            <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
+                                                        </Button>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <TextBlock x:Name="IgnoredWindowsEmptyText" Text="暂无忽略规则，所有窗口的剪贴板内容都会被记录" Visibility="Collapsed"
+                                               Foreground="{DynamicResource TertiaryTextForeground}" FontSize="12" Margin="0,0,0,4"/>
+
+                                    <Grid Margin="0,4,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Background="{DynamicResource InputBackground}"
+                                                BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1"
+                                                CornerRadius="6" Padding="10,6">
+                                            <Grid>
+                                                <TextBox x:Name="IgnoredWindowInputTextBox" KeyDown="IgnoredWindowInput_KeyDown"
+                                                         Background="Transparent" BorderThickness="0"
+                                                         Foreground="{DynamicResource TextForeground}" FontSize="13" VerticalAlignment="Center"/>
+                                                <TextBlock x:Name="IgnoredWindowInputPlaceholder" Text="输入窗口标题或进程名关键词"
+                                                           Foreground="{DynamicResource SecondaryTextForeground}" FontSize="13"
+                                                           VerticalAlignment="Center" IsHitTestVisible="False">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding ElementName=IgnoredWindowInputTextBox, Path=Text}" Value="">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Grid>
+                                        </Border>
+                                        <Button x:Name="IgnoredWindowAddButton" Grid.Column="1" Content="添加"
+                                                Style="{DynamicResource SecondaryButtonStyle}" Margin="8,0,0,0"
+                                                VerticalAlignment="Center" Click="IgnoredWindowAdd_Click"/>
+                                    </Grid>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -574,14 +665,10 @@
                                         <StackPanel Grid.Row="0" Margin="0,0,0,16">
                                             <TextBlock x:Name="RetentionDaysText" Text="保留天数" Foreground="{DynamicResource SecondaryTextForeground}" 
                                                        FontSize="13" Margin="0,0,0,8"/>
-                                            <ComboBox SelectedValue="{Binding RetentionDays}" SelectedValuePath="Tag" 
-                                                      Style="{DynamicResource ModernComboBoxStyle}" Width="200" HorizontalAlignment="Left">
-                                                <ComboBoxItem Content="3" Tag="3"/>
-                                                <ComboBoxItem Content="7" Tag="7"/>
-                                                <ComboBoxItem Content="30" Tag="30"/>
-                                                <ComboBoxItem Content="90" Tag="90"/>
-                                                <ComboBoxItem x:Name="KeepForeverItem" Content="永久保留" Tag="0"/>
-                                            </ComboBox>
+                                            <controls:NumericUpDown x:Name="RetentionDaysUpDown"
+                                                                    Width="110" Minimum="0" Maximum="90" Step="1"
+                                                                    Value="{Binding RetentionDays}"
+                                                                    HorizontalAlignment="Left"/>
                                             <TextBlock x:Name="RetentionDaysHint" Text="超过设定天数的历史记录将被自动删除" Foreground="{DynamicResource TertiaryTextForeground}" 
                                                        FontSize="11" Margin="0,4,0,0"/>
                                         </StackPanel>
@@ -589,16 +676,10 @@
                                         <StackPanel Grid.Row="1">
                                             <TextBlock x:Name="MaxRecordsText" Text="最大记录数" Foreground="{DynamicResource SecondaryTextForeground}" 
                                                        FontSize="13" Margin="0,0,0,8"/>
-                                            <ComboBox SelectedValue="{Binding MaxHistoryItems}" SelectedValuePath="Tag" 
-                                                      Style="{DynamicResource ModernComboBoxStyle}"  Width="200" HorizontalAlignment="Left">
-                                                <ComboBoxItem Content="50" Tag="50"/>
-                                                <ComboBoxItem Content="100" Tag="100"/>
-                                                <ComboBoxItem Content="200" Tag="200"/>
-                                                <ComboBoxItem Content="500" Tag="500"/>
-                                                <ComboBoxItem Content="1000" Tag="1000"/>
-                                                <ComboBoxItem Content="9999" Tag="9999"/>
-                                                <ComboBoxItem x:Name="UnlimitedItem" Content="无限制" Tag="-1"/>
-                                            </ComboBox>
+                                            <controls:NumericUpDown x:Name="MaxHistoryItemsUpDown"
+                                                                    Width="110" Minimum="0" Maximum="9999" Step="50"
+                                                                    Value="{Binding MaxHistoryItems}"
+                                                                    HorizontalAlignment="Left"/>
                                             <TextBlock x:Name="MaxRecordsHint" Text="超出数量限制时自动删除最早的记录" Foreground="{DynamicResource TertiaryTextForeground}" 
                                                        FontSize="11" Margin="0,4,0,0"/>
                                         </StackPanel>
@@ -830,7 +911,7 @@
 
                         
                         <StackPanel x:Name="PanelSearch" Visibility="Collapsed">
-                            <TextBlock x:Name="SearchTitleText" Text="搜索引擎" FontSize="24" FontWeight="SemiBold" 
+                            <TextBlock x:Name="SearchTitleText" Text="搜索选项" FontSize="24" FontWeight="SemiBold"
                                        Foreground="{DynamicResource TextForeground}" Margin="0,0,0,20"/>
                             
                             <Border Style="{DynamicResource SettingCardStyle}">
@@ -842,7 +923,7 @@
                                                    Foreground="{DynamicResource TextForeground}"/>
                                     </StackPanel>
                                     
-                                    <TextBlock x:Name="SelectSearchEngineText" Text="选择搜索引擎" Foreground="{DynamicResource SecondaryTextForeground}" 
+                                    <TextBlock x:Name="SelectSearchEngineText" Text="在浏览器中打开文本时使用的搜索引擎" Foreground="{DynamicResource SecondaryTextForeground}" 
                                                FontSize="13" Margin="0,0,0,8"/>
                                     <ComboBox x:Name="SearchEngineComboBox" 
                                               SelectedValue="{Binding SelectedSearchEngineId}"
@@ -876,45 +957,48 @@
                                                      Foreground="{DynamicResource TextForeground}"
                                                      FontSize="13"/>
                                         </Border>
-                                        <TextBlock Grid.Row="2" x:Name="KeywordPlaceholderText" Text="%s = 搜索关键词" Foreground="{DynamicResource TertiaryTextForeground}" 
+                                        <TextBlock Grid.Row="2" x:Name="KeywordPlaceholderText" Text="%s = 搜索关键词" Foreground="{DynamicResource TertiaryTextForeground}"
                                                    FontSize="11" Margin="0,4,0,0"/>
                                     </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{DynamicResource SettingCardStyle}" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                        <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                                                   Foreground="{DynamicResource AccentColor}" Margin="0,0,10,0"/>
+                                        <TextBlock x:Name="SearchOptionsCardTitle" Text="搜索选项" FontSize="16" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextForeground}"/>
+                                    </StackPanel>
+
+                                    <TextBlock x:Name="SearchOptionsHintText" Text="与主界面搜索栏浮层同步生效，保存设置后应用"
+                                               Foreground="{DynamicResource SecondaryTextForeground}" FontSize="13" Margin="0,0,0,8"/>
+                                    <CheckBox x:Name="SettingsOptHighlight" Content="关键词高亮"
+                                              Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"
+                                              IsChecked="{Binding SearchHighlightEnabled, Mode=TwoWay}"/>
+                                    <CheckBox x:Name="SettingsOptExact" Content="匹配全部关键词"
+                                              Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"
+                                              IsChecked="{Binding SearchExactModeEnabled, Mode=TwoWay}"/>
+                                    <CheckBox x:Name="SettingsOptHistory" Content="搜索历史"
+                                              Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"
+                                              IsChecked="{Binding SearchHistoryEnabled, Mode=TwoWay}"/>
+                                    <CheckBox x:Name="SettingsOptPinyin" Content="拼音搜索"
+                                              Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"
+                                              IsChecked="{Binding SearchPinyinEnabled, Mode=TwoWay}"/>
+                                    <CheckBox x:Name="SettingsOptRegex" Content="使用正则"
+                                              Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"
+                                              IsChecked="{Binding SearchRegexEnabled, Mode=TwoWay}"
+                                              Checked="SearchRegexSetting_Changed" Unchecked="SearchRegexSetting_Changed"/>
+                                    <CheckBox x:Name="SettingsOptWildcard" Content="使用通配符"
+                                              Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"
+                                              IsChecked="{Binding SearchWildcardEnabled, Mode=TwoWay}"
+                                              Checked="SearchWildcardSetting_Changed" Unchecked="SearchWildcardSetting_Changed"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
 
                         
-                        <StackPanel x:Name="PanelSystem" Visibility="Collapsed">
-                            <TextBlock x:Name="SystemTitleText" Text="系统设置" FontSize="24" FontWeight="SemiBold" 
-                                       Foreground="{DynamicResource TextForeground}" Margin="0,0,0,20"/>
-                            
-                            <Border Style="{DynamicResource SettingCardStyle}">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                                        <TextBlock Text="&#xE7E8;" FontFamily="Segoe MDL2 Assets" FontSize="18" 
-                                                   Foreground="{DynamicResource AccentColor}" Margin="0,0,10,0"/>
-                                        <TextBlock x:Name="SystemOptionsCardTitle" Text="系统选项" FontSize="16" FontWeight="SemiBold" 
-                                                   Foreground="{DynamicResource TextForeground}"/>
-                                    </StackPanel>
-                                    
-                                    <CheckBox x:Name="StartWithWindowsCheckBox" Content="开机自动启动"
-                                              Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"/>
-                                    <TextBlock x:Name="StartWithWindowsDescription" Text="系统启动时自动运行 WinVClip" Foreground="{DynamicResource SecondaryTextForeground}" 
-                                               FontSize="12" Margin="28,-8,0,16"/>
-                                    
-                                    <CheckBox x:Name="ShowHotkeyTipCheckBox" Content="启动时显示快捷键提示" IsChecked="{Binding ShowHotkeyTipOnStartup}" 
-                                              Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"/>
-                                    <TextBlock x:Name="ShowHotkeyTipDescription" Text="程序启动时在托盘通知中显示快捷键信息" Foreground="{DynamicResource SecondaryTextForeground}" 
-                                               FontSize="12" Margin="28,-8,0,16"/>
-                                    
-                                    <CheckBox x:Name="EnableMonitorCheckBox" Content="启用剪贴板监控" IsChecked="{Binding MonitorEnabled}" 
-                                              Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"/>
-                                    <TextBlock x:Name="EnableMonitorDescription" Text="监听并记录剪贴板内容变化" Foreground="{DynamicResource SecondaryTextForeground}" 
-                                               FontSize="12" Margin="28,-8,0,0"/>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-
                         <StackPanel x:Name="PanelAbout" Visibility="Collapsed">
                             <TextBlock x:Name="AboutTitleText" Text="关于" FontSize="24" FontWeight="SemiBold" 
                                        Foreground="{DynamicResource TextForeground}" Margin="0,0,0,20"/>
