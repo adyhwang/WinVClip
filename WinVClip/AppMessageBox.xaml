@@ -69,7 +69,7 @@
     </Window.Resources>
 
     <Border Background="{DynamicResource CardBackground}" CornerRadius="10"
-            BorderBrush="#e0e0e0ff" BorderThickness="1">
+            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
         <DockPanel>
             <Border DockPanel.Dock="Top" Background="{DynamicResource WindowBackground}"
                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"

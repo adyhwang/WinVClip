@@ -66,9 +66,9 @@
         </ResourceDictionary>
     </Window.Resources>
 
-    <Border x:Name="ContentContainer" MouseLeftButtonDown="WindowDrag_MouseLeftButtonDown" Background="{DynamicResource WindowBackground}" 
-            BorderBrush="#e0e0e0ff" 
-            BorderThickness="1" 
+    <Border x:Name="ContentContainer" MouseLeftButtonDown="WindowDrag_MouseLeftButtonDown" Background="{DynamicResource WindowBackground}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="1"
             CornerRadius="8">
         <Grid Margin="4,0,4,4" MouseLeftButtonDown="WindowDrag_MouseLeftButtonDown" Background="Transparent">
             <Grid.RowDefinitions>

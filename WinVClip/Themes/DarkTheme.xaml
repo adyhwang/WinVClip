@@ -47,30 +47,9 @@
     <SolidColorBrush x:Key="InputBorderBrush" Color="#4E4E4E"/>
     
     
-    <Style TargetType="Thumb" BasedOn="{StaticResource {x:Type Thumb}}" x:Key="DarkScrollBarThumbStyle">
-        <Setter Property="Background" Value="#505050"/>
-        <Style.Triggers>
-            <Trigger Property="IsMouseOver" Value="True">
-                <Trigger.EnterActions>
-                    <BeginStoryboard>
-                        <Storyboard>
-                            <ColorAnimation Storyboard.TargetProperty="Background.Color" To="#707070" Duration="0:0:0.2"/>
-                        </Storyboard>
-                    </BeginStoryboard>
-                </Trigger.EnterActions>
-                <Trigger.ExitActions>
-                    <BeginStoryboard>
-                        <Storyboard>
-                            <ColorAnimation Storyboard.TargetProperty="Background.Color" To="#505050" Duration="0:0:0.2"/>
-                        </Storyboard>
-                    </BeginStoryboard>
-                </Trigger.ExitActions>
-            </Trigger>
-            <Trigger Property="IsDragging" Value="True">
-                <Setter Property="Background" Value="#606060"/>
-            </Trigger>
-        </Style.Triggers>
-    </Style>
+    <SolidColorBrush x:Key="ScrollBarThumbBrush" Color="#505050"/>
+    <SolidColorBrush x:Key="ScrollBarThumbHoverBrush" Color="#707070"/>
+    <SolidColorBrush x:Key="ScrollBarThumbDragBrush" Color="#606060"/>
     
     
     
