@@ -529,6 +529,8 @@
 
     "Settings.System.ShowHotkeyTip": "起動時にホットキー情報を表示",
     "Settings.System.ShowHotkeyTipDescription": "起動時にトレイ通知でホットキー情報を表示します",
+    "Settings.System.HideTrayIcon": "トレイアイコンを非表示にする",
+    "Settings.System.HideTrayIconDescription": "非表示にするとメイン画面はホットキーでのみ呼び出せます。ホットキーを忘れた場合は、プログラムを再実行してメイン画面を表示し、設定で変更するか、プログラムフォルダの settings.json を編集して HideTrayIcon を false に変更し、アプリを再起動するとトレイアイコンが戻ります",
 
     "Settings.History.ManualCleanup.Title": "手動削除",
     "Settings.History.ClearAll": "すべての履歴を削除",

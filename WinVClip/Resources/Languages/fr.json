@@ -529,6 +529,8 @@
 
     "Settings.System.ShowHotkeyTip": "Afficher l'astuce de raccourci au démarrage",
     "Settings.System.ShowHotkeyTipDescription": "Affiche les informations de raccourcis dans la notification de la barre d'état au démarrage",
+    "Settings.System.HideTrayIcon": "Masquer l'icône de la zone de notification",
+    "Settings.System.HideTrayIconDescription": "Une fois masquée, la fenêtre principale ne peut être ouverte que par le raccourci clavier. Si vous l'oubliez, relancez le programme pour afficher la fenêtre principale, puis modifiez le réglage dans les paramètres ou éditez settings.json dans le dossier du programme, passez HideTrayIcon à false et redémarrez l'application pour rétablir l'icône",
 
     "Settings.History.ManualCleanup.Title": "Nettoyage manuel",
     "Settings.History.ClearAll": "Effacer tout l'historique",

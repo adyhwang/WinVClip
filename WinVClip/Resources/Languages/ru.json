@@ -529,6 +529,8 @@
 
     "Settings.System.ShowHotkeyTip": "Показывать подсказку о клавишах при запуске",
     "Settings.System.ShowHotkeyTipDescription": "Показывать информацию о горячих клавишах в уведомлении трея при запуске",
+    "Settings.System.HideTrayIcon": "Скрыть значок в трее",
+    "Settings.System.HideTrayIconDescription": "После скрытия главное окно можно открыть только с помощью горячей клавиши. Если вы её забыли, снова запустите приложение, чтобы открыть главное окно, затем измените настройку в параметрах или отредактируйте settings.json в папке программы, установите HideTrayIcon в false и перезапустите приложение, чтобы вернуть значок",
 
     "Settings.History.ManualCleanup.Title": "Ручная очистка",
     "Settings.History.ClearAll": "Очистить всю историю",

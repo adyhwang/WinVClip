@@ -18,6 +18,7 @@ namespace WinVClip.Services
         private readonly int _trayIconId;
         private Icon? _icon;
         private bool _disposed;
+        private bool _iconAdded;
 
         private readonly uint _taskbarCreatedMessage;
 
@@ -48,7 +49,8 @@ namespace WinVClip.Services
             _icon = LoadIcon();
             _taskbarCreatedMessage = RegisterWindowMessage("TaskbarCreated");
 
-            AddTrayIcon();
+            if (!_settingsService.Settings.HideTrayIcon)
+                AddTrayIcon();
             RegisterTrayMessageHandler();
         }
 
@@ -93,6 +95,34 @@ namespace WinVClip.Services
             data.szTip = "WinVClip";
 
             Shell_NotifyIcon(NIM_ADD, ref data);
+            _iconAdded = true;
+        }
+
+        /// <summary>显示或隐藏托盘图标。</summary>
+        public void SetVisible(bool visible)
+        {
+            if (_disposed) return;
+
+            if (visible)
+            {
+                if (!_iconAdded) AddTrayIcon();
+            }
+            else if (_iconAdded)
+            {
+                RemoveTrayIcon();
+            }
+        }
+
+        private void RemoveTrayIcon()
+        {
+            var data = new NotifyIconData
+            {
+                cbSize = Marshal.SizeOf(typeof(NotifyIconData)),
+                hWnd = _windowHandle,
+                uID = _trayIconId
+            };
+            Shell_NotifyIcon(NIM_DELETE, ref data);
+            _iconAdded = false;
         }
 
         private void RegisterTrayMessageHandler()
@@ -257,29 +287,16 @@ namespace WinVClip.Services
 
         private void RecreateTrayIcon()
         {
-            if (_disposed) return;
+            if (_disposed || !_iconAdded) return;
 
-            try
-            {
-
-                var deleteData = new NotifyIconData
-                {
-                    cbSize = Marshal.SizeOf(typeof(NotifyIconData)),
-                    hWnd = _windowHandle,
-                    uID = _trayIconId
-                };
-                Shell_NotifyIcon(NIM_DELETE, ref deleteData);
-
-                AddTrayIcon();
-            }
-            catch
-            {
-
-            }
+            RemoveTrayIcon();
+            AddTrayIcon();
         }
 
         public void ShowNotification(string title, string message)
         {
+            if (!_iconAdded) return;
+
             var data = new NotifyIconData
             {
                 cbSize = Marshal.SizeOf(typeof(NotifyIconData)),
@@ -301,14 +318,8 @@ namespace WinVClip.Services
             {
                 _recreateTimer?.Stop();
 
-                var data = new NotifyIconData
-                {
-                    cbSize = Marshal.SizeOf(typeof(NotifyIconData)),
-                    hWnd = _windowHandle,
-                    uID = _trayIconId
-                };
-
-                Shell_NotifyIcon(NIM_DELETE, ref data);
+                if (_iconAdded)
+                    RemoveTrayIcon();
                 _icon?.Dispose();
                 _disposed = true;
             }

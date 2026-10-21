@@ -30,6 +30,7 @@ namespace WinVClip.Models
         public string Language { get; set; } = "";
         public int FontSize { get; set; } = 14;
         public bool ShowHotkeyTipOnStartup { get; set; } = true;
+        public bool HideTrayIcon { get; set; } = false;
         public bool UseSystemCharPanel { get; set; } = false;
         public DateTime? LastVacuumDate { get; set; } = null;
         public string StartupLastExePath { get; set; } = "";

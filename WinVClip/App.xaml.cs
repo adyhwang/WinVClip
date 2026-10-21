@@ -407,6 +407,12 @@ namespace WinVClip
             }
         }
 
+        /// <summary>按当前设置同步托盘图标显隐。</summary>
+        public static void SyncTrayIconVisibility()
+        {
+            _trayService?.SetVisible(_settingsService != null && !_settingsService.Settings.HideTrayIcon);
+        }
+
         private bool IsAdministrator()
         {
             try

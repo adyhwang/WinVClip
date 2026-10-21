@@ -529,6 +529,8 @@
 
     "Settings.System.ShowHotkeyTip": "Beim Start Hinweis zur Tastenkombination anzeigen",
     "Settings.System.ShowHotkeyTipDescription": "Zeigt beim Start Informationen zur Tastenkombination in der Taskleistenbenachrichtigung",
+    "Settings.System.HideTrayIcon": "Tray-Symbol ausblenden",
+    "Settings.System.HideTrayIconDescription": "Nach dem Ausblenden kann das Hauptfenster nur über die Tastenkombination geöffnet werden. Falls Sie diese vergessen haben, starten Sie das Programm erneut, um das Hauptfenster anzuzeigen, und ändern Sie die Einstellung in den Optionen oder bearbeiten Sie settings.json im Programmordner, setzen Sie HideTrayIcon auf false und starten Sie die App neu, um das Tray-Symbol wiederherzustellen",
 
     "Settings.History.ManualCleanup.Title": "Manuelle Bereinigung",
     "Settings.History.ClearAll": "Gesamten Verlauf löschen",

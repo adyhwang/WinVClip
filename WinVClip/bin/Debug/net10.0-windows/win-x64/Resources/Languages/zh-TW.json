@@ -504,6 +504,8 @@
     "Settings.General.FontSize.Description": "調整介面字型大小（需重新開啟視窗才會生效）",
     "Settings.System.ShowHotkeyTip": "啟動時顯示快速鍵提示",
     "Settings.System.ShowHotkeyTipDescription": "程式開啟時，於系統匣通知顯示快速鍵資訊",
+    "Settings.System.HideTrayIcon": "隱藏系統匣圖示",
+    "Settings.System.HideTrayIconDescription": "隱藏後主視窗僅能透過快速鍵呼出；若忘記快速鍵，可再次執行程式彈出主視窗，透過設定修改或編輯程式目錄下的 settings.json，將 HideTrayIcon 改為 false，重新啟動程式後恢復系統匣圖示",
     "Settings.History.ManualCleanup.Title": "手動清除",
     "Settings.History.ClearAll": "刪除全部記錄",
     "Settings.History.ClearUngrouped": "刪除未分類記錄",

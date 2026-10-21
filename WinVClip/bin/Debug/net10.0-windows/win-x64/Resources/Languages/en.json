@@ -536,6 +536,8 @@
 
     "Settings.System.ShowHotkeyTip": "Show hotkey tip on startup",
     "Settings.System.ShowHotkeyTipDescription": "Show hotkey info in tray notification on startup",
+    "Settings.System.HideTrayIcon": "Hide tray icon",
+    "Settings.System.HideTrayIconDescription": "When hidden, the main window can only be opened with the hotkey. If you forget it, run the program again to show the main window, then change it in Settings or edit settings.json in the program folder, set HideTrayIcon to false, and restart the app to restore the tray icon",
 
     "Settings.History.ManualCleanup.Title": "Manual Cleanup",
     "Settings.History.ClearAll": "Clear All History",

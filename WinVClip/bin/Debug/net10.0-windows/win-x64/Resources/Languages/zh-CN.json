@@ -536,6 +536,8 @@
 
     "Settings.System.ShowHotkeyTip": "启动时显示快捷键提示",
     "Settings.System.ShowHotkeyTipDescription": "程序启动时在托盘通知中显示快捷键信息",
+    "Settings.System.HideTrayIcon": "隐藏托盘图标",
+    "Settings.System.HideTrayIconDescription": "隐藏后主界面仅能通过快捷键呼出；若忘记快捷键，可再次执行程序弹出主界面，通过设置修改或者编辑程序目录下的 settings.json，将 HideTrayIcon 改为 false，重启程序后恢复托盘图标",
 
     "Settings.History.ManualCleanup.Title": "手动删除",
     "Settings.History.ClearAll": "删除所有历史",

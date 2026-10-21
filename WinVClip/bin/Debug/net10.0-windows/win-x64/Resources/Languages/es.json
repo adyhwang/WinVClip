@@ -529,6 +529,8 @@
 
     "Settings.System.ShowHotkeyTip": "Mostrar información de atajos al iniciar",
     "Settings.System.ShowHotkeyTipDescription": "Muestra la información de atajos en la notificación de la bandeja al iniciar",
+    "Settings.System.HideTrayIcon": "Ocultar icono de la bandeja",
+    "Settings.System.HideTrayIconDescription": "Cuando está oculto, la ventana principal solo se puede abrir con el atajo. Si lo olvida, ejecute de nuevo el programa para mostrar la ventana principal y cámbielo en Ajustes o edite settings.json en la carpeta del programa, ponga HideTrayIcon en false y reinicie la aplicación para restaurar el icono",
 
     "Settings.History.ManualCleanup.Title": "Limpieza manual",
     "Settings.History.ClearAll": "Borrar todo el historial",

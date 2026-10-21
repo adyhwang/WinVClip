@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -156,7 +156,9 @@ namespace WinVClip
                 (StartWithWindowsCheckBox, "Settings.System.StartWithWindows", "开机自动启动"),
                 (StartWithWindowsDescription, "Settings.System.StartWithWindowsDescription", "系统启动时自动运行 WinVClip"),
                 (ShowHotkeyTipCheckBox, "Settings.System.ShowHotkeyTip", "启动时显示快捷键提示"),
-                (ShowHotkeyTipDescription, "Settings.System.ShowHotkeyTipDescription", "程序启动时在托盘通知中显示快捷键信息"));
+                (ShowHotkeyTipDescription, "Settings.System.ShowHotkeyTipDescription", "程序启动时在托盘通知中显示快捷键信息"),
+                (HideTrayIconCheckBox, "Settings.System.HideTrayIcon", "隐藏托盘图标"),
+                (HideTrayIconDescription, "Settings.System.HideTrayIconDescription", "隐藏后主界面仅能通过快捷键呼出；若忘记快捷键，可再次执行程序弹出主界面，通过设置修改或者编辑程序目录下的 settings.json，将 HideTrayIcon 改为 false，重启程序后恢复托盘图标"));
         }
 
         private void ApplyPanelHotkeyLocalization()
@@ -1930,6 +1932,7 @@ namespace WinVClip
             App.RegisterAllHotkeys();
             SyncGlobalHotkeyEntrySnapshots();
             _originalSettings = _settingsService.Settings.Clone();
+            App.SyncTrayIconVisibility();
 
             DialogResult = true;
             Close();
@@ -1976,6 +1979,8 @@ namespace WinVClip
             {
                 _settingsService.SetStartupRegistry(_originalStartWithWindows);
             }
+
+            App.SyncTrayIconVisibility();
 
             DialogResult = false;
             Close();
@@ -2033,6 +2038,8 @@ namespace WinVClip
             {
                 LocalizationService.Instance.LoadLanguage(_settingsService.Settings.Language);
             }
+
+            App.SyncTrayIconVisibility();
         }
 
         private void Window_MouseDown(object sender, MouseButtonEventArgs e)

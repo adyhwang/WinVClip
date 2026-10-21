@@ -240,10 +240,15 @@
                                     <TextBlock x:Name="StartWithWindowsDescription" Text="系统启动时自动运行 WinVClip" Foreground="{DynamicResource SecondaryTextForeground}" 
                                                FontSize="12" Margin="28,-8,0,16"/>
                                     
-                                    <CheckBox x:Name="ShowHotkeyTipCheckBox" Content="启动时显示快捷键提示" IsChecked="{Binding ShowHotkeyTipOnStartup}" 
+                                    <CheckBox x:Name="ShowHotkeyTipCheckBox" Content="启动时显示快捷键提示" IsChecked="{Binding ShowHotkeyTipOnStartup}"
                                               Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"/>
-                                    <TextBlock x:Name="ShowHotkeyTipDescription" Text="程序启动时在托盘通知中显示快捷键信息" Foreground="{DynamicResource SecondaryTextForeground}" 
-                                               FontSize="12" Margin="28,-8,0,0"/>
+                                    <TextBlock x:Name="ShowHotkeyTipDescription" Text="程序启动时在托盘通知中显示快捷键信息" Foreground="{DynamicResource SecondaryTextForeground}"
+                                               FontSize="12" Margin="28,-8,0,16"/>
+
+                                    <CheckBox x:Name="HideTrayIconCheckBox" Content="隐藏托盘图标" IsChecked="{Binding HideTrayIcon}"
+                                              Style="{DynamicResource ModernCheckBoxStyle}" Margin="0,0,0,12"/>
+                                    <TextBlock x:Name="HideTrayIconDescription" Text="隐藏后主界面仅能通过快捷键呼出；若忘记快捷键，可再次执行程序弹出主界面，通过设置修改或者编辑程序目录下的 settings.json，将 HideTrayIcon 改为 false，重启程序后恢复托盘图标"
+                                               Foreground="{DynamicResource SecondaryTextForeground}" FontSize="12" TextWrapping="Wrap" Margin="28,-8,0,0"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>

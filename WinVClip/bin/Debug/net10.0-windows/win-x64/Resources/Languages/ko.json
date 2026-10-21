@@ -529,6 +529,8 @@
 
     "Settings.System.ShowHotkeyTip": "시작 시 단축키 정보 표시",
     "Settings.System.ShowHotkeyTipDescription": "시작 시 트레이 알림에 단축키 정보를 표시합니다",
+    "Settings.System.HideTrayIcon": "트레이 아이콘 숨기기",
+    "Settings.System.HideTrayIconDescription": "숨기면 메인 화면은 단축키로만 열 수 있습니다. 단축키를 잊은 경우 프로그램을 다시 실행해 메인 화면을 연 뒤 설정에서 변경하거나 프로그램 폴더의 settings.json에서 HideTrayIcon를 false로 변경한 후 앱을 다시 시작하면 트레이 아이콘이 복원됩니다",
 
     "Settings.History.ManualCleanup.Title": "수동 삭제",
     "Settings.History.ClearAll": "모든 기록 삭제",
