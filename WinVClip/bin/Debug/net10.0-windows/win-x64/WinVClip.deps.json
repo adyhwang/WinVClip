@@ -7,7 +7,7 @@
   "targets": {
     ".NETCoreApp,Version=v10.0": {},
     ".NETCoreApp,Version=v10.0/win-x64": {
-      "WinVClip/3.4": {
+      "WinVClip/3.5": {
         "dependencies": {
           "Microsoft.Data.Sqlite": "10.0.0",
           "QRCoder": "1.8.0",
@@ -93,7 +93,7 @@
     }
   },
   "libraries": {
-    "WinVClip/3.4": {
+    "WinVClip/3.5": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
